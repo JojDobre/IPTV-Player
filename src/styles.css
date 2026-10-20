@@ -656,3 +656,68 @@ body.touch .cbtn .tip { display: none; }
 /* While the player is open nothing behind it is painted, so the TV spends its power on the video. */
 body.playing #app, body.playing #ambient, body.playing #waves { visibility: hidden; }
 .g-row { position: absolute; left: 0; margin: 0; }
+
+/* ---------- Cards: logos from the playlist sit on a dark, tinted plate so any logo colour reads ---------- */
+.art.img { background: radial-gradient(70% 95% at 50% 42%, color-mix(in srgb, var(--c1) 34%, transparent), transparent 72%), linear-gradient(160deg, #1E1E3C, #111125); }
+:root[data-tilebg="tint"] .art.img { background: radial-gradient(75% 100% at 50% 38%, color-mix(in srgb, var(--c1) 52%, transparent), transparent 74%), linear-gradient(150deg, color-mix(in srgb, var(--c1) 26%, #15152B), #0E0E20); }
+:root[data-tilebg="light"] .art.img { background: linear-gradient(160deg, #FFFFFF, #E8EAF2); }
+:root[data-look="glass"] .art.img { background: radial-gradient(75% 100% at 50% 38%, color-mix(in srgb, var(--c1) 45%, transparent), transparent 74%), linear-gradient(150deg, rgba(255,255,255,.16), rgba(255,255,255,.04) 62%); }
+:root[data-look="glass"][data-tilebg="light"] .art.img { background: linear-gradient(150deg, rgba(255,255,255,.95), rgba(255,255,255,.78)); }
+.tile.img { background: radial-gradient(80% 90% at 50% 40%, color-mix(in srgb, var(--c1) 40%, transparent), transparent 75%), #17172F; }
+:root[data-tilebg="light"] .tile.img { background: #F1F2F6; }
+
+/* Focus: lift, a thin ring and a glow in the channel's colour. Calm, readable from the sofa. */
+.card { transition: transform .28s cubic-bezier(.2, .9, .25, 1); }
+.card.focus { transform: translateY(-5px) scale(1.045); }
+.card.focus .art, :root[data-look="glass"] .card.focus .art {
+  box-shadow: 0 0 0 2.5px var(--accent), 0 16px 40px -12px color-mix(in srgb, var(--c1) 75%, transparent), 0 30px 60px -32px rgba(0,0,0,.9); }
+.art .lg, .art .lg-img { transition: transform .35s cubic-bezier(.2, .9, .25, 1); }
+.card.focus .art .lg, .card.focus .art .lg-img { transform: scale(1.07); }
+.art::after { background: linear-gradient(115deg, transparent 38%, rgba(255,255,255,.1) 50%, transparent 62%); }
+.bcard { transition: transform .3s cubic-bezier(.2, .9, .25, 1), box-shadow .3s; }
+.bcard.focus, :root[data-look="glass"] .bcard.focus { transform: translateY(-4px) scale(1.015); box-shadow: 0 0 0 2.5px var(--accent), 0 30px 70px -26px var(--c1); }
+.bcard.img { background: radial-gradient(60% 120% at 85% 50%, color-mix(in srgb, var(--c1) 45%, transparent), transparent 70%), linear-gradient(120deg, #0C0C1C, color-mix(in srgb, var(--c1) 24%, #0C0C1C)); }
+.b-blur { position: absolute; right: 2%; top: 50%; width: 52%; height: 130%; transform: translateY(-50%); object-fit: contain; filter: blur(46px) saturate(1.5); opacity: .55; pointer-events: none; }
+.bcard.img .b-art .lg-img { position: relative; max-width: 36%; max-height: 50%; filter: drop-shadow(0 14px 34px rgba(0,0,0,.45)); }
+.bcard.img .b-art::before, .bcard.img .b-art::after { display: none; }
+.bcard .lg-img { transition: transform .4s cubic-bezier(.2, .9, .25, 1); }
+.bcard.focus .lg-img { transform: scale(1.05); }
+body.touch .card.focus .art .lg, body.touch .card.focus .art .lg-img, body.touch .bcard.focus .lg-img { transform: none; }
+@media (prefers-reduced-motion: reduce) { .card.focus, .bcard.focus { transform: none; } }
+
+/* ---------- Player status (loading / reconnect / error), centred over the picture ---------- */
+.p-status.is-error { background: rgba(5,5,14,.72); pointer-events: auto; }
+.p-status.is-error .spin { display: none; }
+.p-status.is-spin b:empty, .p-status small:empty { display: none; }
+body.playing #toast { top: max(26px, env(safe-area-inset-top, 0px)); bottom: auto; }
+:root.tv .pc-only { display: none; }
+
+/* ---------- Organizer: move handle, keyboard move mode, drag & drop ---------- */
+.grab { width: 34px; height: 38px; flex: none; border-radius: 10px; display: grid; place-items: center; color: var(--fg-3); cursor: grab; transition: background .12s, color .12s; }
+.grab .ic { width: 18px; height: 18px; }
+.grab.focus { background: var(--accent); color: var(--accent-ink); }
+.org-row { transition: transform .15s, box-shadow .15s, background .15s; }
+.org-row.grabbing { background: var(--surface-2); box-shadow: 0 0 0 2px var(--accent), 0 14px 30px -12px rgba(0,0,0,.7); transform: scale(1.01); position: relative; z-index: 2; }
+.org-row.grabbing .grab { background: var(--accent); color: var(--accent-ink); }
+.org-row.dragging { opacity: .4; }
+.org-row.drop-before { box-shadow: 0 -3px 0 var(--accent); }
+.org-row.drop-after { box-shadow: 0 3px 0 var(--accent); }
+
+/* ---------- Channel menu & pickers ---------- */
+.cm-head { display: flex; align-items: center; gap: 16px; }
+.cm-head .tile { --tile: 64px; }
+.cm-head h2 { font-size: 22px; }
+.cm-title { font-size: 18px; }
+.menu-list { display: grid; gap: 6px; }
+.mitem { display: flex; align-items: center; gap: 14px; height: 52px; padding: 0 16px; border-radius: 14px; background: var(--surface); font-weight: 600; transition: background .12s, color .12s; }
+.mitem .ic { width: 20px; height: 20px; }
+.mitem.focus { background: var(--fg); color: var(--bg); }
+.search-box.small { height: 48px; border-radius: 12px; }
+.search-box.small input { font-size: 16px; }
+
+/* Banner: the darkening for the text sits under the logo, so the logo keeps its true colours. */
+.bcard::after { z-index: -3; }
+/* One type family for headings; the wide display face stays for the brand and the channel logos. */
+.dialog h2, .pane-head h3, .panel-head h3, .g-detail h3, .osd-title { font-family: var(--f-body); letter-spacing: -.025em; }
+.osd-clock, .bn, #numEntry { font-family: var(--f-body); font-weight: 700; }
+@media (max-width: 760px), (pointer: coarse) { .pc-only { display: none; } }

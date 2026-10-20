@@ -119,9 +119,10 @@ function nameLogo(name) {
   return `<span class="lg lg-name" style="font-size:${fit(1.2, 9 / Math.max(4, t.length))}em">${esc(t)}</span>`;
 }
 const tileStyle = ch => `--c1:${ch.c1};--c2:${ch.c2}`;
-const tileStatic = (ch, cls = '') => `<span class="tile ${cls}" style="${tileStyle(ch)}">${logoHTML(ch)}<span class="t-num">${ch.n}</span></span>`;
+const hasImg = ch => !!(ch.logoUrl && !BAD_LOGOS.has(ch.logoUrl));
+const tileStatic = (ch, cls = '') => `<span class="tile ${cls}${hasImg(ch) ? ' img' : ''}" style="${tileStyle(ch)}">${logoHTML(ch)}<span class="t-num">${ch.n}</span></span>`;
 const tileBtn = ch => `<button class="tile f" data-act="play" data-ch="${ch.id}" data-group="main" aria-label="${ch.n} ${esc(ch.name)}" style="${tileStyle(ch)}">${logoHTML(ch)}<span class="t-num">${ch.n}</span></button>`;
-const initials = name => { const w = name.trim().split(/\s+/); return (w.length > 1 ? w[0][0] + w[1][0] : name.slice(0, 2)).toUpperCase(); };
+const initials = name => { const w = name.replace(/[^\p{L}\p{N}]+/gu, ' ').trim().split(/\s+/); name = w.join('') || name; return (w.length > 1 ? w[0][0] + w[1][0] : name.slice(0, 2)).toUpperCase(); };
 const catIcon = s => s.icon === 'auto' ? `<span class="txt-ic">${esc(initials(s.name))}</span>` : s.icon.startsWith('txt:') ? `<span class="txt-ic">${s.icon.slice(4)}</span>` : I(s.icon);
 
 /* ---------- State ---------- */
@@ -391,7 +392,7 @@ function fitGrid(box) {
   box.style.setProperty('--cols', cols);
   return cols;
 }
-const artHTML = ch => `<span class="art" style="${tileStyle(ch)}">${logoHTML(ch)}<span class="t-num">${ch.n}</span></span>`;
+const artHTML = ch => `<span class="art${hasImg(ch) ? ' img' : ''}" style="${tileStyle(ch)}">${logoHTML(ch)}<span class="t-num">${ch.n}</span></span>`;
 function capHTML(ch, now = Date.now()) {
   const p = progAt(ch.id, now);
   if (p.none) return `<span class="cap"><b>${esc(ch.name)}</b><small>${ch.n} · ${esc(catName[ch.cat] || '')}</small></span>`;
@@ -405,15 +406,16 @@ function updateCaps() { const now = Date.now(); $$('.card[data-ch]').forEach(c =
 function featured() {
   const f = secById('fav');
   if (f && f.show && secList(f).length) return { fav: true, title: f.name, list: secList(f) };
-  const ids = S.recent.slice(0, 6);
-  if (!ids.length) ['sport', 'film', 'news'].forEach(k => { const s = secById(k); if (s) s.chs.forEach(id => { if (ids.length < 6 && !ids.includes(id)) ids.push(id); }); });
+  const ids = [];
+  ['sport', 'film', 'news'].forEach(k => { const s = secById(k); if (s) s.chs.forEach(id => { if (ids.length < 6 && !ids.includes(id)) ids.push(id); }); });
   for (const id of S.order) { if (ids.length >= 6) break; if (!ids.includes(id)) ids.push(id); }
-  return { fav: false, title: S.recent.length ? 'Pokračovať v pozeraní' : 'Teraz v TV', list: ids.map(id => byId[id]).filter(Boolean) };
+  return { fav: false, title: 'Teraz v TV', list: ids.map(id => byId[id]).filter(Boolean) };
 }
 function bannerHTML(ch, now) {
   const p = progAt(ch.id, now);
-  return `<button class="bcard f" data-act="play" data-ch="${ch.id}" data-group="main" style="${tileStyle(ch)}"><span class="b-art">${logoHTML(ch)}</span>`
-    + `<span class="b-txt"><span class="b-eyebrow"><span class="badge live-w"><i class="dot"></i>Živé</span>${ch.n} · ${esc(ch.name)}</span>`
+  const img = hasImg(ch);
+  return `<button class="bcard f${img ? ' img' : ''}" data-act="play" data-ch="${ch.id}" data-group="main" style="${tileStyle(ch)}"><span class="b-art">${img ? `<img class="b-blur" src="${esc(imgUrl(ch.logoUrl))}" alt="" loading="lazy" decoding="async">` : ''}${logoHTML(ch)}</span>`
+    + `<span class="b-txt"><span class="b-eyebrow"><span class="badge live-w"><i class="dot"></i>Živé</span>${p.none ? `Kanál ${ch.n}` : `${ch.n} · ${esc(ch.name)}`}</span>`
     + `<b class="b-title">${esc(p.none ? ch.name : p.title)}</b><span class="b-meta">${p.none ? esc(catName[ch.cat] || '') : `${hm(p.start)} – ${hm(p.end)}${p.genre ? ' · ' + esc(p.genre) : ''} · ${remain(p, now)}`}</span>`
     + `<span class="b-play"><i>${I('play')}</i>Pozerať</span></span></button>`;
 }
@@ -483,7 +485,8 @@ const ROW_H = 72, HEAD_H = 40;
 function guideRowHTML(ch, i) {
   const { ws, we, ppm } = G, now = Date.now();
   const cells = progsIn(ch.id, ws, we).map(p => {
-    const l = Math.max(p.start, ws), r = Math.min(p.end, we);
+    // A channel without a guide gets one block starting where the guide opens, so its label is in view.
+    const l = Math.max(p.start, ws, p.none ? now - 40 * MIN : 0), r = Math.min(p.end, we);
     const st = p.none ? 'none' : p.end <= now ? 'past' : p.start <= now ? 'now' : 'future';
     const bell = S.rem.has(ch.id + ':' + p.start) ? I('bell') : '';
     const noArch = st === 'past' && !hasArchive(ch, p.start) ? ' no-arch' : '';
@@ -767,7 +770,9 @@ document.addEventListener('load', e => {
 }, true);
 document.addEventListener('error', e => {
   const img = e.target;
-  if (img.tagName !== 'IMG' || !img.classList.contains('lg-img')) return;
+  if (img.tagName !== 'IMG') return;
+  if (img.classList.contains('b-blur')) { img.remove(); return; }
+  if (!img.classList.contains('lg-img')) return;
   BAD_LOGOS.add(img.dataset.logo);
   const ch = CH.find(c => c.logoUrl === img.dataset.logo);
   const tmp = document.createElement('span');
@@ -788,7 +793,7 @@ function lazyMore(box, n = 120) {
   L.i += n;
   return true;
 }
-const lazyBoxes = () => [$('#chGrid'), $('#catGrid'), $('#chPanel .plist'), $('#dialog .pick-list')];
+const lazyBoxes = () => [$('#chGrid'), $('#catGrid'), $('#chPanel .plist'), $('#dialog .pick-list'), $('#orgList')];
 function lazyNear(sc, box) { if (sc.scrollTop + sc.clientHeight > sc.scrollHeight - 900) lazyMore(box); }
 
 /* ---------- Organizer ---------- */
@@ -796,6 +801,7 @@ const ib = (act, id, icon, opt = {}) => `<button class="ibtn f ${opt.cls || ''}"
 function orgItem(o, btns) {
   return `<div class="org-item ${S.orgSel === o.id ? 'sel' : ''} ${o.off ? 'off' : ''}"><button class="org-main f" data-act="org-sel" data-id="${o.id}" data-group="main"><span class="sec-ic" style="--sc:${o.color}">${o.icon}</span><span class="o-nm"><b>${esc(o.name)}</b><small>${o.sub}</small></span></button>${btns ? `<span class="org-btns">${btns}</span>` : ''}</div>`;
 }
+function renderOrgLeftCounts() { const q = $('#orgLeft .org-main[data-id="quick"] small'); if (q) q.textContent = `${S.quick.length} ${plural(S.quick.length, 'kategória', 'kategórie', 'kategórií')}`; }
 function renderOrganizer() {
   const L = [`<div class="org-group">Domovská obrazovka</div>`];
   L.push(orgItem({ id: 'quick', icon: I('pin'), color: '#F2B84B', name: 'Tlačidlá na vrchu', sub: `${S.quick.length} ${plural(S.quick.length, 'kategória', 'kategórie', 'kategórií')}` }, ''));
@@ -813,23 +819,28 @@ function renderOrganizer() {
   $('#orgLeft').innerHTML = L.join('');
   renderOrgRight();
 }
-function chRow(ch, list, i, len, removable) {
-  const btns = list ? ib('o-up', ch.id, 'up', { list, disabled: i === 0, title: 'Vyššie' }) + ib('o-down', ch.id, 'down', { list, disabled: i === len - 1, title: 'Nižšie' })
-    + (removable ? ib('o-rm', ch.id, 'x', { list, title: 'Odobrať zo sekcie' }) : '') : '';
-  return `<div class="org-row"><span class="o-num">${ch.n}</span>${tileStatic(ch, 'mini')}<span class="o-nm"><b>${esc(ch.name)}</b><small>${catName[ch.cat]}</small></span>${btns ? `<span class="org-btns">${btns}</span>` : ''}</div>`;
+const grabBtn = (list, id, name) => `<button class="grab f" data-act="grab" data-list="${list}" data-id="${id}" draggable="true" aria-label="Presunúť ${esc(name)}" title="Presunúť: OK a potom šípky, alebo potiahni myšou">${I('grip')}</button>`;
+function rowBtns(list, id, i, len, removable) {
+  return ib('o-up', id, 'up', { list, disabled: i === 0, title: 'Vyššie' }) + ib('o-down', id, 'down', { list, disabled: i === len - 1, title: 'Nižšie' })
+    + (removable ? ib('o-rm', id, 'x', { list, title: 'Odobrať' }) : '');
 }
+function chRow(ch, list, i, len, removable) {
+  return `<div class="org-row" data-row="${ch.id}">${list ? grabBtn(list, ch.id, ch.name) : ''}<span class="o-num">${ch.n}</span>${tileStatic(ch, 'mini')}<span class="o-nm"><b>${esc(ch.name)}</b><small>${esc(catName[ch.cat] || '')}</small></span>${list ? `<span class="org-btns">${rowBtns(list, ch.id, i, len, removable)}</span>` : ''}</div>`;
+}
+const secRow = (s, i, len) => `<div class="org-row" data-row="${s.id}">${grabBtn('quick', s.id, s.name)}<span class="sec-ic" style="--sc:${s.color}">${catIcon(s)}</span><span class="o-nm"><b>${esc(s.name)}</b><small>${countTxt(secList(s).length)}</small></span><span class="org-btns">${rowBtns('quick', s.id, i, len, true)}</span></div>`;
 function renderOrgRight() {
   const sel = S.orgSel;
-  let title, sub, action = '', rows = '';
+  let title, sub, action = '', items = [], render = null, empty = '';
   const addBtn = (list, txt) => `<button class="btn small-btn f" data-act="o-add" data-list="${list}" data-group="main">${I('plus')}${txt}</button>`;
+  const hint = '<br>Presúvanie: OK na úchyte ⋮⋮ a potom šípky (PgUp/PgDn o 10, číslo = pozícia), alebo potiahni myšou.';
   if (sel === 'all') {
-    title = 'Poradie a čísla kanálov'; sub = 'Poradie určuje čísla, ktoré zadávaš na ovládači, a prepínanie CH+ a CH−.';
-    rows = S.order.map((id, i) => chRow(byId[id], 'all', i, S.order.length, false)).join('');
+    title = 'Poradie a čísla kanálov'; sub = 'Poradie určuje čísla, ktoré zadávaš na ovládači, a prepínanie CH+ a CH−.' + hint;
+    items = S.order; render = id => chRow(byId[id], 'all', S.order.indexOf(id), S.order.length, false);
   } else if (sel === 'quick') {
-    title = 'Tlačidlá na vrchu'; sub = 'Veľké tlačidlá na domovskej obrazovke. Otvoria celú kategóriu.';
+    title = 'Tlačidlá na vrchu'; sub = 'Veľké tlačidlá na domovskej obrazovke. Otvoria celú kategóriu.' + hint;
     action = addBtn('quick', 'Pridať kategóriu');
-    rows = S.quick.map(secById).filter(Boolean).map((s, i, a) => `<div class="org-row"><span class="sec-ic" style="--sc:${s.color}">${catIcon(s)}</span><span class="o-nm"><b>${esc(s.name)}</b><small>${countTxt(secList(s).length)}</small></span><span class="org-btns">${ib('o-up', s.id, 'up', { list: 'quick', disabled: i === 0, title: 'Vyššie' })}${ib('o-down', s.id, 'down', { list: 'quick', disabled: i === a.length - 1, title: 'Nižšie' })}${ib('o-rm', s.id, 'x', { list: 'quick', title: 'Odobrať' })}</span></div>`).join('')
-      || `<p class="sec-empty">Žiadne tlačidlá. Pridaj kategóriu.</p>`;
+    items = S.quick.filter(id => secById(id)); render = id => secRow(secById(id), S.quick.indexOf(id), S.quick.length);
+    empty = 'Žiadne tlačidlá. Pridaj kategóriu.';
   } else {
     const s = secById(sel);
     if (!s) { S.orgSel = 'quick'; renderOrgRight(); return; }
@@ -837,14 +848,67 @@ function renderOrgRight() {
     if (s.type === 'recent') {
       sub = 'Plní sa automaticky podľa toho, čo pozeráš.';
       action = `<button class="btn small-btn f" data-act="clear-recent" data-group="main">${I('trash')}Vymazať históriu</button>`;
-      rows = secList(s).map(c => chRow(c, null)).join('') || `<p class="sec-empty">História je prázdna.</p>`;
+      items = secList(s).map(c => c.id); render = id => chRow(byId[id], null);
+      empty = 'História je prázdna.';
     } else {
-      sub = (s.type === 'fav' ? 'Tvoje obľúbené kanály. Na domovskej obrazovke sú ako veľké karty úplne hore.' : s.custom ? 'Vlastná kategória.' : 'Kategória z playlistu.') + ' Poradie platí len v tejto sekcii.';
+      sub = (s.type === 'fav' ? 'Tvoje obľúbené kanály. Na domovskej obrazovke sú ako veľké karty úplne hore.' : s.custom ? 'Vlastná kategória.' : 'Kategória z playlistu.') + ' Poradie platí len v tejto sekcii.' + hint;
       action = addBtn(s.id, 'Pridať kanály');
-      rows = s.chs.map((id, i) => chRow(byId[id], s.id, i, s.chs.length, true)).join('') || `<p class="sec-empty">Sekcia je prázdna. Pridaj do nej kanály.</p>`;
+      items = s.chs; render = id => chRow(byId[id], s.id, s.chs.indexOf(id), s.chs.length, true);
+      empty = 'Sekcia je prázdna. Pridaj do nej kanály.';
     }
   }
-  $('#orgRight').innerHTML = `<div class="pane-head"><div><h3>${esc(title)}</h3><p class="muted">${sub}</p></div>${action}</div><div class="org-list">${rows}</div>`;
+  $('#orgRight').innerHTML = `<div class="pane-head"><div><h3>${esc(title)}</h3><p class="muted">${sub}</p></div>${action}</div><div class="org-list" id="orgList"></div>`;
+  const box = $('#orgList');
+  if (items.length) lazyFill(box, items, render, 80); else box.innerHTML = `<p class="sec-empty">${empty}</p>`;
+}
+/* Moving an item: OK on its handle starts, arrows move it (PgUp/PgDn by 10, digits jump to a position), OK or Back ends. */
+let GRAB = null, DRAG = null, grabSaveT;
+function startGrab(el) {
+  endGrab();
+  GRAB = { list: el.dataset.list, id: el.dataset.id, digits: '' };
+  el.closest('.org-row').classList.add('grabbing');
+  toast('Presúvaš: šípky ↑ ↓, PgUp/PgDn o 10, číslo = pozícia, OK hotovo');
+}
+function endGrab() {
+  if (!GRAB) return;
+  $$('.org-row.grabbing').forEach(r => r.classList.remove('grabbing'));
+  GRAB = null;
+  clearTimeout(grabSaveT); save();
+}
+function grabTo(j) {
+  const g = GRAB, arr = listRef(g.list), i = arr.indexOf(g.id);
+  j = Math.max(0, Math.min(arr.length - 1, j));
+  if (i < 0 || i === j) return;
+  arr.splice(i, 1); arr.splice(j, 0, g.id);
+  if (g.list === 'all') renumber();
+  const box = $('#orgList'), row = box && $(`.org-row[data-row="${CSS.escape(g.id)}"]`, box);
+  if (!row) { renderOrgRight(); return; }
+  while (box.children.length <= j && lazyMore(box)) { /* render far enough to place the row */ }
+  row.remove();
+  box.insertBefore(row, box.children[j] || null);
+  const lo = Math.min(i, j), hi = Math.max(i, j), kids = box.children;
+  const touch = new Set([0, arr.length - 1]);
+  for (let k = Math.max(0, lo - 1); k <= Math.min(kids.length - 1, hi + 1); k++) touch.add(k);
+  for (const k of touch) {
+    const r = kids[k]; if (!r || !r.dataset.row) continue;
+    const id = r.dataset.row, ix = arr.indexOf(id);
+    if (g.list === 'all') { const num = $('.o-num', r); if (num) num.textContent = byId[id].n; }
+    const up = $('[data-act="o-up"]', r), dn = $('[data-act="o-down"]', r);
+    if (up) up.disabled = ix === 0;
+    if (dn) dn.disabled = ix === arr.length - 1;
+  }
+  const h = $('.grab', row); nav.cur = null; setFocus(h);
+  clearTimeout(grabSaveT); grabSaveT = setTimeout(save, 800);
+}
+function grabKey(k) {
+  const arr = listRef(GRAB.list), i = arr.indexOf(GRAB.id);
+  if (/^\d$/.test(k)) { GRAB.digits = (GRAB.digits + k).slice(-5); toast(`Presunúť na pozíciu ${GRAB.digits} (OK potvrdí)`); return; }
+  if (k === 'up') grabTo(i - 1);
+  else if (k === 'down') grabTo(i + 1);
+  else if (k === 'chup') grabTo(i - 10);
+  else if (k === 'chdown') grabTo(i + 10);
+  else if (k === 'ok') { if (GRAB.digits) grabTo(+GRAB.digits - 1); endGrab(); toast('Poradie uložené'); }
+  else if (k === 'back' || k === 'bksp') { endGrab(); toast('Poradie uložené'); }
 }
 const listRef = list => list === 'all' ? S.order : list === 'quick' ? S.quick : (secById(list) || { chs: [] }).chs;
 function refocusOrg(el, fallbackSel) {
@@ -859,16 +923,48 @@ function refocusOrg(el, fallbackSel) {
 function openPicker(list) {
   PK = list;
   const items = list === 'quick'
-    ? S.sections.filter(s => s.type !== 'recent').map(s => ({ id: s.id, on: S.quick.includes(s.id), html: `<span class="sec-ic" style="--sc:${s.color}">${catIcon(s)}</span><span class="o-nm"><b>${esc(s.name)}</b><small>${countTxt(secList(s).length)}</small></span>` }))
-    : ordered().map(c => ({ id: c.id, on: listRef(list).includes(c.id), html: `${tileStatic(c, 'mini')}<span class="o-nm"><b>${c.n} · ${esc(c.name)}</b><small>${catName[c.cat]}</small></span>` }));
+    ? S.sections.filter(s => s.type !== 'recent').map(s => ({ id: s.id, name: s.name, html: `<span class="sec-ic" style="--sc:${s.color}">${catIcon(s)}</span><span class="o-nm"><b>${esc(s.name)}</b><small>${countTxt(secList(s).length)}</small></span>` }))
+    : ordered().map(c => ({ id: c.id, name: c.name + ' ' + (catName[c.cat] || ''), html: `${tileStatic(c, 'mini')}<span class="o-nm"><b>${c.n} · ${esc(c.name)}</b><small>${esc(catName[c.cat] || '')}</small></span>` }));
   const title = list === 'quick' ? 'Tlačidlá na vrchu' : `Kanály v sekcii ${esc(secById(list).name)}`;
   openModal(`<h2>${title}</h2><p class="muted">OK pridá alebo odoberie. Nové položky sa pridajú na koniec.</p>
+    ${items.length > 12 ? `<label class="search-box small"><svg class="ic"><use href="#i-search"/></svg><input id="pickQ" class="f" type="search" placeholder="Hľadať podľa názvu alebo skupiny" autocomplete="off" aria-label="Hľadať"></label>` : ''}
     <div class="pick-list"></div>
     <div class="actions"><button class="btn primary f" data-act="pick-done">Hotovo</button></div>`);
   const pl = $('#dialog .pick-list');
-  lazyFill(pl, items, it => `<button class="pick f ${it.on ? 'on' : ''}" data-act="pick" data-id="${it.id}"><span class="chk">${I('check')}</span>${it.html}</button>`);
+  const render = it => `<button class="pick f ${listRef(list).includes(it.id) ? 'on' : ''}" data-act="pick" data-id="${it.id}"><span class="chk">${I('check')}</span>${it.html}</button>`;
+  const fill = () => {
+    const q = norm(($('#pickQ') || { value: '' }).value.trim());
+    const arr = q ? items.filter(it => norm(it.name).includes(q)) : items;
+    if (arr.length) lazyFill(pl, arr, render); else pl.innerHTML = `<p class="opt-note">Nič sa nenašlo.</p>`;
+  };
+  fill();
+  let t;
+  $('#pickQ')?.addEventListener('input', () => { clearTimeout(t); t = setTimeout(fill, 150); });
   pl.addEventListener('scroll', () => lazyNear(pl, pl), { passive: true });
-  nav.cur = null; setFocus($('.pick', pl));
+  nav.cur = null; setFocus($('.pick', pl) || $('#dialog .f'));
+}
+/** Which sections a single channel belongs to (opened from the channel menu). */
+function openMemberPicker(id) {
+  const ch = byId[id]; if (!ch) return;
+  PK = { member: id };
+  const secs = S.sections.filter(s => s.type === 'fav' || s.type === 'cat');
+  openModal(`<h2>Zaradiť do kategórií</h2><p class="muted">${esc(ch.name)} · OK pridá alebo odoberie. Novú kategóriu vytvoríš v Nastaveniach → Sekcie a kanály.</p>
+    <div class="pick-list">${secs.map(s => `<button class="pick f ${s.chs.includes(id) ? 'on' : ''}" data-act="mpick" data-id="${s.id}"><span class="chk">${I('check')}</span><span class="sec-ic" style="--sc:${s.color}">${catIcon(s)}</span><span class="o-nm"><b>${esc(s.name)}</b><small>${countTxt(s.chs.length)}</small></span></button>`).join('')}</div>
+    <div class="actions"><button class="btn primary f" data-act="pick-done">Hotovo</button></div>`);
+}
+/** Long OK, right click or the menu key on a channel. */
+function openChannelMenu(id) {
+  const ch = byId[id]; if (!ch) return;
+  const now = Date.now(), p = progAt(id, now), fav = isFav(id);
+  const arch = !p.none && hasArchive(ch, p.start);
+  openModal(`<div class="cm-head">${tileStatic(ch, 'mini')}<div><h2>${esc(ch.name)}</h2><p class="muted">${p.none ? esc(catName[ch.cat] || '') : `Teraz: ${esc(p.title)} · ${hm(p.start)} – ${hm(p.end)}`}</p></div></div>
+    <div class="menu-list">
+      <button class="mitem f" data-act="m-play" data-ch="${id}">${I('play')}Pozerať naživo</button>
+      ${arch ? `<button class="mitem f" data-act="m-restart" data-ch="${id}">${I('restart')}Pozerať od začiatku</button>` : ''}
+      <button class="mitem f" data-act="m-fav" data-ch="${id}">${I(fav ? 'heart-f' : 'heart')}${fav ? 'Odobrať z obľúbených' : 'Pridať do obľúbených'}</button>
+      <button class="mitem f" data-act="m-cats" data-ch="${id}">${I('grid')}Zaradiť do kategórií…</button>
+    </div>
+    <div class="actions"><button class="btn f" data-act="close-modal">Zavrieť</button></div>`);
 }
 let PK = null, CM = null;
 function openCatModal(id) {
@@ -937,6 +1033,7 @@ function closePlayer() {
   engine.close();
   P.open = false; player.hidden = true; cancelAnimationFrame(vid.raf);
   document.body.classList.remove('playing');
+  if (document.fullscreenElement && !IS_TV) document.exitFullscreen().catch(() => {});
   const back = P.appFocus;
   if (S.screen === 'home') renderHome(back);
   if (!nav.cur) { const t = twin(back); setFocus(t && visible(t) ? t : pickDefault()); }
@@ -1073,7 +1170,7 @@ function errorText(info) {
 }
 function showStatus(kind, title, sub = '') {
   const st = $('#pStatus');
-  st.hidden = false; st.className = 'p-status ' + kind;
+  st.hidden = false; st.className = 'p-status is-' + kind;
   $('#pStatusTxt').textContent = title; $('#pStatusSub').textContent = sub;
   $('#pRetry').hidden = kind !== 'error';
   P.error = kind === 'error';
@@ -1097,7 +1194,9 @@ function renderOSD() {
   const ch = byId[P.ch]; if (!ch) return;
   player.classList.toggle('paused', P.paused);
   const now = Date.now(), pos = now - P.offset * 1000;
-  const p = progAt(ch.id, pos), nx = progNext(ch.id, p);
+  let p = progAt(ch.id, pos);
+  const nx = progNext(ch.id, p);
+  if (p.none) { const span = Math.max(1800, P.offset + 300) * 1000; p = { ...p, start: now - span, end: now + 60e3 }; }
   if (P.tileCh !== ch.id) { $('#oTile').innerHTML = tileStatic(ch, 'mini'); P.tileCh = ch.id; }
   $('#oName').textContent = `${ch.n} · ${ch.name}`;
   $('#oStatus').innerHTML = isLive() ? `<span class="badge live"><i class="dot"></i>Živé</span>`
@@ -1309,6 +1408,19 @@ function waves(ts) {
   wx.globalCompositeOperation = 'source-over';
 }
 
+/* ---------- Volume & fullscreen (PC; a TV uses its own remote volume) ---------- */
+const IS_TV = /Web0S|webOS|SmartTV|Tizen|AFT\w|Android TV|BRAVIA|GoogleTV/i.test(navigator.userAgent);
+function applyVolume() { const v = engine.v; v.volume = Math.max(0, Math.min(1, +S.set.vol || 1)); v.muted = S.set.muted === 'on'; updateMuteBtn(); }
+function updateMuteBtn() { const b = $('#cMute'); if (!b) return; const m = engine.v.muted; $('use', b).setAttribute('href', m ? '#i-mute' : '#i-vol'); $('.tip', b).textContent = m ? 'Zapnúť zvuk' : 'Stlmiť'; }
+function setMuted(m) { S.set.muted = m ? 'on' : 'off'; store.set('settings3', S.set); applyVolume(); toast(m ? 'Zvuk stlmený' : `Hlasitosť ${Math.round(engine.v.volume * 100)} %`); }
+function changeVolume(d) { S.set.vol = String(Math.max(0, Math.min(1, Math.round(((+S.set.vol || 1) + d) * 10) / 10))); S.set.muted = 'off'; store.set('settings3', S.set); applyVolume(); toast(`Hlasitosť ${Math.round(engine.v.volume * 100)} %`); }
+function toggleFullscreen() {
+  try {
+    if (document.fullscreenElement) document.exitFullscreen();
+    else document.documentElement.requestFullscreen().catch(() => toast('Celá obrazovka tu nie je dostupná'));
+  } catch { toast('Celá obrazovka tu nie je dostupná'); }
+}
+
 /* ---------- Number entry ---------- */
 function numKey(d) {
   P.num = (P.num + d).slice(-3);
@@ -1337,8 +1449,8 @@ function closeModal(noRestore) {
 function openHelp() {
   openModal(`<h2>Ovládanie</h2>
     <div class="help-grid">
-      <div><h4>Menu</h4><dl><dt>Šípky</dt><dd>pohyb</dd><dt>OK / Enter</dt><dd>vybrať</dd><dt>Späť / Esc</dt><dd>späť</dd><dt>0 – 9</dt><dd>prepnúť na číslo kanála</dd></dl></div>
-      <div><h4>Prehrávač</h4><dl><dt>↑ ↓, CH+ CH−</dt><dd>ďalší a predchádzajúci kanál</dd><dt>←</dt><dd>zoznam kanálov</dd><dt>→</dt><dd>program kanála</dd><dt>OK</dt><dd>ovládanie</dd><dt>Medzerník, ⏯</dt><dd>pauza</dd><dt>⏪ ⏩</dt><dd>±30 s</dd><dt>L</dt><dd>posledný kanál</dd><dt>I</dt><dd>info o relácii</dd></dl></div>
+      <div><h4>Menu</h4><dl><dt>Šípky</dt><dd>pohyb</dd><dt>OK / Enter</dt><dd>vybrať</dd><dt>Podržať OK</dt><dd>ponuka kanála (aj pravé tlačidlo myši)</dd><dt>Späť / Esc</dt><dd>späť</dd><dt>0 – 9</dt><dd>prepnúť na číslo kanála</dd></dl></div>
+      <div><h4>Prehrávač</h4><dl><dt>↑ ↓, CH+ CH−</dt><dd>ďalší a predchádzajúci kanál</dd><dt>←</dt><dd>zoznam kanálov</dd><dt>→</dt><dd>program kanála</dd><dt>OK</dt><dd>ovládanie</dd><dt>Medzerník, ⏯</dt><dd>pauza</dd><dt>⏪ ⏩</dt><dd>±30 s</dd><dt>L</dt><dd>posledný kanál</dd><dt>I</dt><dd>info o relácii</dd><dt>M, + −</dt><dd>stlmiť, hlasitosť (PC)</dd><dt>F, dvojklik</dt><dd>celá obrazovka (PC)</dd></dl></div>
       <div><h4>Dotyk a myš</h4><dl><dt>Ťuknutie</dt><dd>ovládanie</dd><dt>Potiahnutie ↑ ↓</dt><dd>zmena kanála</dd><dt>Klik na lištu</dt><dd>pretáčanie</dd></dl></div>
     </div>
     <div class="actions"><button class="btn primary f" data-act="close-modal">Rozumiem</button></div>`);
@@ -1444,12 +1556,18 @@ function activate(el, e) {
       break;
     }
     case 'new-cat': openCatModal(null); break;
+    case 'grab': if (GRAB && GRAB.id === el.dataset.id) { endGrab(); toast('Poradie uložené'); } else startGrab(el); break;
     case 'o-up': case 'o-down': {
-      const arr = listRef(el.dataset.list), i = arr.indexOf(el.dataset.id), j = i + (a === 'o-up' ? -1 : 1);
-      if (i < 0 || j < 0 || j >= arr.length) break;
-      [arr[i], arr[j]] = [arr[j], arr[i]];
-      if (el.dataset.list === 'all') renumber();
-      save(); renderOrganizer(); refocusOrg(el);
+      const arr = listRef(el.dataset.list), i = arr.indexOf(el.dataset.id);
+      if (i < 0) break;
+      endGrab();
+      GRAB = { list: el.dataset.list, id: el.dataset.id, digits: '' };
+      grabTo(i + (a === 'o-up' ? -1 : 1));
+      GRAB = null;
+      const row = $(`#orgList .org-row[data-row="${CSS.escape(el.dataset.id)}"]`);
+      const btn = row && ($(`[data-act="${a}"]`, row).disabled ? $(`[data-act="${a === 'o-up' ? 'o-down' : 'o-up'}"]`, row) : $(`[data-act="${a}"]`, row));
+      if (btn) { nav.cur = null; setFocus(btn); }
+      if (el.dataset.list === 'quick') renderOrgLeftCounts();
       break;
     }
     case 'o-rm': {
@@ -1467,7 +1585,21 @@ function activate(el, e) {
       el.classList.toggle('on', i < 0); save();
       break;
     }
-    case 'pick-done': closeModal(true); renderOrganizer(); nav.cur = null; setFocus($(`#orgRight [data-act="o-add"]`) || pickDefault()); break;
+    case 'pick-done': closeModal(true); if (S.screen === 'organize') { renderOrganizer(); nav.cur = null; setFocus($(`#orgRight [data-act="o-add"]`) || pickDefault()); } else rerender(); break;
+    case 'mpick': {
+      const sec = secById(el.dataset.id), cid = PK && PK.member;
+      if (!sec || !cid) break;
+      const i = sec.chs.indexOf(cid);
+      if (i >= 0) sec.chs.splice(i, 1); else sec.chs.push(cid);
+      el.classList.toggle('on', i < 0); save();
+      break;
+    }
+    case 'm-play': closeModal(true); openOrTune(el.dataset.ch); break;
+    case 'm-restart': { const p = progAt(el.dataset.ch, Date.now()); closeModal(true); openOrTune(el.dataset.ch, (Date.now() - p.start) / 1000); break; }
+    case 'm-fav': toggleFav(el.dataset.ch); closeModal(); break;
+    case 'm-cats': openMemberPicker(el.dataset.ch); break;
+    case 'p-mute': setMuted(!engine.v.muted); break;
+    case 'p-full': toggleFullscreen(); break;
     case 'clear-recent': S.recent = []; store.set('recent:' + S.libKey, []); renderOrganizer(); nav.cur = null; setFocus(pickDefault()); toast('História vymazaná'); break;
     case 'cm-color': CM.color = el.dataset.v; $$('[data-act="cm-color"]').forEach(b => b.classList.toggle('on', b === el)); break;
     case 'cm-icon': CM.icon = el.dataset.v; $$('[data-act="cm-icon"]').forEach(b => b.classList.toggle('on', b === el)); break;
@@ -1544,6 +1676,11 @@ function keyName(e) {
   if (k === '?' || k === 'h' || k === 'H') return 'help';
   if (k === 'l' || k === 'L') return 'last';
   if (k === 'i' || k === 'I') return 'info';
+  if (k === 'm' || k === 'M' || k === 'AudioVolumeMute' && !IS_TV) return 'mute';
+  if (k === '+' || k === '=') return 'volup';
+  if (k === '-' || k === '_') return 'voldown';
+  if (k === 'f' || k === 'F') return 'full';
+  if (k === 'ContextMenu' || c === 93) return 'menu';
   return null;
 }
 const DIRS = { up: 1, down: 1, left: 1, right: 1 };
@@ -1560,12 +1697,21 @@ document.addEventListener('keydown', e => {
     return;
   }
   if (P.open) return playerKey(k);
+  if (GRAB) { grabKey(k); return; }
   if (inInput && k === 'ok') { move('down'); return; }
+  if (k === 'menu') { if (nav.cur && nav.cur.dataset.ch) openChannelMenu(nav.cur.dataset.ch); return; }
+  // Hold OK on a channel for its menu; a short press plays it (decided on key release).
+  if (k === 'ok' && nav.cur && nav.cur.dataset.act === 'play' && nav.cur.dataset.ch) {
+    if (e.repeat || okHold) return;
+    const el = nav.cur;
+    okHold = { el, fired: false, t: setTimeout(() => { if (okHold) okHold.fired = true; openChannelMenu(el.dataset.ch); }, 550) };
+    return;
+  }
   if (DIRS[k]) { move(k); return; }
   if (k === 'ok') { if (nav.cur) activate(nav.cur); else setFocus(pickDefault()); return; }
   if (k === 'back' || k === 'bksp') {
     if (nav.cur && nav.cur.closest('.topbar')) { setFocus(pickDefault()); return; }
-    if (S.screen === 'organize') { go('settings'); return; }
+    if (S.screen === 'organize') { endGrab(); go('settings'); return; }
     if (S.screen !== 'home') { go('home'); return; }
     setFocus($('#topnav .nav-item.active'));
     return;
@@ -1573,8 +1719,25 @@ document.addEventListener('keydown', e => {
   if (/^\d$/.test(k)) return numKey(k);
   if (k === 'help') return openHelp();
 });
+let okHold = null;
+document.addEventListener('keyup', e => {
+  if (!okHold || keyName(e) !== 'ok') return;
+  clearTimeout(okHold.t);
+  const h = okHold; okHold = null;
+  if (!h.fired) activate(h.el);
+});
+document.addEventListener('contextmenu', e => {
+  const c = e.target.closest && e.target.closest('[data-act="play"][data-ch]');
+  if (!c || P.open) return;
+  e.preventDefault();
+  openChannelMenu(c.dataset.ch);
+});
 function playerKey(k) {
   if (/^\d$/.test(k)) return numKey(k);
+  if (k === 'mute') return setMuted(!engine.v.muted);
+  if (k === 'volup') return changeVolume(0.1);
+  if (k === 'voldown') return changeVolume(-0.1);
+  if (k === 'full') return toggleFullscreen();
   if (k === 'chup') return step(1);
   if (k === 'chdown') return step(-1);
   if (k === 'playpause') { togglePause(); if (!P.osd && !P.panel) showOSD(); return; }
@@ -1629,6 +1792,44 @@ document.addEventListener('click', e => {
   if (el.classList.contains('f')) setFocus(el, { noScroll: true });
   activate(el, e);
 });
+document.addEventListener('pointerdown', e => { if (GRAB && !(e.target.closest && e.target.closest('.org-row.grabbing'))) endGrab(); }, true);
+document.addEventListener('dragstart', e => {
+  const g = e.target.closest && e.target.closest('.grab');
+  if (!g) return;
+  endGrab();
+  DRAG = { list: g.dataset.list, id: g.dataset.id };
+  e.dataTransfer.effectAllowed = 'move';
+  try { e.dataTransfer.setData('text/plain', g.dataset.id); } catch {}
+  g.closest('.org-row').classList.add('dragging');
+});
+document.addEventListener('dragover', e => {
+  if (!DRAG) return;
+  const r = e.target.closest && e.target.closest('#orgList .org-row[data-row]');
+  $$('.drop-before, .drop-after').forEach(x => x.classList.remove('drop-before', 'drop-after'));
+  if (!r) return;
+  e.preventDefault();
+  const b = r.getBoundingClientRect();
+  r.classList.add(e.clientY < b.top + b.height / 2 ? 'drop-before' : 'drop-after');
+  const pane = $('#orgRight');
+  if (e.clientY < pane.getBoundingClientRect().top + 60) pane.scrollTop -= 12;
+  else if (e.clientY > pane.getBoundingClientRect().bottom - 60) pane.scrollTop += 12;
+});
+document.addEventListener('drop', e => {
+  if (!DRAG) return;
+  const r = e.target.closest && e.target.closest('#orgList .org-row[data-row]');
+  if (r) {
+    e.preventDefault();
+    const arr = listRef(DRAG.list), from = arr.indexOf(DRAG.id);
+    let to = arr.indexOf(r.dataset.row) + (r.classList.contains('drop-after') ? 1 : 0);
+    if (to > from) to--;
+    GRAB = { list: DRAG.list, id: DRAG.id, digits: '' };
+    grabTo(to);
+    GRAB = null; save();
+  }
+});
+document.addEventListener('dragend', () => { DRAG = null; $$('.dragging, .drop-before, .drop-after').forEach(x => x.classList.remove('dragging', 'drop-before', 'drop-after')); });
+$('#orgRight').addEventListener('scroll', e => lazyNear(e.target, $('#orgList')), { passive: true });
+$('#s-organize').addEventListener('scroll', e => lazyNear(e.target, $('#orgList')), { passive: true });
 document.addEventListener('focusin', e => { const el = e.target; if (el.classList && el.classList.contains('f') && el !== nav.cur) setFocus(el, { noScroll: true }); });
 let qT;
 $('#q').addEventListener('input', () => { clearTimeout(qT); qT = setTimeout(renderResults, 180); });
@@ -1642,7 +1843,9 @@ player.addEventListener('pointerup', e => {
     suppressClick = true; setTimeout(() => { suppressClick = false; }, 60);
   }
 });
+player.addEventListener('dblclick', e => { if (!e.target.closest('[data-act], .panel') && !IS_TV) toggleFullscreen(); });
 player.addEventListener('click', e => {
+  if (engine.v.muted && S.set.muted !== 'on') { engine.v.muted = false; updateMuteBtn(); }
   if (suppressClick || e.target.closest('[data-act], .panel, .seek-labels')) return;
   if (P.panel) { closePanel(true); return; }
   if (P.osd) hideOSD(); else showOSD();
@@ -1662,6 +1865,25 @@ setInterval(() => {
   }
 }, 1000);
 setInterval(() => { if (!P.open) updateCaps(); updateGuideNow(); }, 30000);
+/* Reminders: a minute before the start, offer to switch. */
+function checkReminders() {
+  const now = Date.now();
+  let changed = false;
+  for (const k of [...S.rem]) {
+    const i = k.lastIndexOf(':'), id = k.slice(0, i), start = +k.slice(i + 1);
+    if (now - start > 5 * 60e3 || !byId[id]) { S.rem.delete(k); changed = true; continue; }
+    if (start - now > 60e3) continue;
+    S.rem.delete(k); changed = true;
+    if (P.open && P.ch === id) continue;
+    const p = findProg(id, start), ch = byId[id];
+    if (!modal.hidden) { toast(`Začína: ${p.title} na ${ch.name}`); continue; }
+    openModal(`<h2>Začína relácia</h2><div class="cm-head">${tileStatic(ch, 'mini')}<div><b class="cm-title">${esc(p.title)}</b><p class="muted">${esc(ch.name)} · ${hm(p.start)} – ${hm(p.end)}</p></div></div>
+      <div class="actions"><button class="btn primary f" data-act="m-play" data-ch="${id}">${I('play')}Pozerať</button><button class="btn f" data-act="close-modal">Zavrieť</button></div>`);
+    break;
+  }
+  if (changed) store.set('rem:' + S.libKey, [...S.rem]);
+}
+setInterval(checkReminders, 15000);
 
 /* ---------- Boot ---------- */
 if (matchMedia('(pointer: coarse)').matches) document.body.classList.add('touch');
@@ -1671,6 +1893,8 @@ requestAnimationFrame(waves);
 $('#s-channels').addEventListener('scroll', e => lazyNear(e.target, $('#chGrid')), { passive: true });
 $('#s-cat').addEventListener('scroll', e => lazyNear(e.target, $('#catGrid')), { passive: true });
 $('#gScroll').addEventListener('scroll', () => { if (!G.raf) G.raf = requestAnimationFrame(() => { G.raf = 0; fillGuideRows(); }); }, { passive: true });
+applyVolume();
+if (IS_TV) document.documentElement.classList.add('tv');
 (async () => {
   await detectRelay();
   let L = null, E = null;

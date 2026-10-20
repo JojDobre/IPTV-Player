@@ -27,6 +27,7 @@ function playlist() {
   m += `#EXTINF:-1 tvg-id="test.hls" tvg-logo="${B}/logo1.png" group-title="Slovensko" catchup="default" catchup-days="1" catchup-source="${B}/arch/master.m3u8?start={utc}",Test HLS 1\n${B}/live/master.m3u8\n`;
   m += `#EXTINF:-1 tvg-id="test.dead" tvg-logo="${B}/missing.png" group-title="Slovensko",Nedostupný kanál\n${B}/dead.m3u8\n`;
   m += `#EXTINF:-1 tvg-id="test.ts" group-title="Šport",Test TS\n${B}/live.ts\n`;
+  m += `#EXTINF:-1 tvg-id="test.slow" group-title="Slovensko",Pomalý kanál\n${B}/slow/master.m3u8\n`;
   for (let i = 1; i <= 400; i++) {
     const g = groups[i % groups.length];
     m += `#EXTINF:-1 tvg-id="ch${i}" group-title="${g}"${i % 3 ? ` tvg-logo="${B}/logo1.png"` : ''},${g} Kanál ${i} HD\n${B}/live/master.m3u8?ch=${i}\n`;
@@ -53,6 +54,7 @@ http.createServer((req, res) => {
     ts.stdout.pipe(res); res.on('close', () => ts.kill('SIGKILL'));
     return;
   }
+  if (u.pathname.startsWith('/slow/')) { setTimeout(() => { res.writeHead(302, { location: '/live/master.m3u8' }); res.end(); }, 6000); return; }
   let f = join(dir, decodeURIComponent(u.pathname));
   if (!existsSync(f) || statSync(f).isDirectory()) { res.writeHead(404); return res.end('not found'); }
   res.writeHead(200, { 'content-type': TYPES[extname(f)] || 'application/octet-stream', 'cache-control': 'no-cache' });
