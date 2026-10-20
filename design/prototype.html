@@ -1,0 +1,2114 @@
+<title>Vysielač</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Fraunces:ital,opsz,wght@1,9..144,600&family=Onest:wght@400;500;600;700&family=Unbounded:wght@500;700;800&display=swap">
+<style>
+@property --h1 { syntax: '<color>'; inherits: true; initial-value: #3D7BFF; }
+@property --h2 { syntax: '<color>'; inherits: true; initial-value: #FF4D6D; }
+
+/* Layout: streaming-app home. Pill navigation on top; featured live banners; a row of category pills; then rows of 16:9 channel cards (logo only, the programme as a caption). Phone: navigation becomes a bottom tab bar. Two looks: night (deep indigo with neon light ribbons) and liquid glass (one frosted panel floating over blurred colour). */
+:root {
+  color-scheme: dark;
+  --bg: #0A0A17;
+  --bg-2: #121228;
+  --surface: #191935;
+  --surface-2: #24244A;
+  --line: #2C2C52;
+  --fg: #F3F3FB;
+  --fg-2: #ABABCB;
+  --fg-3: #737399;
+  --accent: #FFFFFF;
+  --accent-ink: #0A0A17;
+  --live: #FF4F6A;
+  --f-display: "Unbounded", "Arial Black", system-ui, sans-serif;
+  --f-body: "Onest", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --f-sport: "Bebas Neue", Impact, "Arial Narrow", sans-serif;
+  --f-serif: "Fraunces", Georgia, "Times New Roman", serif;
+  --tile: 96px;
+  --card: clamp(210px, 15vw, 330px);
+  --gap: clamp(14px, 1.2vw, 22px);
+  --round: .2;
+  --gl: max(16px, env(safe-area-inset-left, 0px));
+  --gr: max(16px, env(safe-area-inset-right, 0px));
+  --glass: rgba(255,255,255,.075);
+  --glass-2: rgba(255,255,255,.14);
+  --glass-line: rgba(255,255,255,.14);
+  --glass-hi: rgba(255,255,255,.32);
+}
+:root[data-tile="s"] { --card: clamp(170px, 12vw, 270px); }
+:root[data-tile="l"] { --card: clamp(250px, 19vw, 420px); }
+:root[data-round="soft"] { --round: .1; }
+:root[data-round="strong"] { --round: .34; }
+@media (min-width: 761px) {
+  :root { --gl: max(56px, env(safe-area-inset-left, 0px)); --gr: max(56px, env(safe-area-inset-right, 0px)); }
+}
+@media (max-width: 760px) {
+  :root { --card: 160px; --gap: 12px; }
+  :root[data-tile="s"] { --card: 130px; }
+  :root[data-tile="l"] { --card: 210px; }
+}
+
+[hidden] { display: none !important; }
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+body {
+  margin: 0; background: var(--bg); color: var(--fg);
+  font-family: var(--f-body); font-size: 16px; line-height: 1.4;
+  overflow: hidden; -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
+}
+button { font: inherit; color: inherit; background: none; border: 0; padding: 0; margin: 0; cursor: pointer; text-align: inherit; }
+button[disabled] { cursor: default; }
+.f { outline: none; }
+.ic { width: 24px; height: 24px; flex: none; }
+h1, h2, h3, h4, p { margin: 0; }
+.txt-ic { font-family: var(--f-display); font-weight: 800; letter-spacing: .02em; line-height: 1; }
+.probes { position: absolute; left: 0; top: 0; width: 600px; height: 0; overflow: hidden; visibility: hidden; pointer-events: none; }
+#probeGap { display: block; width: var(--gap); height: 1px; }
+
+/* ---------- Backdrop ---------- */
+#ambient { position: fixed; inset: 0; z-index: 0; pointer-events: none; overflow: hidden; transition: --h1 .9s ease, --h2 .9s ease; }
+#ambient i { position: absolute; border-radius: 50%; opacity: 0; transition: opacity .6s; }
+#ambient .a1 { width: 80vmax; height: 80vmax; right: -28vmax; top: -40vmax; background: radial-gradient(closest-side, var(--h1), transparent); opacity: .2; }
+#ambient .a2 { width: 70vmax; height: 70vmax; left: -22vmax; bottom: -42vmax; background: radial-gradient(closest-side, var(--h2), transparent); opacity: .08; }
+#ambient .a3 { width: 55vmax; height: 55vmax; left: 28vw; top: 22vh; background: radial-gradient(closest-side, #5B4BFF, transparent); opacity: .12; }
+:root[data-look="glass"] #ambient { background: #1A2232; }
+:root[data-look="glass"] #ambient .a1 { opacity: .75; animation: drift1 38s ease-in-out infinite; }
+:root[data-look="glass"] #ambient .a2 { opacity: .6; animation: drift2 46s ease-in-out infinite; }
+:root[data-look="glass"] #ambient .a3 { opacity: .45; animation: drift3 52s ease-in-out infinite; }
+@keyframes drift1 { 50% { transform: translate(-10vmax, 8vmax) scale(1.12); } }
+@keyframes drift2 { 50% { transform: translate(12vmax, -6vmax) scale(1.08); } }
+@keyframes drift3 { 50% { transform: translate(-14vmax, -10vmax) scale(.9); } }
+#waves { position: fixed; left: 0; top: 0; width: 100%; height: 100%; z-index: 0; pointer-events: none; -webkit-mask-image: linear-gradient(#000, #000 35%, transparent 78%); mask-image: linear-gradient(#000, #000 35%, transparent 78%); }
+:root[data-look="glass"] #waves { display: none; }
+
+/* ---------- App shell ---------- */
+#app { position: relative; z-index: 1; display: grid; grid-template-rows: auto minmax(0, 1fr); height: 100%; }
+.topbar { position: relative; z-index: 20; display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 16px; padding: 22px var(--gr) 8px var(--gl); }
+.brand { display: flex; align-items: center; gap: 12px; white-space: nowrap; min-width: 0; }
+.brand-mark { width: 34px; height: 34px; flex: none; border-radius: 11px; display: grid; place-items: center; background: linear-gradient(135deg, #7C5CFF, #2EC5FF); color: #fff; font-family: var(--f-display); font-weight: 800; font-size: 16px; box-shadow: inset 0 1px 0 rgba(255,255,255,.4); }
+.brand-word { font-family: var(--f-display); font-weight: 700; font-size: 19px; letter-spacing: -.02em; }
+.topnav { display: flex; gap: 4px; padding: 5px; border-radius: 999px; background: rgba(255,255,255,.07); box-shadow: inset 0 1px 0 rgba(255,255,255,.1), inset 0 0 0 1px rgba(255,255,255,.07); backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px); }
+.nav-item { height: 44px; padding: 0 20px; border-radius: 999px; display: flex; align-items: center; gap: 8px; color: var(--fg-2); font-weight: 600; font-size: 15px; white-space: nowrap; transition: background .15s, color .15s, box-shadow .15s; }
+.nav-item .ic { width: 20px; height: 20px; }
+.nav-item.icon-only { width: 44px; padding: 0; justify-content: center; }
+.nav-item.icon-only span { display: none; }
+.nav-item.active { background: var(--fg); color: var(--bg); }
+.nav-item.focus { background: rgba(255,255,255,.16); color: var(--fg); box-shadow: 0 0 0 2px var(--bg), 0 0 0 4px var(--accent); }
+.nav-item.active.focus { background: var(--fg); color: var(--bg); }
+.top-right { justify-self: end; display: flex; align-items: center; gap: 16px; }
+.round-btn { width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center; color: var(--fg-2); background: rgba(255,255,255,.07); box-shadow: inset 0 1px 0 rgba(255,255,255,.1), inset 0 0 0 1px rgba(255,255,255,.07); transition: box-shadow .15s, color .15s, background .15s; }
+.round-btn .ic { width: 20px; height: 20px; }
+:root[data-look="glass"] .round-btn { color: var(--fg); background: rgba(255,255,255,.2); }
+.round-btn.focus { color: var(--fg); box-shadow: 0 0 0 2px var(--bg), 0 0 0 4px var(--accent); }
+.top-clock { font-weight: 600; font-size: 20px; font-variant-numeric: tabular-nums; }
+
+main { position: relative; min-width: 0; height: 100%; }
+.screen { height: 100%; overflow-y: auto; overflow-x: hidden; scroll-padding: 140px 0 80px; }
+.pad { padding-left: var(--gl); padding-right: var(--gr); padding-block: 36px 60px; }
+.s-head { display: flex; align-items: center; justify-content: space-between; gap: 12px 20px; flex-wrap: wrap; margin-bottom: 22px; }
+.s-title { font-weight: 700; font-size: clamp(26px, 2.6vw, 40px); letter-spacing: -.03em; text-wrap: balance; }
+.s-sub { color: var(--fg-3); font-size: 15px; font-variant-numeric: tabular-nums; }
+.empty { color: var(--fg-3); padding-block: 40px; max-width: 46ch; }
+.muted { color: var(--fg-3); font-size: 15px; max-width: 60ch; }
+
+/* ---------- Tiles & logos ---------- */
+.tile {
+  --c1: #888; --c2: #ccc;
+  --lc: var(--c1); --lc2: var(--c2); --bd: var(--c1); --bdink: #fff; --pb: var(--c2);
+  position: relative; flex: none; width: var(--tile); max-width: 100%; aspect-ratio: 1;
+  display: grid; place-items: center; overflow: hidden;
+  border-radius: calc(var(--tile) * var(--round));
+  background: var(--surface);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--fg) 6%, transparent);
+  font-size: calc(var(--tile) * .14);
+  transition: transform .18s ease, box-shadow .18s ease, background .18s;
+}
+:root[data-tilebg="tint"] .tile {
+  background: linear-gradient(150deg, var(--c1), color-mix(in srgb, var(--c1) 45%, #000));
+  --lc: #fff; --lc2: color-mix(in srgb, var(--c2) 35%, #fff); --bd: #fff; --bdink: var(--c1); --pb: color-mix(in srgb, var(--c1) 70%, #000);
+}
+:root[data-tilebg="light"] .tile {
+  background: #F1F2F6;
+  --lc: color-mix(in srgb, var(--c1) 72%, #000); --lc2: color-mix(in srgb, var(--c2) 62%, #000);
+  --bd: color-mix(in srgb, var(--c1) 88%, #000); --pb: var(--c2);
+}
+.tile.focus { transform: scale(1.1); z-index: 2; box-shadow: 0 0 0 3px var(--accent), 0 18px 44px -12px color-mix(in srgb, var(--c1) 75%, transparent); }
+.t-num { position: absolute; top: .5em; left: .62em; font-size: .52em; font-weight: 600; color: var(--fg-3); font-variant-numeric: tabular-nums; line-height: 1; }
+:root[data-tilebg="tint"] .t-num { color: color-mix(in srgb, #fff 70%, transparent); }
+:root[data-tilebg="light"] .t-num { color: #8B91A1; }
+:root[data-nums="off"] .t-num, .tile.mini .t-num { display: none; }
+.tile.more { background: color-mix(in srgb, var(--c1) 16%, var(--surface)); color: var(--fg); }
+.more-in { display: grid; gap: .3em; text-align: center; }
+.more-in b { font-family: var(--f-display); font-weight: 700; font-size: 1.5em; color: var(--c1); }
+.more-in small { font-size: .6em; color: var(--fg-2); font-weight: 600; }
+
+.lg { display: flex; flex-direction: column; align-items: center; justify-content: center; line-height: 1; color: var(--lc); text-align: center; max-width: 88%; pointer-events: none; position: relative; }
+.lg b, .lg i { font-style: normal; }
+.lg-num b { display: grid; place-items: center; width: 1.55em; height: 1.55em; border-radius: .34em; background: var(--bd); color: var(--bdink); font-family: var(--f-display); font-weight: 800; font-size: 1.7em; }
+.lg-num i { margin-top: .6em; font-family: var(--f-display); font-weight: 700; font-size: .5em; letter-spacing: .32em; padding-left: .32em; }
+.lg-word { flex-direction: row; align-items: baseline; font-family: var(--f-display); font-weight: 700; letter-spacing: -.035em; }
+.lg-word b { color: var(--lc2); }
+.lg-plus { flex-direction: row; align-items: center; font-family: var(--f-display); font-weight: 800; letter-spacing: -.01em; }
+.lg-plus b { color: var(--lc2); font-size: 1.5em; margin-left: .04em; line-height: .8; }
+.lg-pill > span { display: inline-flex; align-items: baseline; background: var(--bd); color: var(--bdink); font-family: var(--f-display); font-weight: 800; font-size: .95em; padding: .42em .62em .38em; border-radius: .5em; }
+.lg-pill b { color: var(--pb); }
+.lg-sport { font-family: var(--f-sport); transform: skewX(-8deg); }
+.lg-sport i { font-size: .8em; letter-spacing: .3em; padding-left: .3em; }
+.lg-sport b { font-weight: 400; font-size: 1.9em; line-height: .9; border-bottom: .09em solid var(--lc2); padding-bottom: .04em; }
+.lg-sport b.solo { font-size: 2.5em; }
+.lg-serif { font-family: var(--f-serif); font-style: italic; font-weight: 600; letter-spacing: -.02em; line-height: 1.05; }
+.lg-circle b { display: grid; place-items: center; width: 1.9em; height: 1.9em; border-radius: 50%; background: var(--bd); color: var(--bdink); font-family: var(--f-display); font-weight: 800; font-size: 1.3em; }
+.lg-circle i { margin-top: .55em; font-weight: 700; font-size: .55em; letter-spacing: .22em; padding-left: .22em; }
+.lg-stack { align-items: flex-start; font-family: var(--f-display); font-weight: 800; letter-spacing: .02em; line-height: 1.04; }
+.lg-stack b:last-child { color: var(--lc2); }
+
+/* ---------- Common bits ---------- */
+.badge { display: inline-flex; align-items: center; gap: 6px; height: 24px; padding: 0 10px; border-radius: 999px; background: var(--surface-2); color: var(--fg-2); font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; white-space: nowrap; }
+.badge .ic { width: 14px; height: 14px; }
+.badge.live { background: color-mix(in srgb, var(--live) 18%, transparent); color: var(--live); }
+.badge.arch { background: color-mix(in srgb, var(--accent) 15%, transparent); color: var(--accent); }
+.dot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; display: inline-block; flex: none; animation: pulse 1.8s ease-in-out infinite; }
+@keyframes pulse { 50% { opacity: .35; } }
+.bar { height: 4px; border-radius: 2px; background: color-mix(in srgb, var(--fg) 16%, transparent); width: min(360px, 100%); overflow: hidden; }
+.bar i { display: block; height: 100%; border-radius: inherit; background: var(--fg); }
+.btn { height: 48px; padding: 0 22px; border-radius: 12px; display: inline-flex; align-items: center; gap: 10px; background: color-mix(in srgb, var(--fg) 12%, transparent); font-weight: 600; font-size: 15px; white-space: nowrap; transition: transform .15s, background .15s, color .15s; }
+.btn .ic { width: 20px; height: 20px; }
+.btn.primary { background: var(--fg); color: var(--bg); }
+.btn.focus { background: var(--accent); color: var(--accent-ink); transform: scale(1.04); }
+.small-btn { height: 40px; padding: 0 16px; font-size: 14px; }
+.actions { display: flex; gap: 12px; flex-wrap: wrap; }
+.chips { display: flex; gap: 10px; flex-wrap: wrap; }
+.chip { height: 38px; padding: 0 16px; border-radius: 999px; background: var(--surface); color: var(--fg-2); font-weight: 600; font-size: 14px; white-space: nowrap; transition: background .15s, box-shadow .15s; }
+.chip.on { background: var(--fg); color: var(--bg); }
+.chip.focus { box-shadow: 0 0 0 3px var(--accent); }
+.eyebrow { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; font-size: 14px; font-weight: 600; color: var(--fg-2); }
+.meta { display: flex; flex-wrap: wrap; gap: 4px 16px; color: var(--fg-2); font-size: 15px; font-variant-numeric: tabular-nums; }
+.sec-ic { --sc: #888; width: 32px; height: 32px; flex: none; border-radius: 10px; display: grid; place-items: center; background: color-mix(in srgb, var(--sc) 22%, transparent); color: color-mix(in srgb, var(--sc) 70%, #fff); }
+.sec-ic .ic { width: 18px; height: 18px; }
+.sec-ic .txt-ic { font-size: 11px; }
+.sec-ic.big { width: 54px; height: 54px; border-radius: 16px; }
+.sec-ic.big .ic { width: 28px; height: 28px; }
+.sec-ic.big .txt-ic { font-size: 17px; }
+
+/* ---------- Home ---------- */
+.home { padding-left: var(--gl); padding-right: var(--gr); padding-block: 10px 80px; }
+.hscroll { position: relative; display: flex; gap: var(--gap); overflow-x: auto; margin-left: calc(-1 * var(--gl)); margin-right: calc(-1 * var(--gr)); padding-left: var(--gl); padding-right: var(--gr); scrollbar-width: none; }
+.hscroll::-webkit-scrollbar { display: none; }
+.hero { padding-block: 12px 20px; }
+.bcard { --c1: #555; --c2: #999; position: relative; flex: none; width: min(880px, 47.5%); height: clamp(220px, 31vh, 380px); border-radius: 28px; overflow: hidden; isolation: isolate;
+  display: flex; align-items: flex-end; padding: clamp(20px, 2.2vw, 38px); text-align: left; color: #fff;
+  background:
+    radial-gradient(70% 120% at 100% 100%, color-mix(in srgb, var(--c2) 60%, transparent), transparent 60%),
+    radial-gradient(60% 90% at 85% 0%, rgba(255,255,255,.24), transparent 55%),
+    linear-gradient(120deg, color-mix(in srgb, var(--c1) 50%, #06061A), var(--c1));
+  transition: transform .22s ease, box-shadow .22s ease; }
+.bcard::after { content: ""; position: absolute; inset: 0; z-index: -1; background: linear-gradient(90deg, rgba(6,6,20,.8), rgba(6,6,20,.38) 52%, transparent 78%); }
+.b-art { position: absolute; inset: 0; z-index: -2; display: flex; align-items: center; justify-content: flex-end; padding-right: 7%; font-size: clamp(28px, 3.2vw, 64px);
+  --lc: #fff; --lc2: rgba(255,255,255,.78); --bd: #fff; --bdink: var(--c1); --pb: var(--c1); }
+.b-art::before, .b-art::after { content: ""; position: absolute; border-radius: 50%; border: 1px solid rgba(255,255,255,.2); }
+.b-art::before { width: 72%; aspect-ratio: 1; right: -14%; top: -34%; }
+.b-art::after { width: 44%; aspect-ratio: 1; right: 3%; top: 10%; border-color: rgba(255,255,255,.12); }
+.b-art .lg { max-width: 44%; filter: drop-shadow(0 12px 30px rgba(0,0,0,.35)); }
+.b-txt { display: grid; gap: 10px; max-width: 58%; }
+.b-eyebrow { display: flex; align-items: center; gap: 10px; font-size: 14px; font-weight: 600; color: rgba(255,255,255,.85); }
+.badge.live-w { background: var(--live); color: #fff; }
+.b-title { font-size: clamp(22px, 2.3vw, 42px); font-weight: 700; line-height: 1.08; letter-spacing: -.025em; text-wrap: balance; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.b-meta { font-size: 14px; color: rgba(255,255,255,.75); font-variant-numeric: tabular-nums; }
+.b-play { display: inline-flex; align-items: center; gap: 10px; height: 44px; width: max-content; padding: 0 20px 0 7px; margin-top: 6px; border-radius: 999px; font-weight: 600; font-size: 15px;
+  background: rgba(255,255,255,.18); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); box-shadow: inset 0 1px 0 rgba(255,255,255,.3); transition: background .2s, color .2s; }
+.b-play i { width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; background: #fff; color: #0A0A17; }
+.b-play .ic { width: 14px; height: 14px; }
+.bcard.focus { transform: scale(1.02); z-index: 2; box-shadow: 0 0 0 3px var(--accent), 0 30px 70px -24px var(--c1); }
+.bcard.focus .b-play { background: #fff; color: #0A0A17; }
+.bcard.focus .b-play i { background: #0A0A17; color: #fff; }
+
+.pills { gap: 12px; padding-block: 4px 12px; }
+.pill { --pc: #fff; flex: none; height: 58px; padding: 0 24px 0 18px; border-radius: 18px; display: flex; align-items: center; gap: 12px; white-space: nowrap; font-weight: 600; font-size: 16px; color: var(--fg);
+  background: rgba(255,255,255,.06); box-shadow: inset 0 1px 0 rgba(255,255,255,.08), inset 0 0 0 1px rgba(255,255,255,.07); transition: transform .15s, background .15s, color .15s; }
+.pill .ic { width: 22px; height: 22px; color: color-mix(in srgb, var(--pc) 70%, #fff); }
+.pill .txt-ic { font-size: 11px; color: color-mix(in srgb, var(--pc) 70%, #fff); border: 1.5px solid currentColor; border-radius: 6px; padding: 3px 4px; }
+.pill.focus { background: #fff; color: #0A0A17; transform: scale(1.05); }
+.pill.focus .ic, .pill.focus .txt-ic { color: var(--pc); }
+
+.sec { position: relative; margin-top: 22px; padding-top: 30px; }
+.sec::before { content: ""; position: absolute; top: 0; left: 0; right: 0; height: 1px; background: linear-gradient(90deg, rgba(255,255,255,.18), rgba(255,255,255,.05) 65%, transparent); }
+.sec:first-child { margin-top: 10px; }
+.hero-head { padding-top: 12px; }
+.hero-head .ic { width: 18px; height: 18px; color: var(--live); align-self: center; }
+.sec-head { display: flex; align-items: baseline; gap: 12px; }
+.sec-head h3 { font-size: clamp(18px, 1.35vw, 24px); font-weight: 650; letter-spacing: -.015em; }
+.sec-count { color: var(--fg-3); font-size: 14px; }
+.cgrid { display: grid; grid-template-columns: repeat(var(--cols, 5), var(--card)); gap: calc(var(--gap) * 1.3) var(--gap); padding-block: 16px 8px; }
+#chGrid, #catGrid { padding-block: 26px; }
+.scroller { padding-block: 16px 8px; }
+.sec-empty { color: var(--fg-3); padding: 18px 20px; margin-block: 14px 8px; border-radius: 16px; border: 1px dashed var(--line); max-width: 640px; font-size: 15px; }
+.cat-title { display: flex; align-items: center; gap: 16px; min-width: 0; }
+
+/* ---------- Channel cards (16:9) ---------- */
+.card { position: relative; flex: none; width: var(--card); display: grid; gap: 10px; align-content: start; text-align: left; transition: transform .2s ease; }
+.art { --c1: #888; --c2: #ccc; --lc: var(--c1); --lc2: var(--c2); --bd: var(--c1); --bdink: #fff; --pb: var(--c2);
+  position: relative; display: grid; place-items: center; width: 100%; aspect-ratio: 16 / 9; overflow: hidden; isolation: isolate;
+  border-radius: calc(var(--card) * .45 * var(--round)); font-size: calc(var(--card) * .088);
+  background: radial-gradient(90% 120% at 0% 0%, color-mix(in srgb, var(--c1) 26%, transparent), transparent 62%), var(--surface);
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,.07); transition: box-shadow .2s ease; }
+:root[data-tilebg="tint"] .art {
+  background:
+    radial-gradient(80% 130% at 100% 100%, color-mix(in srgb, var(--c2) 55%, transparent), transparent 58%),
+    radial-gradient(70% 100% at 0% 0%, rgba(255,255,255,.26), transparent 52%),
+    linear-gradient(135deg, var(--c1), color-mix(in srgb, var(--c1) 45%, #06061A));
+  --lc: #fff; --lc2: color-mix(in srgb, var(--c2) 30%, #fff); --bd: #fff; --bdink: var(--c1); --pb: color-mix(in srgb, var(--c1) 70%, #000); }
+:root[data-tilebg="light"] .art { background: linear-gradient(160deg, #FFFFFF, #E8EAF2); --lc: color-mix(in srgb, var(--c1) 72%, #000); --lc2: color-mix(in srgb, var(--c2) 62%, #000); --bd: color-mix(in srgb, var(--c1) 88%, #000); --pb: var(--c2); }
+.art::after { content: ""; position: absolute; inset: 0; z-index: 1; pointer-events: none; background: linear-gradient(115deg, transparent 35%, rgba(255,255,255,.18) 50%, transparent 65%); transform: translateX(-120%); }
+.card.focus .art::after { animation: sheen .9s ease .05s both; }
+@keyframes sheen { to { transform: translateX(120%); } }
+.card.focus { transform: scale(1.06); z-index: 2; }
+.card.focus .art { box-shadow: 0 0 0 3px var(--accent), 0 22px 50px -16px color-mix(in srgb, var(--c1) 90%, transparent); }
+.cap { display: grid; gap: 3px; min-width: 0; padding-inline: 2px; }
+.cap b { font-weight: 600; font-size: clamp(14px, .95vw, 17px); color: var(--fg-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; transition: color .15s; }
+.cap small { font-size: 13px; color: var(--fg-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-variant-numeric: tabular-nums; }
+.pbar { display: block; height: 3px; margin-top: 5px; border-radius: 2px; background: rgba(255,255,255,.12); overflow: hidden; }
+.pbar i { display: block; height: 100%; border-radius: inherit; background: var(--fg-3); }
+.card.focus .cap b { color: var(--fg); }
+.card.focus .pbar i { background: var(--fg); }
+:root[data-caps="off"] .cap { display: none; }
+.card.more .art { background: linear-gradient(135deg, color-mix(in srgb, var(--c1) 40%, var(--surface)), var(--surface)); }
+.more-in { display: grid; gap: .3em; text-align: center; }
+.more-in b { font-weight: 700; font-size: 1.6em; color: #fff; }
+.more-in small { font-size: .6em; color: rgba(255,255,255,.75); font-weight: 600; }
+
+/* ---------- Channels / search ---------- */
+.search-box { display: flex; align-items: center; gap: 14px; height: 60px; padding: 0 20px; border-radius: 16px; background: var(--surface); max-width: 720px; border: 2px solid transparent; transition: border-color .15s; }
+.search-box:has(.focus) { border-color: var(--accent); }
+.search-box .ic { color: var(--fg-3); }
+.search-box input { flex: 1; min-width: 0; height: 100%; background: none; border: 0; outline: none; color: var(--fg); font: inherit; font-size: 18px; }
+.search-box input::placeholder { color: var(--fg-3); }
+.results { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(300px, 100%), 1fr)); gap: 12px; padding-block: 26px; }
+.results h4 { grid-column: 1 / -1; font-size: 13px; text-transform: uppercase; letter-spacing: .14em; color: var(--fg-3); font-weight: 600; }
+.res { display: flex; align-items: center; gap: 16px; padding: 10px 16px 10px 10px; border-radius: 16px; background: var(--bg-2); min-width: 0; transition: background .15s; }
+.res .tile { --tile: 64px; }
+.res span:last-child { min-width: 0; display: grid; gap: 2px; }
+.res b { font-weight: 600; }
+.res small { color: var(--fg-3); font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.res.focus { background: var(--fg); color: var(--bg); }
+.res.focus small { color: color-mix(in srgb, var(--bg) 65%, transparent); }
+
+/* ---------- Guide ---------- */
+.guide { display: flex; flex-direction: column; overflow: hidden; padding-bottom: 0; }
+.guide .s-head { margin-bottom: 14px; }
+.g-detail { display: flex; gap: 22px; align-items: center; min-height: 148px; padding-bottom: 18px; }
+.g-detail .tile { --tile: 104px; }
+.g-detail > div { min-width: 0; display: grid; gap: 8px; }
+.g-detail h3 { font-family: var(--f-display); font-weight: 700; font-size: clamp(20px, 2vw, 30px); letter-spacing: -.02em; line-height: 1.1; text-wrap: balance; }
+.g-detail p { color: var(--fg-2); max-width: 70ch; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.g-hint { font-size: 13px; color: var(--fg-3); }
+.g-hint b { color: var(--accent); font-weight: 600; }
+.guide .chips { margin-bottom: 14px; }
+.g-scroll { flex: 1; min-height: 0; overflow: auto; position: relative; scroll-padding: 46px 40px 20px var(--chw, 220px); scrollbar-width: thin; scrollbar-color: var(--surface-2) transparent; margin-right: calc(-1 * var(--gr)); }
+.g-inner { position: relative; width: calc(var(--chw) + var(--gw) + 40px); padding-bottom: 30px; }
+.g-ruler { position: sticky; top: 0; z-index: 4; display: flex; height: 40px; background: var(--bg); }
+.g-corner { position: sticky; left: 0; z-index: 5; width: var(--chw); flex: none; background: var(--bg); }
+.g-times { position: relative; width: var(--gw); flex: none; }
+.g-times span { position: absolute; top: 11px; font-size: 13px; color: var(--fg-3); font-variant-numeric: tabular-nums; padding-left: 6px; border-left: 1px solid var(--line); line-height: 18px; }
+.g-nowtag { position: absolute; top: 9px; transform: translateX(-50%); font-style: normal; font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: #fff; background: var(--live); padding: 2px 7px; border-radius: 6px; z-index: 2; }
+.g-row { display: flex; height: 66px; margin-bottom: 6px; }
+.g-ch { position: sticky; left: 0; z-index: 3; width: var(--chw); flex: none; display: flex; align-items: center; gap: 12px; background: var(--bg); padding-right: 14px; }
+.g-ch .tile { --tile: 54px; }
+.g-ch b { width: 22px; text-align: right; font-size: 13px; color: var(--fg-3); font-variant-numeric: tabular-nums; font-weight: 600; flex: none; }
+.g-ch .nm { font-weight: 600; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.g-track { position: relative; width: var(--gw); flex: none; }
+.prog { position: absolute; top: 0; bottom: 0; padding: 0 14px; border-radius: 12px; background: var(--surface); overflow: hidden; display: flex; flex-direction: column; justify-content: center; gap: 3px; transition: background .12s, color .12s; }
+.prog > span { position: relative; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.prog .pt { font-weight: 600; font-size: 14px; display: flex; align-items: center; gap: 6px; }
+.prog .pt .ic { width: 14px; height: 14px; color: var(--accent); }
+.prog .pm { font-size: 12px; color: var(--fg-3); font-variant-numeric: tabular-nums; }
+.prog.past { background: var(--bg-2); color: var(--fg-2); }
+.prog.now { background: var(--surface-2); }
+.prog .pf { position: absolute; inset: 0 auto 0 0; background: color-mix(in srgb, var(--fg) 7%, transparent); }
+.prog.focus { background: var(--fg); color: var(--bg); z-index: 1; }
+.prog.focus .pm { color: color-mix(in srgb, var(--bg) 65%, transparent); }
+.prog.focus .pf { background: color-mix(in srgb, var(--bg) 10%, transparent); }
+.prog.focus .pt .ic { color: var(--bg); }
+.now-line { position: absolute; top: 40px; bottom: 0; width: 2px; margin-left: -1px; background: var(--live); z-index: 2; pointer-events: none; }
+
+/* ---------- Settings ---------- */
+.set-wrap { max-width: 980px; display: grid; gap: 34px; }
+.set-group { display: grid; gap: 10px; }
+.set-group > h3 { font-size: 13px; text-transform: uppercase; letter-spacing: .14em; color: var(--fg-3); font-weight: 600; margin-bottom: 2px; }
+.set-row { display: flex; align-items: center; justify-content: space-between; gap: 14px 24px; padding: 16px 20px; background: var(--bg-2); border-radius: 16px; flex-wrap: wrap; }
+.set-row .lbl { min-width: 0; display: grid; gap: 2px; }
+.set-row .lbl b { font-weight: 600; }
+.set-row .lbl small { color: var(--fg-3); font-size: 14px; }
+.seg { display: flex; gap: 4px; flex-wrap: wrap; background: var(--surface); padding: 4px; border-radius: 12px; }
+.seg button { height: 38px; padding: 0 15px; border-radius: 9px; font-size: 14px; color: var(--fg-2); font-weight: 600; transition: background .15s, box-shadow .15s; }
+.seg button.on { background: var(--fg); color: var(--bg); }
+.seg button.focus { box-shadow: 0 0 0 3px var(--accent); }
+.swatches { display: flex; gap: 12px; flex-wrap: wrap; }
+.swatch { width: 36px; height: 36px; border-radius: 50%; background: var(--sw); transition: transform .15s; }
+.swatch.on { box-shadow: 0 0 0 3px var(--bg-2), 0 0 0 5px var(--fg); }
+.swatch.focus { transform: scale(1.18); box-shadow: 0 0 0 3px var(--bg-2), 0 0 0 5px var(--accent); }
+.toggle { width: 56px; height: 32px; flex: none; border-radius: 16px; background: var(--surface-2); position: relative; transition: background .2s, box-shadow .15s; }
+.toggle::after { content: ""; position: absolute; top: 4px; left: 4px; width: 24px; height: 24px; border-radius: 50%; background: var(--fg-2); transition: transform .2s, background .2s; }
+.toggle.on { background: var(--accent); }
+.toggle.on::after { transform: translateX(24px); background: var(--accent-ink); }
+.toggle.focus { box-shadow: 0 0 0 3px var(--bg-2), 0 0 0 5px var(--fg); }
+.pl-card { display: flex; align-items: center; gap: 16px; min-width: 0; }
+.pl-icon { width: 46px; height: 46px; border-radius: 12px; background: var(--surface-2); display: grid; place-items: center; color: var(--accent); flex: none; }
+
+/* ---------- Organizer ---------- */
+.org-screen { display: flex; flex-direction: column; overflow: hidden; padding-bottom: 0; }
+.org { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(320px, 440px) minmax(0, 1fr); gap: 28px; }
+.org-pane { min-height: 0; overflow-y: auto; padding: 4px 6px 60px 4px; scroll-padding: 60px 0; scrollbar-width: thin; scrollbar-color: var(--surface-2) transparent; }
+.org-group { font-size: 12px; text-transform: uppercase; letter-spacing: .14em; color: var(--fg-3); font-weight: 600; padding: 16px 8px 8px; }
+.org-group:first-child { padding-top: 0; }
+.org-list { display: grid; gap: 6px; }
+.org-item { display: flex; align-items: center; gap: 6px; padding: 5px; border-radius: 16px; background: var(--bg-2); margin-bottom: 6px; transition: box-shadow .15s; }
+.org-item.sel { box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--fg) 30%, transparent); }
+.org-item.off .org-main { opacity: .45; }
+.org-main { flex: 1; min-width: 0; display: flex; align-items: center; gap: 12px; padding: 8px 10px; border-radius: 12px; text-align: left; transition: background .12s, color .12s; }
+.org-main.focus { background: var(--fg); color: var(--bg); }
+.org-main.focus small { color: color-mix(in srgb, var(--bg) 65%, transparent); }
+.o-nm { flex: 1; min-width: 0; display: grid; gap: 2px; }
+.o-nm b { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.o-nm small { color: var(--fg-3); font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.org-btns { display: flex; gap: 2px; flex: none; }
+.ibtn { width: 38px; height: 38px; border-radius: 10px; display: grid; place-items: center; color: var(--fg-2); transition: background .12s, color .12s; }
+.ibtn .ic { width: 18px; height: 18px; }
+.ibtn.on { color: var(--accent); }
+.ibtn.off { color: var(--fg-3); }
+.ibtn[disabled] { opacity: .2; }
+.ibtn.focus { background: var(--accent); color: var(--accent-ink); }
+.ibtn.armed, .ibtn.armed.focus { background: var(--live); color: #fff; }
+.org-row { display: flex; align-items: center; gap: 14px; padding: 6px 6px 6px 10px; border-radius: 14px; background: var(--bg-2); }
+.o-num { width: 28px; flex: none; text-align: right; color: var(--fg-3); font-weight: 600; font-variant-numeric: tabular-nums; }
+.org-row .tile { --tile: 44px; }
+.pane-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px 20px; flex-wrap: wrap; margin-bottom: 16px; }
+.pane-head h3 { font-family: var(--f-display); font-weight: 700; font-size: 22px; letter-spacing: -.02em; margin-bottom: 4px; }
+.pick-list { display: grid; gap: 4px; max-height: 52vh; overflow-y: auto; padding: 2px; scroll-padding: 20px; }
+.pick { display: flex; align-items: center; gap: 14px; padding: 8px 12px; border-radius: 12px; width: 100%; transition: background .12s; }
+.pick .tile { --tile: 40px; }
+.pick .chk { width: 24px; height: 24px; flex: none; border-radius: 7px; border: 2px solid var(--fg-3); display: grid; place-items: center; }
+.pick .chk .ic { width: 16px; height: 16px; opacity: 0; }
+.pick.on .chk { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.pick.on .chk .ic { opacity: 1; }
+.pick.focus { background: var(--fg); color: var(--bg); }
+.pick.focus small { color: color-mix(in srgb, var(--bg) 65%, transparent); }
+.icopts { display: flex; gap: 8px; flex-wrap: wrap; }
+.icopt { width: 46px; height: 46px; border-radius: 12px; background: var(--surface); display: grid; place-items: center; transition: box-shadow .15s; }
+.icopt .txt-ic { font-size: 13px; }
+.icopt.on { background: var(--fg); color: var(--bg); }
+.icopt.focus { box-shadow: 0 0 0 3px var(--accent); }
+.dialog .set-row { padding: 12px 16px; }
+
+/* ---------- Player ---------- */
+#player { position: fixed; inset: 0; z-index: 50; background: #000; overflow: hidden; touch-action: none; user-select: none; -webkit-user-select: none;
+  --pl: max(48px, env(safe-area-inset-left, 0px)); --pr: max(48px, env(safe-area-inset-right, 0px)); }
+.stage { position: absolute; inset: 0; display: grid; place-items: center; background: #000; }
+#video { width: 100%; height: 100%; object-fit: contain; display: block; }
+#video.ar-fill { object-fit: fill; }
+#video.ar-zoom { object-fit: cover; }
+#video.ar-43 { width: auto; max-width: 100%; aspect-ratio: 4 / 3; object-fit: fill; }
+.dog { position: absolute; top: max(30px, env(safe-area-inset-top, 0px)); right: max(40px, env(safe-area-inset-right, 0px)); font-size: 15px; opacity: .55; transition: opacity .3s;
+  --lc: rgba(255,255,255,.9); --lc2: rgba(255,255,255,.9); --bd: rgba(255,255,255,.9); --bdink: #000; --pb: #000; }
+.dog .lg { max-width: none; }
+.demo-tag { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); font-family: var(--f-display); font-size: clamp(12px, 1.2vw, 16px); letter-spacing: .3em; text-transform: uppercase; color: rgba(255,255,255,.22); white-space: nowrap; }
+#player.osd-on .dog { opacity: 0; }
+.subs { position: absolute; left: 50%; bottom: 10%; transform: translateX(-50%); max-width: 80%; text-align: center; font-size: clamp(16px, 2.1vw, 30px); font-weight: 500; background: rgba(0,0,0,.62); padding: 4px 14px; border-radius: 6px; transition: bottom .25s; }
+#player.osd-on .subs { bottom: max(36%, 300px); }
+.pause-ico { position: absolute; inset: 0; display: grid; place-items: center; pointer-events: none; opacity: 0; transition: opacity .2s; }
+.pause-ico span { width: 96px; height: 96px; border-radius: 50%; display: grid; place-items: center; background: rgba(0,0,0,.45); }
+.pause-ico .ic { width: 44px; height: 44px; }
+#player.paused:not(.osd-on) .pause-ico { opacity: 1; }
+.osd { position: absolute; inset: 0; display: flex; flex-direction: column; justify-content: space-between; opacity: 0; pointer-events: none; transition: opacity .25s; }
+.osd::before { content: ""; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(0,0,0,.75), transparent 24%, transparent 46%, rgba(0,0,0,.9)); }
+#player.osd-on .osd { opacity: 1; pointer-events: auto; }
+.osd-top { position: relative; display: flex; justify-content: space-between; align-items: center; gap: 16px; padding: max(26px, env(safe-area-inset-top, 0px)) var(--pr) 0 var(--pl); }
+.osd-ch { display: flex; align-items: center; gap: 16px; min-width: 0; }
+.osd-ch .tile { --tile: 58px; }
+.osd-chname { font-weight: 600; font-size: 17px; white-space: nowrap; }
+.osd-clock { font-family: var(--f-display); font-weight: 500; font-size: 26px; font-variant-numeric: tabular-nums; }
+.osd-bottom { position: relative; display: grid; gap: 12px; padding: 0 var(--pr) max(30px, env(safe-area-inset-bottom, 0px)) var(--pl); }
+.osd-meta { display: flex; flex-wrap: wrap; gap: 4px 16px; color: var(--fg-2); font-size: 15px; font-variant-numeric: tabular-nums; }
+.osd-title { font-family: var(--f-display); font-weight: 700; font-size: clamp(22px, 3vw, 44px); letter-spacing: -.025em; line-height: 1.08; text-wrap: balance; }
+.seek { position: relative; height: 30px; display: flex; align-items: center; margin-top: 4px; cursor: pointer; }
+.track { position: relative; width: 100%; height: 6px; border-radius: 3px; background: rgba(255,255,255,.18); transition: height .15s; }
+.track i { position: absolute; left: 0; top: 0; bottom: 0; border-radius: inherit; }
+.track .buf { background: rgba(255,255,255,.32); }
+.track .played { background: var(--fg); }
+.track .head { width: 16px; height: 16px; top: 50%; border-radius: 50%; background: var(--fg); transform: translate(-50%, -50%); transition: width .15s, height .15s; }
+.seek.focus .track { height: 8px; }
+.seek.focus .played, .seek.focus .head { background: var(--accent); }
+.seek.focus .head { width: 24px; height: 24px; box-shadow: 0 0 0 6px color-mix(in srgb, var(--accent) 30%, transparent); }
+.seek-labels { display: flex; justify-content: space-between; gap: 12px; font-size: 13px; color: var(--fg-2); font-variant-numeric: tabular-nums; margin-top: -6px; }
+.seek-labels #sPos { color: var(--fg); font-weight: 600; }
+.ctrls { display: flex; justify-content: space-between; align-items: center; gap: 12px 24px; flex-wrap: wrap; margin-top: 4px; }
+.cgroup { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.cbtn { position: relative; width: 52px; height: 52px; border-radius: 50%; display: grid; place-items: center; background: rgba(255,255,255,.1); transition: transform .15s, background .15s, color .15s; }
+.cbtn.big { width: 64px; height: 64px; background: var(--fg); color: var(--bg); }
+.cbtn.big .ic { width: 28px; height: 28px; }
+.cbtn.pill { width: auto; padding: 0 18px; border-radius: 26px; display: flex; gap: 8px; font-weight: 700; font-size: 13px; letter-spacing: .1em; text-transform: uppercase; }
+.cbtn.pill .dot { animation: none; background: var(--fg-3); }
+.cbtn.pill.is-live .dot { background: var(--live); animation: pulse 1.8s infinite; }
+.cbtn.fav-on .ic { color: var(--live); }
+.cbtn.focus { background: var(--accent); color: var(--accent-ink); transform: scale(1.08); }
+.cbtn.focus .ic { color: currentColor; }
+.cbtn .tip { position: absolute; top: calc(100% + 8px); left: 50%; transform: translateX(-50%); font-size: 12px; font-weight: 600; letter-spacing: 0; text-transform: none; white-space: nowrap; color: var(--fg); opacity: 0; transition: opacity .15s; pointer-events: none; }
+.cbtn.focus .tip { opacity: 1; }
+.osd-next { font-size: 14px; color: var(--fg-3); margin-top: 24px; }
+.osd-next b { color: var(--fg-2); font-weight: 600; margin-right: 6px; font-variant-numeric: tabular-nums; }
+.banner { position: absolute; left: var(--pl); top: max(28px, env(safe-area-inset-top, 0px)); display: flex; gap: 18px; align-items: center; padding: 14px 24px 14px 14px; max-width: min(620px, calc(100% - 32px));
+  background: color-mix(in srgb, var(--bg) 84%, transparent); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); border-radius: 22px;
+  opacity: 0; transform: translateY(-10px); transition: opacity .25s, transform .25s; pointer-events: none; }
+.banner.on { opacity: 1; transform: none; }
+.banner .tile { --tile: 84px; }
+.bn { font-family: var(--f-display); font-weight: 700; font-size: 36px; font-variant-numeric: tabular-nums; min-width: 1.4em; text-align: center; }
+.bi { min-width: 0; display: grid; gap: 6px; }
+.bname { font-size: 13px; color: var(--fg-2); font-weight: 600; letter-spacing: .04em; }
+.btitle { font-weight: 700; font-size: 20px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bnext { font-size: 13px; color: var(--fg-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bnext b { color: var(--fg-2); font-variant-numeric: tabular-nums; margin-right: 4px; }
+.banner .bar { width: 100%; height: 3px; }
+.p-hint { position: absolute; left: 50%; bottom: max(28px, env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); font-size: 14px; color: var(--fg-2); background: rgba(0,0,0,.55); padding: 8px 16px; border-radius: 999px; white-space: nowrap; opacity: 0; transition: opacity .3s; pointer-events: none; }
+.p-hint.on { opacity: 1; }
+.p-hint .touch-only { display: none; }
+body.touch .p-hint .key-only { display: none; }
+body.touch .p-hint .touch-only { display: inline; }
+.panel { position: absolute; top: 0; bottom: 0; width: min(440px, 92vw); z-index: 6; display: flex; flex-direction: column; gap: 14px;
+  background: color-mix(in srgb, var(--bg) 93%, transparent); backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px);
+  padding-block: max(26px, env(safe-area-inset-top, 0px)) max(20px, env(safe-area-inset-bottom, 0px));
+  transition: transform .3s ease; touch-action: pan-y; }
+.panel.left { left: 0; transform: translateX(-104%); padding-left: max(20px, env(safe-area-inset-left, 0px)); padding-right: 14px; box-shadow: 30px 0 80px rgba(0,0,0,.5); }
+.panel.right { right: 0; transform: translateX(104%); padding-right: max(20px, env(safe-area-inset-right, 0px)); padding-left: 14px; box-shadow: -30px 0 80px rgba(0,0,0,.5); }
+.panel.on { transform: none; }
+.panel-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; padding: 0 10px; }
+.panel-head h3 { font-family: var(--f-display); font-weight: 700; font-size: 22px; letter-spacing: -.02em; }
+.panel-head span { color: var(--fg-3); font-size: 14px; }
+.plist { flex: 1; overflow-y: auto; display: grid; gap: 4px; align-content: start; padding: 4px 6px 30px 4px; scrollbar-width: none; }
+.plist::-webkit-scrollbar { display: none; }
+.pitem { display: grid; grid-template-columns: 26px auto minmax(0, 1fr); gap: 14px; align-items: center; padding: 8px 12px 8px 6px; border-radius: 14px; transition: background .12s; }
+.pitem .tile { --tile: 50px; }
+.pitem .pnum { text-align: right; font-size: 14px; color: var(--fg-3); font-weight: 600; font-variant-numeric: tabular-nums; }
+.pitem.cur .pnum { color: var(--accent); }
+.pitem .pinfo { min-width: 0; display: grid; gap: 3px; }
+.pitem .pinfo b { font-weight: 600; font-size: 15px; }
+.pitem .pinfo small { font-size: 13px; color: var(--fg-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pitem .bar { height: 3px; width: 100%; }
+.pitem.focus { background: var(--fg); color: var(--bg); }
+.pitem.focus .pinfo small, .pitem.focus .pnum { color: color-mix(in srgb, var(--bg) 65%, transparent); }
+.pitem.focus .bar { background: color-mix(in srgb, var(--bg) 18%, transparent); }
+.pitem.focus .bar i { background: var(--bg); }
+.sheet-sec { font-size: 12px; text-transform: uppercase; letter-spacing: .14em; color: var(--fg-3); font-weight: 600; padding: 14px 12px 4px; }
+.opt { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 12px 14px; border-radius: 12px; width: 100%; transition: background .12s; }
+.opt small { display: block; color: var(--fg-3); font-size: 13px; }
+.opt .ic { width: 20px; height: 20px; color: var(--accent); opacity: 0; }
+.opt.on .ic { opacity: 1; }
+.opt.focus { background: var(--fg); color: var(--bg); }
+.opt.focus small { color: color-mix(in srgb, var(--bg) 65%, transparent); }
+.opt.focus .ic { color: var(--bg); }
+.pr { display: grid; grid-template-columns: 52px minmax(0, 1fr) auto; gap: 12px; align-items: center; padding: 11px 14px; border-radius: 12px; transition: background .12s; }
+.pr-time { font-variant-numeric: tabular-nums; font-weight: 600; color: var(--fg-2); }
+.pr-t { min-width: 0; display: grid; gap: 2px; }
+.pr-t b { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pr-t small { color: var(--fg-3); font-size: 13px; }
+.pr-st { display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--fg-3); }
+.pr-st .ic { width: 16px; height: 16px; }
+.pr.now .pr-st { color: var(--live); }
+.pr.past .pr-st { color: var(--accent); }
+.pr.past .pr-t b { color: var(--fg-2); }
+.pr.focus { background: var(--fg); color: var(--bg); }
+.pr.focus .pr-time, .pr.focus .pr-t small, .pr.focus .pr-st { color: color-mix(in srgb, var(--bg) 75%, transparent); }
+.pr.focus .pr-t b { color: var(--bg); }
+
+/* ---------- Overlays ---------- */
+#numEntry { position: fixed; z-index: 90; top: max(28px, env(safe-area-inset-top, 0px)); right: max(48px, env(safe-area-inset-right, 0px)); font-family: var(--f-display); font-weight: 800; font-size: 56px; font-variant-numeric: tabular-nums; padding: 6px 24px; border-radius: 18px; background: color-mix(in srgb, var(--bg) 85%, transparent); box-shadow: 0 0 0 2px var(--accent); }
+#modal { position: fixed; inset: 0; z-index: 80; display: grid; place-items: center; background: color-mix(in srgb, var(--bg) 72%, transparent); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+  padding-block: 16px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+.dialog { width: min(620px, 100%); max-height: 100%; overflow: auto; background: var(--bg-2); border: 1px solid var(--line); border-radius: 26px; padding: clamp(20px, 3vw, 32px); display: grid; gap: 18px; }
+.dialog h2 { font-family: var(--f-display); font-weight: 700; font-size: 26px; letter-spacing: -.02em; }
+.field { display: grid; gap: 8px; }
+.field > label, .field > .flabel { font-size: 13px; color: var(--fg-2); font-weight: 600; }
+.field input { height: 50px; border-radius: 12px; background: var(--surface); border: 2px solid var(--line); color: var(--fg); padding: 0 14px; font: inherit; outline: none; min-width: 0; }
+.field input.focus { border-color: var(--accent); }
+.help-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(240px, 100%), 1fr)); gap: 22px; }
+.help-grid h4 { font-size: 13px; text-transform: uppercase; letter-spacing: .14em; color: var(--fg-3); margin-bottom: 10px; font-weight: 600; }
+.help-grid dl { margin: 0; display: grid; grid-template-columns: auto 1fr; gap: 8px 14px; font-size: 15px; }
+.help-grid dt { font-weight: 700; white-space: nowrap; }
+.help-grid dd { margin: 0; color: var(--fg-2); }
+#toast { position: fixed; z-index: 95; left: 50%; bottom: max(40px, calc(env(safe-area-inset-bottom, 0px) + 24px)); transform: translate(-50%, 20px); max-width: calc(100% - 32px); background: var(--fg); color: var(--bg); font-weight: 600; padding: 12px 20px; border-radius: 14px; opacity: 0; transition: opacity .25s, transform .25s; pointer-events: none; text-align: center; }
+#toast.on { opacity: 1; transform: translate(-50%, 0); }
+
+/* ---------- Liquid glass look ---------- */
+:root[data-look="glass"] {
+  --bg: #1A2232;
+  --bg-2: rgba(255,255,255,.07);
+  --surface: rgba(255,255,255,.12);
+  --surface-2: rgba(255,255,255,.18);
+  --line: rgba(255,255,255,.16);
+  --fg-2: #D7DCE6;
+  --fg-3: #A0A9BA;
+}
+@media (min-width: 761px) {
+  :root[data-look="glass"] #app { margin: 22px; height: calc(100% - 44px); border-radius: 36px; overflow: hidden;
+    background: linear-gradient(160deg, rgba(255,255,255,.17), rgba(255,255,255,.05));
+    backdrop-filter: blur(44px) saturate(160%); -webkit-backdrop-filter: blur(44px) saturate(160%);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.38), inset 0 0 0 1px rgba(255,255,255,.14), 0 40px 120px rgba(0,0,0,.45); }
+}
+:root[data-look="glass"] .topnav { background: rgba(10,14,24,.32); }
+:root[data-look="glass"] .nav-item.focus { box-shadow: 0 0 0 2px rgba(255,255,255,.95); }
+:root[data-look="glass"] .pill { background: rgba(255,255,255,.14); box-shadow: inset 0 1px 0 rgba(255,255,255,.32), inset 0 0 0 1px rgba(255,255,255,.12); }
+:root[data-look="glass"] .pill.focus { background: rgba(255,255,255,.96); }
+:root[data-look="glass"] .bcard { box-shadow: inset 0 1px 0 rgba(255,255,255,.4), inset 0 0 0 1px rgba(255,255,255,.14), 0 20px 50px -24px rgba(0,0,0,.6); }
+:root[data-look="glass"] .bcard.focus { box-shadow: inset 0 1px 0 rgba(255,255,255,.5), 0 0 0 3px var(--accent), 0 30px 70px -24px var(--c1); }
+:root[data-look="glass"] .art { box-shadow: inset 0 1px 0 rgba(255,255,255,.38), inset 0 0 0 1px rgba(255,255,255,.14), 0 14px 34px -18px rgba(0,0,0,.6); }
+:root[data-look="glass"][data-tilebg="dark"] .art { background: linear-gradient(150deg, rgba(255,255,255,.22), rgba(255,255,255,.06) 62%); }
+:root[data-look="glass"] .card.focus .art { box-shadow: inset 0 1px 0 rgba(255,255,255,.55), 0 0 0 3px var(--accent), 0 24px 56px -16px color-mix(in srgb, var(--c1) 90%, transparent); }
+:root[data-look="glass"] .pbar { background: rgba(255,255,255,.2); }
+:root[data-look="glass"] .tile { background: linear-gradient(150deg, rgba(255,255,255,.18), rgba(255,255,255,.05) 62%); box-shadow: inset 0 1px 0 var(--glass-hi), inset 0 0 0 1px var(--glass-line); }
+:root[data-look="glass"][data-tilebg="tint"] .tile { background: linear-gradient(150deg, color-mix(in srgb, var(--c1) 70%, transparent), color-mix(in srgb, var(--c1) 22%, transparent)); }
+:root[data-look="glass"][data-tilebg="light"] .tile { background: linear-gradient(150deg, rgba(255,255,255,.94), rgba(255,255,255,.74)); }
+:root[data-look="glass"] .t-num { color: rgba(255,255,255,.6); }
+:root[data-look="glass"][data-tilebg="light"] .t-num { color: #8B91A1; }
+:root[data-look="glass"] .btn:not(.primary):not(.focus), :root[data-look="glass"] .chip:not(.on), :root[data-look="glass"] .seg, :root[data-look="glass"] .search-box, :root[data-look="glass"] .icopt:not(.on) { box-shadow: inset 0 1px 0 rgba(255,255,255,.22), inset 0 0 0 1px rgba(255,255,255,.1); }
+:root[data-look="glass"] .set-row, :root[data-look="glass"] .res, :root[data-look="glass"] .org-item, :root[data-look="glass"] .org-row, :root[data-look="glass"] .preview { box-shadow: inset 0 1px 0 rgba(255,255,255,.14), inset 0 0 0 1px rgba(255,255,255,.08); }
+:root[data-look="glass"] .org-item.sel { box-shadow: inset 0 0 0 2px rgba(255,255,255,.5); }
+:root[data-look="glass"] .g-ruler, :root[data-look="glass"] .g-corner, :root[data-look="glass"] .g-ch { background: rgba(34,44,62,.86); }
+:root[data-look="glass"] .dialog { background: rgba(30,38,54,.66); backdrop-filter: blur(34px) saturate(170%); -webkit-backdrop-filter: blur(34px) saturate(170%); border-color: var(--glass-line); box-shadow: inset 0 1px 0 var(--glass-hi); }
+:root[data-look="glass"] .res.focus, :root[data-look="glass"] .prog.focus, :root[data-look="glass"] .org-main.focus, :root[data-look="glass"] .pick.focus { background: rgba(255,255,255,.94); color: #1A2232; }
+
+body.touch .focus:not(input) { box-shadow: none; transform: none; }
+body.touch .tile.focus, body.touch .card.focus .art { box-shadow: inset 0 0 0 1px rgba(255,255,255,.08); }
+body.touch .card.focus { transform: none; }
+body.touch .cbtn .tip { display: none; }
+.preview { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(200px, 100%), 1fr)); gap: 16px; padding: 20px; border-radius: 16px; background: var(--bg-2); }
+.preview .card { --card: 220px; width: 100%; }
+
+/* ---------- Phone ---------- */
+@media (max-width: 760px) {
+  .topbar { grid-template-columns: 1fr auto; padding-top: 16px; padding-bottom: 4px; }
+  .topnav { position: fixed; left: 0; right: 0; bottom: 0; z-index: 30; border-radius: 0; justify-content: space-around;
+    padding: 6px max(8px, env(safe-area-inset-right, 0px)) calc(6px + env(safe-area-inset-bottom, 0px)) max(8px, env(safe-area-inset-left, 0px));
+    background: rgba(14,14,30,.88); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); box-shadow: inset 0 1px 0 rgba(255,255,255,.08); }
+  :root[data-look="glass"] .topnav { background: rgba(26,34,50,.72); }
+  .nav-item, .nav-item.icon-only { flex: 1; width: auto; height: auto; flex-direction: column; gap: 3px; padding: 6px 4px; font-size: 11px; border-radius: 12px; color: var(--fg-3); }
+  .nav-item.icon-only span { display: inline; }
+  .nav-item.active, .nav-item.active.focus { background: none; color: var(--fg); }
+  .nav-item.focus { box-shadow: none; background: none; }
+  .top-clock { font-size: 16px; }
+  .round-btn { width: 40px; height: 40px; }
+  main { padding-bottom: calc(66px + env(safe-area-inset-bottom, 0px)); }
+  .pad { padding-block: 20px 40px; }
+  .home { padding-block: 4px 30px; }
+  .bcard { width: 86%; height: 210px; border-radius: 22px; padding: 18px; }
+  .b-txt { max-width: 72%; gap: 6px; }
+  .b-art { font-size: 24px; padding-right: 4%; }
+  .b-meta { font-size: 13px; }
+  .pill { height: 48px; padding: 0 18px 0 14px; font-size: 15px; border-radius: 14px; }
+  .sec { margin-top: 16px; padding-top: 22px; }
+  .guide .chips, #chChips { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; margin-right: calc(-1 * var(--gr)); padding-right: var(--gr); }
+  .g-detail { min-height: 0; gap: 14px; align-items: flex-start; }
+  .g-detail .tile { --tile: 64px; }
+  .g-detail p { font-size: 14px; }
+  .g-ch .nm, .g-ch b { display: none; }
+  .g-ch .tile { --tile: 48px; }
+  .org-screen { display: block; overflow-y: auto; padding-bottom: 40px; }
+  .org { display: block; }
+  .org-pane { overflow: visible; padding-bottom: 20px; }
+  #player { --pl: max(16px, env(safe-area-inset-left, 0px)); --pr: max(16px, env(safe-area-inset-right, 0px)); }
+  .cbtn { width: 44px; height: 44px; }
+  .cbtn.big { width: 54px; height: 54px; }
+  .cgroup { gap: 6px; }
+  .osd-clock { font-size: 18px; }
+  .banner .tile { --tile: 60px; }
+  .bn { font-size: 26px; }
+  .btitle { font-size: 16px; }
+  .p-hint { white-space: normal; text-align: center; width: max-content; max-width: calc(100% - 32px); }
+  #player.osd-on .subs { bottom: 45%; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+}
+</style>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <symbol id="i-home" viewBox="0 0 24 24"><path d="M3.5 10.2 12 3.5l8.5 6.7V19a1.5 1.5 0 0 1-1.5 1.5h-4.2v-6h-5.6v6H5A1.5 1.5 0 0 1 3.5 19z" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round"/></symbol>
+    <symbol id="i-grid" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.9"><rect x="3.5" y="3.5" width="7" height="7" rx="2.2"/><rect x="13.5" y="3.5" width="7" height="7" rx="2.2"/><rect x="3.5" y="13.5" width="7" height="7" rx="2.2"/><rect x="13.5" y="13.5" width="7" height="7" rx="2.2"/></g></symbol>
+    <symbol id="i-guide" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><rect x="3" y="4.5" width="18" height="16" rx="3"/><path d="M3 9.5h18M8 2.8v3.4M16 2.8v3.4M7 13.5h4M13 13.5h4M7 17h7"/></g></symbol>
+    <symbol id="i-search" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><circle cx="11" cy="11" r="6.5"/><path d="m16 16 4.5 4.5"/></g></symbol>
+    <symbol id="i-settings" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M4 7h9M17.4 7H20M4 17h2.6M11.4 17H20"/><circle cx="15.2" cy="7" r="2.2"/><circle cx="9" cy="17" r="2.2"/></g></symbol>
+    <symbol id="i-play" viewBox="0 0 24 24"><path d="M8 5.2v13.6a.8.8 0 0 0 1.2.7l10.6-6.8a.8.8 0 0 0 0-1.4L9.2 4.5A.8.8 0 0 0 8 5.2z" fill="currentColor"/></symbol>
+    <symbol id="i-pause" viewBox="0 0 24 24"><g fill="currentColor"><rect x="6" y="4.5" width="4.2" height="15" rx="1.2"/><rect x="13.8" y="4.5" width="4.2" height="15" rx="1.2"/></g></symbol>
+    <symbol id="i-rew" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 12a7.5 7.5 0 1 0 2.2-5.3"/><path d="M4.5 3.8v3.4h3.4"/></g><text x="12.4" y="15.1" font-size="7.2" font-weight="700" text-anchor="middle" fill="currentColor" font-family="system-ui, sans-serif">30</text></symbol>
+    <symbol id="i-ff" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M19.5 12a7.5 7.5 0 1 1-2.2-5.3"/><path d="M19.5 3.8v3.4h-3.4"/></g><text x="11.6" y="15.1" font-size="7.2" font-weight="700" text-anchor="middle" fill="currentColor" font-family="system-ui, sans-serif">30</text></symbol>
+    <symbol id="i-restart" viewBox="0 0 24 24"><path d="M6 5v14" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/><path d="M18.5 5.6v12.8a.7.7 0 0 1-1.1.6L9 12.6a.7.7 0 0 1 0-1.2l8.4-6.4a.7.7 0 0 1 1.1.6z" fill="currentColor"/></symbol>
+    <symbol id="i-list" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M9 6.5h11M9 12h11M9 17.5h11"/></g><g fill="currentColor"><circle cx="4.8" cy="6.5" r="1.3"/><circle cx="4.8" cy="12" r="1.3"/><circle cx="4.8" cy="17.5" r="1.3"/></g></symbol>
+    <symbol id="i-audio" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round" stroke-linecap="round"><path d="M4 5.5A1.5 1.5 0 0 1 5.5 4h13A1.5 1.5 0 0 1 20 5.5v9a1.5 1.5 0 0 1-1.5 1.5H10l-4.5 4v-4A1.5 1.5 0 0 1 4 14.5z"/><path d="M8 8.8h4.5M15 8.8h1.5M8 12h2M12.5 12h4"/></g></symbol>
+    <symbol id="i-heart" viewBox="0 0 24 24"><path d="M12 20s-7.5-4.6-7.5-10.2A4.3 4.3 0 0 1 12 7a4.3 4.3 0 0 1 7.5 2.8C19.5 15.4 12 20 12 20z" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round"/></symbol>
+    <symbol id="i-heart-f" viewBox="0 0 24 24"><path d="M12 20s-7.5-4.6-7.5-10.2A4.3 4.3 0 0 1 12 7a4.3 4.3 0 0 1 7.5 2.8C19.5 15.4 12 20 12 20z" fill="currentColor" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round"/></symbol>
+    <symbol id="i-up" viewBox="0 0 24 24"><path d="m6 14.5 6-6 6 6" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-down" viewBox="0 0 24 24"><path d="m6 9.5 6 6 6-6" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-back" viewBox="0 0 24 24"><path d="M19 12H5m6-6.5L4.5 12l6.5 6.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-bell" viewBox="0 0 24 24"><path d="M6.5 16.5v-5a5.5 5.5 0 0 1 11 0v5l1.5 1.5H5zM10 20.5h4" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round" stroke-linecap="round"/></symbol>
+    <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12.5 4.5 4.5L19 7.5" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="i-x" viewBox="0 0 24 24"><path d="M6.5 6.5l11 11M17.5 6.5l-11 11" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+    <symbol id="i-hist" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 12a7.5 7.5 0 1 0 2.2-5.3"/><path d="M4.5 3.8v3.4h3.4M12 8.5V12l2.5 1.8"/></g></symbol>
+    <symbol id="i-link" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/></g></symbol>
+    <symbol id="i-film" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><rect x="3" y="5" width="18" height="14" rx="2.5"/><path d="M7.5 5v14M16.5 5v14M3 9.7h4.5M3 14.3h4.5M16.5 9.7H21M16.5 14.3H21"/></g></symbol>
+    <symbol id="i-ball" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><path d="m12 8 3.3 2.4-1.3 3.9h-4l-1.3-3.9zM12 3.5V8M15.3 10.4l4.5-1.5M14 14.3l2.7 3.8M10 14.3l-2.7 3.8M8.7 10.4 4.2 8.9"/></g></symbol>
+    <symbol id="i-news" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21M8.5 21h7"/></g></symbol>
+    <symbol id="i-kids" viewBox="0 0 24 24"><path d="m12 3.5 2.6 5.3 5.8.8-4.2 4.1 1 5.8L12 16.8l-5.2 2.7 1-5.8-4.2-4.1 5.8-.8z" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round"/></symbol>
+    <symbol id="i-globe" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.9"><circle cx="12" cy="12" r="8.5"/><path d="M3.5 12h17M12 3.5c2.5 2.6 3.5 5.4 3.5 8.5s-1 5.9-3.5 8.5c-2.5-2.6-3.5-5.4-3.5-8.5s1-5.9 3.5-8.5z"/></g></symbol>
+    <symbol id="i-note" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round"><path d="M9 18V5.5l10-2V16"/><circle cx="6.5" cy="18" r="2.5"/><circle cx="16.5" cy="16" r="2.5"/></g></symbol>
+    <symbol id="i-cup" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9h13v5a5 5 0 0 1-5 5H9a5 5 0 0 1-5-5zM17 10.5h1.5a2.5 2.5 0 0 1 0 5H17M8 3.5V6M12.5 3.5V6"/></g></symbol>
+    <symbol id="i-eye" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.9"><path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z"/><circle cx="12" cy="12" r="3"/></g></symbol>
+    <symbol id="i-eye-off" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z"/><circle cx="12" cy="12" r="3"/><path d="M4 4l16 16"/></g></symbol>
+    <symbol id="i-pin" viewBox="0 0 24 24"><path d="M9 3.5h6l-1 6 3.5 3.5v1.5h-11V13L10 9.5zM12 14.5V21" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round" stroke-linecap="round"/></symbol>
+    <symbol id="i-pencil" viewBox="0 0 24 24"><path d="M4 20l1-4.5L15.5 5a2.1 2.1 0 0 1 3 3L8 18.5zM13.5 7l3 3" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round" stroke-linecap="round"/></symbol>
+    <symbol id="i-trash" viewBox="0 0 24 24"><path d="M4.5 7h15M10 11v6M14 11v6M6 7l1 12.5h10L18 7M9 7V4.5h6V7" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round" stroke-linecap="round"/></symbol>
+    <symbol id="i-sparkle" viewBox="0 0 24 24"><path d="M12 3.5 13.8 10.2 20.5 12l-6.7 1.8L12 20.5l-1.8-6.7L3.5 12l6.7-1.8z" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round"/></symbol>
+  </defs>
+</svg>
+
+<div id="ambient" aria-hidden="true"><i class="a1"></i><i class="a2"></i><i class="a3"></i></div>
+<canvas id="waves" width="960" height="540" aria-hidden="true"></canvas>
+<div class="probes" aria-hidden="true"><span id="probeTile" class="tile"></span><span id="probeCard" class="card"></span><span id="probeGap"></span></div>
+
+<div id="app">
+  <header class="topbar">
+    <div class="brand"><span class="brand-mark">V</span><span class="brand-word">vysielač</span></div>
+    <nav class="topnav" id="topnav" aria-label="Hlavné menu">
+      <button class="nav-item f" data-act="screen" data-screen="home" data-group="nav"><svg class="ic"><use href="#i-home"/></svg><span>Domov</span></button>
+      <button class="nav-item f" data-act="screen" data-screen="channels" data-group="nav"><svg class="ic"><use href="#i-grid"/></svg><span>Kanály</span></button>
+      <button class="nav-item f" data-act="screen" data-screen="guide" data-group="nav"><svg class="ic"><use href="#i-guide"/></svg><span>Program</span></button>
+      <button class="nav-item icon-only f" data-act="screen" data-screen="search" data-group="nav" aria-label="Hľadať"><svg class="ic"><use href="#i-search"/></svg><span>Hľadať</span></button>
+      <button class="nav-item icon-only f" data-act="screen" data-screen="settings" data-group="nav" aria-label="Nastavenia"><svg class="ic"><use href="#i-settings"/></svg><span>Nastavenia</span></button>
+    </nav>
+    <div class="top-right">
+      <button class="round-btn f" data-act="look" data-group="nav" title="Prepnúť vzhľad" aria-label="Prepnúť vzhľad"><svg class="ic"><use href="#i-sparkle"/></svg></button>
+      <div class="top-clock" id="hClock"></div>
+    </div>
+  </header>
+
+  <main>
+    <section class="screen home" id="s-home" data-screen="home">
+      <div class="sec-head hero-head" id="heroHead"></div>
+      <div class="hscroll hero" id="hero"></div>
+      <div class="hscroll pills" id="pills"></div>
+      <div id="sections"></div>
+    </section>
+
+    <section class="screen pad" id="s-cat" data-screen="cat" hidden>
+      <div class="s-head">
+        <div class="cat-title"><span class="sec-ic big" id="catIc"></span><div><h2 class="s-title" id="catName"></h2><span class="s-sub" id="catCount"></span></div></div>
+        <div class="actions" id="catActions"></div>
+      </div>
+      <div class="cgrid" id="catGrid"></div>
+    </section>
+
+    <section class="screen pad" id="s-channels" data-screen="channels" hidden>
+      <div class="s-head"><h2 class="s-title">Kanály</h2><span class="s-sub" id="chCount"></span></div>
+      <div class="chips" id="chChips"></div>
+      <div class="cgrid" id="chGrid"></div>
+    </section>
+
+    <section class="screen pad guide" id="s-guide" data-screen="guide" hidden>
+      <div class="s-head"><h2 class="s-title">TV program</h2><span class="s-sub" id="gDate"></span></div>
+      <div class="g-detail" id="gDetail"></div>
+      <div class="chips" id="gChips"></div>
+      <div class="g-scroll" id="gScroll"></div>
+    </section>
+
+    <section class="screen pad" id="s-search" data-screen="search" hidden>
+      <div class="s-head"><h2 class="s-title">Hľadať</h2></div>
+      <label class="search-box"><svg class="ic"><use href="#i-search"/></svg><input id="q" class="f" data-group="main" type="search" placeholder="Kanál alebo relácia" autocomplete="off" aria-label="Hľadať kanál alebo reláciu"></label>
+      <div class="results" id="results"></div>
+    </section>
+
+    <section class="screen pad" id="s-settings" data-screen="settings" hidden>
+      <div class="s-head"><h2 class="s-title">Nastavenia</h2><span class="s-sub">Zmeny vidíš hneď</span></div>
+      <div class="set-wrap" id="settings"></div>
+    </section>
+
+    <section class="screen pad org-screen" id="s-organize" data-screen="organize" hidden>
+      <div class="s-head">
+        <div><h2 class="s-title">Sekcie a kanály</h2><p class="muted">Vyber sekciu vľavo, jej kanály upravíš vpravo. Šípky ↑ ↓ menia poradie.</p></div>
+        <div class="actions">
+          <button class="btn f" data-act="new-cat" data-group="main"><svg class="ic"><use href="#i-plus"/></svg>Nová kategória</button>
+          <button class="btn primary f" data-act="screen" data-screen="settings" data-group="main">Hotovo</button>
+        </div>
+      </div>
+      <div class="org">
+        <div class="org-pane" id="orgLeft"></div>
+        <div class="org-pane" id="orgRight"></div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<div id="player" hidden>
+  <div class="stage" id="stage">
+    <canvas id="video" width="384" height="216"></canvas>
+    <div class="demo-tag">Ukážka bez streamu</div>
+    <div class="dog" id="dog"></div>
+    <div class="subs" id="subs" hidden></div>
+    <div class="pause-ico"><span><svg class="ic"><use href="#i-pause"/></svg></span></div>
+  </div>
+
+  <div class="osd" id="osd">
+    <div class="osd-top">
+      <div class="osd-ch">
+        <button class="cbtn f" data-act="p-close" aria-label="Späť"><svg class="ic"><use href="#i-back"/></svg><span class="tip">Späť</span></button>
+        <span id="oTile"></span>
+        <div><div class="osd-chname" id="oName"></div><div id="oStatus"></div></div>
+      </div>
+      <div class="osd-clock" id="oClock"></div>
+    </div>
+    <div class="osd-bottom">
+      <div class="osd-meta" id="oMeta"></div>
+      <h2 class="osd-title" id="oTitle"></h2>
+      <div class="seek f" id="seek" data-act="seek" role="slider" aria-label="Pozícia"><div class="track"><i class="buf" id="sBuf"></i><i class="played" id="sPlayed"></i><i class="head" id="sHead"></i></div></div>
+      <div class="seek-labels"><span id="sStart"></span><span id="sPos"></span><span id="sEnd"></span></div>
+      <div class="ctrls">
+        <div class="cgroup">
+          <button class="cbtn f" data-act="p-restart" aria-label="Od začiatku"><svg class="ic"><use href="#i-restart"/></svg><span class="tip">Od začiatku</span></button>
+          <button class="cbtn f" data-act="p-rew" aria-label="Späť o 30 sekúnd"><svg class="ic"><use href="#i-rew"/></svg><span class="tip">−30 s</span></button>
+          <button class="cbtn big f" id="cPlay" data-act="p-pause" aria-label="Pauza"><svg class="ic"><use href="#i-pause"/></svg><span class="tip">Pauza</span></button>
+          <button class="cbtn f" data-act="p-ff" aria-label="Dopredu o 30 sekúnd"><svg class="ic"><use href="#i-ff"/></svg><span class="tip">+30 s</span></button>
+          <button class="cbtn pill f" id="cLive" data-act="p-live"><i class="dot"></i>Naživo<span class="tip">Skočiť na živé vysielanie</span></button>
+        </div>
+        <div class="cgroup">
+          <button class="cbtn f" data-act="p-up" aria-label="Ďalší kanál"><svg class="ic"><use href="#i-up"/></svg><span class="tip">Kanál +</span></button>
+          <button class="cbtn f" data-act="p-down" aria-label="Predchádzajúci kanál"><svg class="ic"><use href="#i-down"/></svg><span class="tip">Kanál −</span></button>
+          <button class="cbtn f" data-act="p-list" aria-label="Zoznam kanálov"><svg class="ic"><use href="#i-list"/></svg><span class="tip">Kanály</span></button>
+          <button class="cbtn f" data-act="p-prog" aria-label="Program kanála"><svg class="ic"><use href="#i-guide"/></svg><span class="tip">Program</span></button>
+          <button class="cbtn f" data-act="p-audio" aria-label="Zvuk a titulky"><svg class="ic"><use href="#i-audio"/></svg><span class="tip">Zvuk a titulky</span></button>
+          <button class="cbtn f" id="cFav" data-act="p-fav" aria-label="Obľúbené"><svg class="ic"><use href="#i-heart"/></svg><span class="tip">Obľúbené</span></button>
+        </div>
+      </div>
+      <div class="osd-next" id="oNext"></div>
+    </div>
+  </div>
+
+  <div class="banner" id="banner">
+    <div class="bn" id="bNum"></div>
+    <span id="bTile"></span>
+    <div class="bi">
+      <div class="bname" id="bName"></div>
+      <div class="btitle" id="bTitle"></div>
+      <div class="bar"><i id="bBar"></i></div>
+      <div class="bnext" id="bNext"></div>
+    </div>
+  </div>
+  <div class="p-hint" id="pHint"><span class="key-only">↑ ↓ kanál · ← zoznam · → program · OK ovládanie · Esc späť</span><span class="touch-only">Potiahni hore alebo dole pre zmenu kanála · ťukni pre ovládanie</span></div>
+
+  <aside class="panel left" id="chPanel" aria-label="Zoznam kanálov"></aside>
+  <aside class="panel right" id="sheet"></aside>
+</div>
+
+<div id="numEntry" hidden></div>
+<div id="modal" hidden><div class="dialog" id="dialog" role="dialog" aria-modal="true"></div></div>
+<div id="toast" role="status"></div>
+
+<script>
+(() => {
+'use strict';
+const $ = (s, r = document) => r.querySelector(s);
+const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
+const store = {
+  get(k, d) { try { const v = localStorage.getItem('vysielac2:' + k); return v ? JSON.parse(v) : d; } catch (e) { return d; } },
+  set(k, v) { try { localStorage.setItem('vysielac2:' + k, JSON.stringify(v)); } catch (e) {} },
+};
+const I = (id, cls = '') => `<svg class="ic ${cls}" aria-hidden="true"><use href="#i-${id}"/></svg>`;
+const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const isWide = () => matchMedia('(min-width: 761px)').matches;
+
+/* ---------- Sample data (fictional channels; real logos will come from the playlist's tvg-logo) ---------- */
+const CATS = [['sk', 'Slovenské'], ['cz', 'České'], ['news', 'Správy'], ['sport', 'Šport'], ['film', 'Filmy a seriály'], ['kids', 'Deti'], ['doc', 'Dokumenty'], ['music', 'Hudba'], ['life', 'Životný štýl']];
+const catName = Object.fromEntries(CATS);
+const CAT_META = { sk: ['#2F6BFF', 'txt:SK'], cz: ['#E5394B', 'txt:CZ'], news: ['#F59E0B', 'news'], sport: ['#16A34A', 'ball'], film: ['#8B5CF6', 'film'], kids: ['#EC4899', 'kids'], doc: ['#0EA5A4', 'globe'], music: ['#F43F5E', 'note'], life: ['#F97316', 'cup'] };
+const RAW = [
+  ['sk', 'Tatra 1', '#3D7BFF', '#FF4D6D', ['num', '1', 'TATRA']],
+  ['sk', 'Tatra 2', '#1FB57F', '#3D7BFF', ['num', '2', 'TATRA']],
+  ['sk', 'Dunaj', '#14A6E8', '#FFC145', ['word', 'dunaj']],
+  ['sk', 'Morava+', '#E8455A', '#FFC145', ['plus', 'MORAVA']],
+  ['sk', 'Orava', '#F28C28', '#7B61FF', ['circle', 'O', 'ORAVA']],
+  ['sk', 'Kriváň', '#8E6CFF', '#2EC4B6', ['stack', 'KRI', 'VÁŇ']],
+  ['sk', 'Poprad', '#06B6D4', '#F59E0B', ['word', 'poprad']],
+  ['cz', 'Vltava 1', '#2563EB', '#F43F5E', ['num', '1', 'VLTAVA']],
+  ['cz', 'Vltava 2', '#0EA5E9', '#22C55E', ['num', '2', 'VLTAVA']],
+  ['cz', 'Praha+', '#E11D48', '#FBBF24', ['plus', 'PRAHA']],
+  ['cz', 'Brno TV', '#F97316', '#FDE68A', ['circle', 'B', 'BRNO TV']],
+  ['cz', 'Šumava', '#22A35A', '#A7F3D0', ['serif', 'Šumava']],
+  ['cz', 'Krkonoše', '#7C3AED', '#C4B5FD', ['stack', 'KRKO', 'NOŠE']],
+  ['cz', 'Pohoda', '#EC4899', '#FBCFE8', ['word', 'pohoda']],
+  ['news', 'Info 24', '#E0313F', '#FFD166', ['pill', 'INFO', '24']],
+  ['news', 'Svet správ', '#2F7BF2', '#9ECBFF', ['stack', 'SVET', 'SPRÁV']],
+  ['news', 'Biznis', '#12A97F', '#9BE8C9', ['word', 'biznis']],
+  ['news', 'Parlament', '#8492A6', '#CBD5E1', ['stack', 'PARLA', 'MENT']],
+  ['sport', 'Šport Live 1', '#FF5A1F', '#FFD23F', ['sport', 'ŠPORT', 'LIVE 1']],
+  ['sport', 'Šport Live 2', '#FF5A1F', '#4CC9F0', ['sport', 'ŠPORT', 'LIVE 2']],
+  ['sport', 'Šport Live 3', '#FF5A1F', '#C084FC', ['sport', 'ŠPORT', 'LIVE 3']],
+  ['sport', 'Gól', '#19C173', '#B8F5D3', ['sport', '', 'GÓL']],
+  ['sport', 'Ľad TV', '#4CC9F0', '#E0F7FF', ['circle', 'Ľ', 'ĽAD TV']],
+  ['sport', 'Motor', '#E63946', '#F4A261', ['sport', '', 'MOTOR']],
+  ['sport', 'Tenis+', '#A3E635', '#4ADE80', ['plus', 'TENIS']],
+  ['film', 'Kino Max', '#F4B400', '#E53935', ['stack', 'KINO', 'MAX']],
+  ['film', 'Noir', '#D6D6DE', '#B3263A', ['serif', 'Noir']],
+  ['film', 'Premiéra', '#D84BF0', '#FFD54F', ['word', 'premiéra']],
+  ['film', 'Smiech', '#FFCA3A', '#FF595E', ['plus', 'SMIECH']],
+  ['film', 'Seriál+', '#38BDF8', '#F472B6', ['plus', 'SERIÁL']],
+  ['film', 'Klasik', '#E5D3B3', '#B45309', ['serif', 'Klasik']],
+  ['film', 'Akcia', '#EF4444', '#FACC15', ['sport', '', 'AKCIA']],
+  ['kids', 'Junior', '#FF7AB6', '#7BDFF2', ['word', 'junior']],
+  ['kids', 'Rozprávka', '#A66CFF', '#F15BB5', ['serif', 'Rozprávka']],
+  ['kids', 'Mráčik', '#4EA8DE', '#FFFFFF', ['circle', 'M', 'MRÁČIK']],
+  ['kids', 'Kocky', '#F59E0B', '#22D3EE', ['word', 'kocky']],
+  ['doc', 'Príroda', '#52B788', '#D8F3DC', ['word', 'príroda']],
+  ['doc', 'História', '#C98B58', '#F3E9DC', ['serif', 'História']],
+  ['doc', 'Cestovateľ', '#00B4D8', '#FFB703', ['stack', 'CESTO', 'VATEĽ']],
+  ['doc', 'Veda+', '#7B61FF', '#00E0C6', ['plus', 'VEDA']],
+  ['music', 'Hity', '#FF2E7E', '#FFBE0B', ['pill', 'HITY', '']],
+  ['music', 'Retro', '#FB6A1E', '#9D5CFF', ['word', 'retro']],
+  ['music', 'Jazz Klub', '#E9C46A', '#2A9D8F', ['serif', 'Jazz Klub']],
+  ['music', 'Rádio TV', '#14B8A6', '#F0ABFC', ['pill', 'RÁDIO', 'TV']],
+  ['life', 'Kuchyňa', '#F77F00', '#FCBF49', ['word', 'kuchyňa']],
+  ['life', 'Domov', '#2A9D8F', '#E9C46A', ['circle', 'D', 'DOMOV']],
+];
+const CH = RAW.map((r, i) => ({ n: i + 1, id: 'c' + (i + 1), cat: r[0], name: r[1], c1: r[2], c2: r[3], logo: r[4] }));
+const byId = Object.fromEntries(CH.map(c => [c.id, c]));
+const idOf = name => (CH.find(c => c.name === name) || CH[0]).id;
+
+const POOL = {
+  sk: [['Hlavné správy', 'Spravodajstvo', 'Najdôležitejšie udalosti dňa zo Slovenska a zo sveta.'],
+    ['Ulica pod hradom', 'Seriál', 'Susedia z jednej bratislavskej ulice riešia lásky, dlhy aj staré krivdy.'],
+    ['Večerný kvíz', 'Zábava', 'Traja súťažiaci, desať otázok a jeden kufor plný peňazí.'],
+    ['Kriminálka Podunajsko', 'Krimi seriál', 'Major Hudecová vyšetruje zmiznutie rybára pri Gabčíkove.'],
+    ['Chalupári dnes', 'Komédia', 'Mestská rodina zdedí chalupu na Orave a zistí, že vidiek má vlastné pravidlá.'],
+    ['Hviezdy na ľade', 'Zábavná show', 'Známe tváre sa učia krasokorčuľovať. Dnes je na programe semifinále.'],
+    ['Reportéri', 'Publicistika', 'Reportáž o tom, kam sa strácajú peniaze na opravu ciest.'],
+    ['Doktorka z kúpeľov', 'Seriál', 'Mladá lekárka nastupuje do kúpeľov a hneď v prvý deň rieši nečakaného pacienta.'],
+    ['Počasie', 'Spravodajstvo', 'Predpoveď počasia na najbližšie dni.'],
+    ['Vtipnejší vyhráva', 'Zábava', 'Komici improvizujú na témy od divákov.']],
+  cz: [['Události', 'Zpravodajství', 'Hlavní zprávy dne z domova i ze světa.'],
+    ['Ulice u řeky', 'Seriál', 'Sousedé z pražského nábřeží řeší lásky, dluhy i staré křivdy.'],
+    ['Hospoda U Lípy', 'Komedie', 'Štamgasti, nový majitel a jedno nečekané dědictví.'],
+    ['Kriminálka Vysočina', 'Krimi seriál', 'Kapitánka Novotná vyšetřuje zmizení hajného.'],
+    ['Taneční s hvězdami', 'Zábavná show', 'Známé tváře na parketu. Dnes čtvrtfinále.'],
+    ['Počasí', 'Zpravodajství', 'Předpověď počasí na nejbližší dny.'],
+    ['Chalupa na Šumavě', 'Rodinný seriál', 'Městská rodina se stěhuje na venkov a zjišťuje, že to není idyla.'],
+    ['Kufr plný otázek', 'Soutěž', 'Tři soutěžící, deset otázek a jeden kufr peněz.'],
+    ['Reportéři v terénu', 'Publicistika', 'Reportáž o tom, kam mizí peníze na opravy silnic.']],
+  news: [['Správy', 'Spravodajstvo', 'Prehľad udalostí doma a vo svete.'],
+    ['Téma dňa', 'Diskusia', 'Hostia v štúdiu rozoberajú najdôležitejšiu tému dňa.'],
+    ['Ekonomika', 'Spravodajstvo', 'Kurzy, trhy a čo znamenajú pre vašu peňaženku.'],
+    ['Svet v skratke', 'Spravodajstvo', 'Zahraničné udalosti za posledných 24 hodín.'],
+    ['Rozhovor týždňa', 'Rozhovor', 'Dlhý rozhovor s osobnosťou, o ktorej sa tento týždeň hovorí.'],
+    ['Šport v skratke', 'Spravodajstvo', 'Výsledky, góly a prestupy dňa.'],
+    ['Počasie', 'Spravodajstvo', 'Predpoveď počasia s radarom zrážok.']],
+  sport: [['Hokej: HC Košice – HK Nitra', 'Hokej · extraliga', 'Priamy prenos zápasu základnej časti z Košíc.'],
+    ['Futbal: Slovan – Spartak Trnava', 'Futbal · 1. liga', 'Derby s veľkou rivalitou. Priamy prenos z Bratislavy.'],
+    ['Tenis: turnaj vo Viedni', 'Tenis', 'Štvrťfinále dvojhry mužov.'],
+    ['Formula 1: Veľká cena Mexika', 'Motoršport', 'Kvalifikácia na nedeľňajšie preteky.'],
+    ['Štúdio Šport', 'Magazín', 'Rozbor víkendových zápasov s hosťami v štúdiu.'],
+    ['Biatlon: Svetový pohár', 'Zimné športy', 'Šprint žien na 7,5 km.'],
+    ['Basketbal: NBA', 'Basketbal', 'Záznam nočného zápasu zámorskej ligy.'],
+    ['Liga majstrov: zostrih', 'Futbal', 'Všetky góly a najlepšie momenty kola.']],
+  film: [['Posledný vlak do Žiliny', 'Dráma · 2019', 'Strojvodca na poslednej jazde pred dôchodkom vezie nečakaného pasažiera.'],
+    ['Tiene nad Tatrami', 'Thriller · 2022', 'Horská služba pátra po nezvestnej skupine turistov a od západu sa blíži búrka.'],
+    ['Noc v prístave', 'Krimi · 1958', 'Čiernobiela klasika o pašerákoch a policajtovi, ktorý vie príliš veľa.'],
+    ['Svadba na tri', 'Komédia · 2021', 'Tri sestry, jeden termín a jediná voľná sála v meste.'],
+    ['Hranica', 'Vojnová dráma · 2016', 'Príbeh colníka na rakúskej hranici v auguste 1968.'],
+    ['Leto s Klárou', 'Romantický · 2020', 'Dvaja cudzinci si na jedno leto vymenia byty a potom aj životy.'],
+    ['Červený sneh', 'Akčný · 2018', 'Bývalý agent sa musí vrátiť do mesta, z ktorého pred rokmi utiekol.']],
+  kids: [['Lesní kamaráti', 'Animovaný', 'Jazvec Bohuš hľadá stratený klobúk.'],
+    ['Robot Bobo', 'Animovaný', 'Bobo sa učí, ako sa pečie chlieb.'],
+    ['Večerníček', 'Rozprávka', 'Krátka rozprávka na dobrú noc.'],
+    ['Malí vedci', 'Náučný', 'Prečo je obloha modrá a západ slnka červený?'],
+    ['Princezná z Veternej hory', 'Rozprávka', 'Princezná, ktorá nechce čakať na princa.'],
+    ['Hasiči z Kvetinkova', 'Animovaný', 'Malí hasiči zachraňujú mačku zo strechy radnice.']],
+  doc: [['Divoké Karpaty', 'Príroda', 'Rok v živote rysa ostrovida.'],
+    ['Tajomstvá oceánov', 'Príroda', 'Hlbokomorské živočíchy, ktoré svietia v tme.'],
+    ['Stavitelia katedrál', 'História', 'Ako stredovekí majstri postavili Dóm svätej Alžbety v Košiciach.'],
+    ['Hrady Slovenska', 'História', 'Trenčiansky hrad a legenda o studni lásky.'],
+    ['Na bicykli okolo sveta', 'Cestopis', 'Dvaja kamaráti, 18 000 kilometrov a jeden pokazený nosič.'],
+    ['Vesmír zblízka', 'Veda', 'Čo nám prezradil teleskop o prvých galaxiách.'],
+    ['Zázraky techniky', 'Veda', 'Ako sa stavia most cez Dunaj.']],
+  music: [['Hitparáda týždňa', 'Hudba', 'Dvadsať najhranejších skladieb týždňa.'],
+    ['Retro 90s', 'Hudba', 'Klipy, pri ktorých sa nedá sedieť.'],
+    ['Jazzový večer v Redute', 'Koncert', 'Záznam koncertu z bratislavskej Reduty.'],
+    ['Nonstop hity', 'Hudba', 'Hudobné klipy bez prestávky.'],
+    ['Akustické večery', 'Koncert', 'Známe kapely v komornej akustickej podobe.']],
+  life: [['Varíme s Petrom', 'Varenie', 'Bryndzové halušky trochu inak a dezert z tekvice.'],
+    ['Záhrada na jeseň', 'Záhrada', 'Čo strihať, čo sadiť a čo nechať tak až do jari.'],
+    ['Bývanie snov', 'Bývanie', 'Rekonštrukcia panelákového bytu za šesť týždňov.'],
+    ['Pečieme doma', 'Varenie', 'Kváskový chlieb pre začiatočníkov.'],
+    ['Chuť Talianska', 'Cestovanie a jedlo', 'Kulinárska cesta po Sicílii.']],
+};
+const DUR = { sk: [25, 90], cz: [25, 90], news: [15, 45], sport: [60, 150], film: [85, 140], kids: [10, 30], doc: [30, 60], music: [45, 120], life: [25, 60] };
+
+const MIN = 60000;
+const day0 = new Date(); day0.setHours(0, 0, 0, 0);
+const D0 = day0.getTime();
+const EPG_FROM = D0 - 6 * 60 * MIN, EPG_TO = D0 + 54 * 60 * MIN;
+function rng(seed) {
+  return () => { seed |= 0; seed = seed + 0x6D2B79F5 | 0; let t = Math.imul(seed ^ seed >>> 15, 1 | seed); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
+}
+const EPG = {};
+CH.forEach((ch, i) => {
+  const r = rng(i * 7919 + Math.floor(D0 / 86400000));
+  const pool = POOL[ch.cat], [a, b] = DUR[ch.cat];
+  let t = EPG_FROM - Math.floor(r() * 12) * 5 * MIN, last = -1;
+  const list = [];
+  while (t < EPG_TO) {
+    let k; do { k = Math.floor(r() * pool.length); } while (k === last);
+    last = k;
+    const d = (a + Math.floor(r() * ((b - a) / 5 + 1)) * 5) * MIN;
+    list.push({ start: t, end: t + d, title: pool[k][0], genre: pool[k][1], desc: pool[k][2] });
+    t += d;
+  }
+  EPG[ch.id] = list;
+});
+const progAt = (id, t) => EPG[id].find(p => t >= p.start && t < p.end) || EPG[id][EPG[id].length - 1];
+const progNext = (id, p) => EPG[id][EPG[id].indexOf(p) + 1];
+
+/* ---------- Formatting ---------- */
+const pad2 = n => String(n).padStart(2, '0');
+const hm = t => { const d = new Date(t); return pad2(d.getHours()) + ':' + pad2(d.getMinutes()); };
+const hms = t => { const d = new Date(t); return hm(t) + ':' + pad2(d.getSeconds()); };
+const frac = (p, t) => Math.min(1, Math.max(0, (t - p.start) / (p.end - p.start)));
+const durTxt = s => { s = Math.round(s); const h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60), x = s % 60; return h ? `${h}:${pad2(m)}:${pad2(x)}` : `${m}:${pad2(x)}`; };
+const remain = (p, now) => now < p.start ? `o ${Math.round((p.start - now) / MIN)} min` : `zostáva ${Math.max(1, Math.round((p.end - now) / MIN))} min`;
+const DAYS = ['nedeľa', 'pondelok', 'utorok', 'streda', 'štvrtok', 'piatok', 'sobota'];
+const MONTHS = ['januára', 'februára', 'marca', 'apríla', 'mája', 'júna', 'júla', 'augusta', 'septembra', 'októbra', 'novembra', 'decembra'];
+const dateTxt = t => { const d = new Date(t); return `${DAYS[d.getDay()]} ${d.getDate()}. ${MONTHS[d.getMonth()]}`; };
+const greeting = t => { const h = new Date(t).getHours(); return h < 5 ? 'Dobrú noc' : h < 10 ? 'Dobré ráno' : h < 18 ? 'Dobrý deň' : h < 22 ? 'Dobrý večer' : 'Dobrú noc'; };
+const dayWord = t => t < D0 ? 'Včera' : t < D0 + 864e5 ? 'Dnes' : 'Zajtra';
+const plural = (n, one, few, many) => n === 1 ? one : n >= 2 && n <= 4 ? few : many;
+const countTxt = n => `${n} ${plural(n, 'kanál', 'kanály', 'kanálov')}`;
+const norm = s => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+
+/* ---------- Logos & tiles ---------- */
+const fit = (base, k) => Math.min(base, k).toFixed(2);
+function logoHTML(ch) {
+  const [s, a, b] = ch.logo;
+  switch (s) {
+    case 'num': return `<span class="lg lg-num"><b>${a}</b><i>${b}</i></span>`;
+    case 'word': return `<span class="lg lg-word" style="font-size:${fit(1.2, 5.4 / (0.66 * a.length + 0.4))}em">${a}<b>.</b></span>`;
+    case 'plus': return `<span class="lg lg-plus" style="font-size:${fit(1.05, 5.2 / (0.8 * a.length + 0.7))}em">${a}<b>+</b></span>`;
+    case 'pill': return `<span class="lg lg-pill"><span>${a}${b ? `<b>${b}</b>` : ''}</span></span>`;
+    case 'sport': return `<span class="lg lg-sport">${a ? `<i>${a}</i>` : ''}<b class="${a ? '' : 'solo'}">${b}</b></span>`;
+    case 'serif': return `<span class="lg lg-serif" style="font-size:${fit(1.6, 5.4 / (0.5 * a.length))}em">${a}</span>`;
+    case 'circle': return `<span class="lg lg-circle"><b>${a}</b><i>${b}</i></span>`;
+    case 'stack': return `<span class="lg lg-stack"><b>${a}</b><b>${b}</b></span>`;
+  }
+  return '';
+}
+const tileStyle = ch => `--c1:${ch.c1};--c2:${ch.c2}`;
+const tileStatic = (ch, cls = '') => `<span class="tile ${cls}" style="${tileStyle(ch)}">${logoHTML(ch)}<span class="t-num">${ch.n}</span></span>`;
+const tileBtn = ch => `<button class="tile f" data-act="play" data-ch="${ch.id}" data-group="main" aria-label="${ch.n} ${esc(ch.name)}" style="${tileStyle(ch)}">${logoHTML(ch)}<span class="t-num">${ch.n}</span></button>`;
+const initials = name => { const w = name.trim().split(/\s+/); return (w.length > 1 ? w[0][0] + w[1][0] : name.slice(0, 2)).toUpperCase(); };
+const catIcon = s => s.icon === 'auto' ? `<span class="txt-ic">${esc(initials(s.name))}</span>` : s.icon.startsWith('txt:') ? `<span class="txt-ic">${s.icon.slice(4)}</span>` : I(s.icon);
+
+/* ---------- State ---------- */
+const ACCENTS = { white: ['#FFFFFF', '#0A0A17'], amber: ['#F2B84B', '#1B1406'], coral: ['#FF7A59', '#1E0B05'], mint: ['#4FD1A5', '#04170F'], violet: ['#A08CFF', '#0F0A24'], ice: ['#7CC4FF', '#03121F'] };
+const PALETTE = ['#2F6BFF', '#E5394B', '#8B5CF6', '#16A34A', '#F59E0B', '#EC4899', '#0EA5A4', '#F97316'];
+const ICONS = ['auto', 'film', 'ball', 'news', 'kids', 'globe', 'note', 'cup', 'heart', 'sparkle'];
+const DEFAULT_SET = { look: 'classic', secRows: '2', tile: 'm', round: 'med', tilebg: 'tint', nums: 'off', caps: 'on', accent: 'white', hide: '5', lang: 'sk', subs: 'off' };
+const DEF_FAV = ['Tatra 1', 'Šport Live 1', 'Kino Max', 'Vltava 1', 'Info 24', 'Príroda', 'Noir'].map(idOf);
+const DEF_RECENT = ['Tatra 1', 'Šport Live 1', 'Vltava 1', 'Dunaj', 'Noir', 'Info 24', 'Junior', 'Gól', 'Príroda'].map(idOf);
+const DEF_QUICK = ['film', 'cz', 'sk', 'sport', 'news', 'kids', 'doc', 'music'];
+const SEC_ORDER = ['sk', 'cz', 'film', 'sport', 'news', 'kids', 'doc', 'music', 'life'];
+const defaultSections = () => [
+  { id: 'recent', type: 'recent', name: 'Naposledy pozerané', color: '#94A3B8', icon: 'hist', show: true },
+  { id: 'fav', type: 'fav', name: 'Obľúbené', color: '#FF4F5A', icon: 'heart', show: true, chs: DEF_FAV.slice() },
+  ...SEC_ORDER.map(k => ({ id: k, type: 'cat', name: catName[k], color: CAT_META[k][0], icon: CAT_META[k][1], show: true, chs: CH.filter(c => c.cat === k).map(c => c.id) })),
+];
+function loadSections() {
+  const st = store.get('sections', null);
+  if (!Array.isArray(st) || !st.find(s => s.id === 'fav')) return defaultSections();
+  st.forEach(s => { if (s.chs) s.chs = s.chs.filter(id => byId[id]); });
+  return st;
+}
+function loadOrder() {
+  const st = store.get('order', null);
+  const o = Array.isArray(st) ? st.filter(id => byId[id]) : [];
+  CH.forEach(c => { if (!o.includes(c.id)) o.push(c.id); });
+  return o;
+}
+const S = {
+  screen: 'home',
+  order: loadOrder(),
+  sections: loadSections(),
+  quick: store.get('quick', DEF_QUICK.slice()),
+  recent: store.get('recent', DEF_RECENT.slice()),
+  rem: new Set(store.get('rem', [])),
+  set: Object.assign({}, DEFAULT_SET, store.get('settings3', {})),
+  ambCh: null, chipCh: 'all', chipGuide: 'all', catId: null, orgSel: 'quick',
+};
+const secById = id => S.sections.find(s => s.id === id);
+const ordered = () => S.order.map(id => byId[id]);
+const favIds = () => (secById('fav') || { chs: [] }).chs;
+const isFav = id => favIds().includes(id);
+function renumber() { S.order.forEach((id, i) => { byId[id].n = i + 1; }); }
+function save() { store.set('order', S.order); store.set('sections', S.sections); store.set('quick', S.quick); }
+function secList(s) {
+  if (!s) return [];
+  if (s.type === 'recent') return S.recent.map(id => byId[id]).filter(Boolean);
+  return (s.chs || []).map(id => byId[id]).filter(Boolean);
+}
+renumber();
+
+const AUDIO = [['sk', 'Slovenčina', 'Dolby Digital 5.1'], ['cs', 'Čeština', 'Stereo'], ['en', 'English', 'Dolby Digital 5.1'], ['orig', 'Pôvodné znenie', 'Stereo']];
+const SUBS = [['off', 'Vypnuté', ''], ['sk', 'Slovenské', 'DVB titulky'], ['en', 'English', 'Teletext 888']];
+const QUAL = [['auto', 'Automaticky', 'Podľa rýchlosti siete'], ['1080', '1080p', 'Full HD · 8 Mb/s'], ['720', '720p', 'HD · 4 Mb/s'], ['576', '576p', 'SD · 2 Mb/s']];
+const ASPECT = [['fit', 'Prispôsobiť', 'Celý obraz, prípadne s pásmi'], ['zoom', 'Priblížiť', 'Vyplní obrazovku, okraje sa orežú'], ['fill', 'Roztiahnuť', 'Vyplní obrazovku, obraz sa deformuje'], ['43', '4:3', 'Pre staršie relácie']];
+const label = (list, v) => (list.find(x => x[0] === v) || list[0])[1];
+
+function applySettings() {
+  const r = document.documentElement, s = S.set;
+  if (s.round === 'circle') s.round = 'strong';
+  if (!ACCENTS[s.accent]) s.accent = 'white';
+  r.dataset.look = s.look; r.dataset.caps = s.caps; r.dataset.tile = s.tile; r.dataset.round = s.round; r.dataset.tilebg = s.tilebg; r.dataset.nums = s.nums;
+  const [a, ai] = ACCENTS[s.accent] || ACCENTS.amber;
+  r.style.setProperty('--accent', a); r.style.setProperty('--accent-ink', ai);
+  store.set('settings3', s);
+}
+
+/* ---------- Toast ---------- */
+let toastT;
+function toast(msg) { const t = $('#toast'); t.textContent = msg; t.classList.add('on'); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('on'), 2600); }
+
+/* ---------- Spatial navigation ---------- */
+const nav = { cur: null, mem: {} };
+const app = $('#app'), player = $('#player'), osd = $('#osd'), chPanel = $('#chPanel'), sheet = $('#sheet'), modal = $('#modal'), home = $('#s-home');
+const visible = el => el && el.isConnected && !el.disabled && el.getClientRects().length > 0;
+function activeRoot() {
+  if (!modal.hidden) return modal;
+  if (P.open) { if (P.panel) return P.panel === 'list' ? chPanel : sheet; return P.osd ? osd : null; }
+  return app;
+}
+function setFocus(el, opts = {}) {
+  if (!el) return;
+  if (nav.cur && nav.cur !== el) nav.cur.classList.remove('focus');
+  nav.cur = el; el.classList.add('focus');
+  if (document.activeElement !== el) { try { el.focus({ preventScroll: true }); } catch (e) {} }
+  const g = el.dataset.group;
+  if (g) nav.mem[g === 'main' ? 'main:' + S.screen : g] = el;
+  if (!opts.noScroll) ensureVisible(el);
+  onFocus(el);
+}
+function clearFocus() { if (nav.cur) nav.cur.classList.remove('focus'); nav.cur = null; }
+/* Find the element that replaced `el` after a re-render (same data attributes, same section). */
+const TWIN_KEYS = ['act', 'ch', 'sec', 'id', 'list', 'k', 'v', 'screen', 'which', 'start'];
+function twin(el) {
+  if (!el) return null;
+  if (el.isConnected) return el;
+  const d = el.dataset;
+  const sel = TWIN_KEYS.filter(k => d[k] !== undefined).map(k => `[data-${k}="${CSS.escape(d[k])}"]`).join('');
+  if (!sel) return null;
+  const scope = el.closest('[data-secid]');
+  if (scope) { const s = $(`[data-secid="${CSS.escape(scope.dataset.secid)}"]`); const f = s && $(sel, s); if (f) return f; }
+  return $(sel);
+}
+const relTop = (el, sc) => el.getBoundingClientRect().top - sc.getBoundingClientRect().top + sc.scrollTop;
+function ensureVisible(el) {
+  const behavior = reduceMotion ? 'auto' : 'smooth';
+  const sc = el.closest('.hscroll');
+  if (sc) {
+    const pad = 60, x = el.offsetLeft, w = el.offsetWidth;
+    if (x - sc.scrollLeft < pad) sc.scrollTo({ left: x - pad, behavior });
+    else if (x + w - sc.scrollLeft > sc.clientWidth - pad) sc.scrollTo({ left: x + w - sc.clientWidth + pad, behavior });
+  }
+  if (home.contains(el) && isWide()) {
+    if (el.closest('#hero, #pills')) { home.scrollTo({ top: 0, behavior }); return; }
+    const sec = el.closest('.sec');
+    if (sec) {
+      let top = relTop(sec, home) - 16;
+      const bottom = relTop(el, home) + el.offsetHeight + 40;
+      if (bottom - top > home.clientHeight) top = bottom - home.clientHeight;
+      home.scrollTo({ top: Math.max(0, top), behavior });
+      return;
+    }
+  }
+  if (sc) { (sc.closest('.sec') || sc).scrollIntoView({ block: 'nearest', behavior }); return; }
+  el.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior });
+}
+function move(dir) {
+  const root = activeRoot(); if (!root) return false;
+  const cur = nav.cur && root.contains(nav.cur) && visible(nav.cur) ? nav.cur : null;
+  const items = $$('.f', root).filter(visible);
+  if (!cur) { setFocus(root === app ? pickDefault() : items[0]); return true; }
+  const r = cur.getBoundingClientRect(), cx = r.left + r.width / 2, cy = r.top + r.height / 2;
+  let best = null, bs = Infinity;
+  for (const el of items) {
+    if (el === cur) continue;
+    const c = el.getBoundingClientRect(), ex = c.left + c.width / 2, ey = c.top + c.height / 2;
+    let p, g, d;
+    if (dir === 'left' || dir === 'right') {
+      if (dir === 'right' ? ex <= cx + 1 : ex >= cx - 1) continue;
+      p = dir === 'right' ? c.left - r.right : r.left - c.right;
+      g = Math.max(0, c.top - r.bottom, r.top - c.bottom); d = Math.abs(ey - cy);
+    } else {
+      if (dir === 'down' ? ey <= cy + 1 : ey >= cy - 1) continue;
+      p = dir === 'down' ? c.top - r.bottom : r.top - c.bottom;
+      g = Math.max(0, c.left - r.right, r.left - c.right); d = Math.abs(ex - cx);
+    }
+    const s = Math.max(0, p) + g * 3 + d * 0.05;
+    if (s < bs) { bs = s; best = el; }
+  }
+  if (!best) return false;
+  const cg = cur.dataset.group, bg = best.dataset.group;
+  if (bg && bg !== cg) {
+    const m = nav.mem[bg === 'main' ? 'main:' + S.screen : bg];
+    if (m && visible(m) && root.contains(m)) best = m;
+    else if (bg === 'nav') best = $('#topnav .nav-item.active') || best;
+  }
+  setFocus(best);
+  return true;
+}
+function pickDefault() {
+  const m = nav.mem['main:' + S.screen];
+  if (m && visible(m)) return m;
+  if (S.screen === 'home') return $('#hero .bcard') || $('#sections .card');
+  if (S.screen === 'guide') return $('#gScroll .prog.now') || $('#gScroll .prog');
+  if (S.screen === 'channels') return $('#chGrid .card') || $('#chChips .chip');
+  if (S.screen === 'cat') return $('#catGrid .card') || $('#catActions .f');
+  if (S.screen === 'search') return $('#q');
+  if (S.screen === 'organize') return $(`#orgLeft .org-main[data-id="${S.orgSel}"]`) || $('#orgLeft .f');
+  return $('.f', $('#s-' + S.screen));
+}
+let ambT;
+function onFocus(el) {
+  $$('.sec.has-focus').forEach(r => r.classList.remove('has-focus'));
+  const sec = el.closest('#sections .sec'); if (sec) sec.classList.add('has-focus');
+  const ch = el.dataset.ch && byId[el.dataset.ch];
+  if (ch && el.closest('#s-home, #s-cat, #s-channels')) { clearTimeout(ambT); ambT = setTimeout(() => setAmbient(ch), 140); }
+  if (el.classList.contains('prog')) renderGDetail(el);
+}
+
+/* ---------- Screens ---------- */
+const RAIL_FOR = { cat: 'home', organize: 'settings' };
+function go(name, focus = true) {
+  const prev = nav.mem['main:' + name];
+  S.screen = name;
+  $$('main .screen').forEach(s => { s.hidden = s.dataset.screen !== name; });
+  $$('#topnav .nav-item').forEach(b => b.classList.toggle('active', b.dataset.screen === (RAIL_FOR[name] || name)));
+  if (name === 'home') renderHome();
+  if (name === 'cat') renderCat();
+  if (name === 'channels') renderChannels();
+  if (name === 'guide') renderGuide();
+  if (name === 'search') renderResults();
+  if (name === 'settings') renderSettings();
+  if (name === 'organize') renderOrganizer();
+  if (focus) { nav.cur = nav.cur && nav.cur.isConnected ? nav.cur : null; setFocus((prev && twin(prev)) || pickDefault()); }
+}
+
+/* Home */
+function fitGrid(box) {
+  const w = box.clientWidth || home.clientWidth;
+  const t = $('#probeCard').offsetWidth, g = $('#probeGap').offsetWidth;
+  const cols = Math.max(1, Math.floor((w + g) / (t + g)));
+  box.style.setProperty('--card', Math.floor((w - (cols - 1) * g) / cols) + 'px');
+  box.style.setProperty('--cols', cols);
+  return cols;
+}
+const artHTML = ch => `<span class="art" style="${tileStyle(ch)}">${logoHTML(ch)}<span class="t-num">${ch.n}</span></span>`;
+function capHTML(ch, now = Date.now()) {
+  const p = progAt(ch.id, now);
+  return `<span class="cap"><b>${esc(p.title)}</b><small>${ch.n} · ${esc(ch.name)} · do ${hm(p.end)}</small><span class="pbar"><i style="width:${frac(p, now) * 100}%"></i></span></span>`;
+}
+const cardBtn = ch => `<button class="card f" data-act="play" data-ch="${ch.id}" data-group="main" aria-label="${ch.n} ${esc(ch.name)}">${artHTML(ch)}${capHTML(ch)}</button>`;
+const cardStatic = ch => `<span class="card">${artHTML(ch)}${capHTML(ch)}</span>`;
+const moreCard = (s, n) => `<button class="card more f" data-act="cat" data-sec="${s.id}" data-group="main"><span class="art" style="--c1:${s.color};--c2:${s.color}"><span class="more-in"><b>+${n}</b><small>Zobraziť všetky</small></span></span><span class="cap"><b>${esc(s.name)}</b><small>Celá sekcia · ${countTxt(secList(s).length)}</small></span></button>`;
+function updateCaps() { const now = Date.now(); $$('.card[data-ch]').forEach(c => { const cap = $('.cap', c); if (cap) cap.outerHTML = capHTML(byId[c.dataset.ch], now); }); }
+/* Favourites live in the big banners; without any, the banners show what is on now. */
+function featured() {
+  const f = secById('fav');
+  if (f && f.show && secList(f).length) return { fav: true, title: f.name, list: secList(f) };
+  const ids = [];
+  ['sport', 'film', 'news'].forEach(k => { const s = secById(k); if (s) s.chs.forEach(id => { if (ids.length < 6 && !ids.includes(id)) ids.push(id); }); });
+  return { fav: false, title: 'Teraz v TV', list: ids.map(id => byId[id]).filter(Boolean) };
+}
+function bannerHTML(ch, now) {
+  const p = progAt(ch.id, now);
+  return `<button class="bcard f" data-act="play" data-ch="${ch.id}" data-group="main" style="${tileStyle(ch)}"><span class="b-art">${logoHTML(ch)}</span>`
+    + `<span class="b-txt"><span class="b-eyebrow"><span class="badge live-w"><i class="dot"></i>Živé</span>${ch.n} · ${esc(ch.name)}</span>`
+    + `<b class="b-title">${esc(p.title)}</b><span class="b-meta">${hm(p.start)} – ${hm(p.end)} · ${p.genre} · ${remain(p, now)}</span>`
+    + `<span class="b-play"><i>${I('play')}</i>Pozerať</span></span></button>`;
+}
+const pillHTML = s => `<button class="pill f" data-act="cat" data-sec="${s.id}" data-group="main" style="--pc:${s.color}">${catIcon(s)}${esc(s.name)}</button>`;
+function secHTML(s, limit) {
+  const list = secList(s);
+  if (!list.length && s.type === 'recent') return '';
+  const head = `<div class="sec-head"><h3>${esc(s.name)}</h3><span class="sec-count">${countTxt(list.length)}</span></div>`;
+  let body;
+  if (s.type === 'recent') body = `<div class="hscroll scroller">${list.map(cardBtn).join('')}</div>`;
+  else if (!list.length) body = `<p class="sec-empty">${s.type === 'fav' ? 'Zatiaľ žiadne obľúbené. Pridáš ich srdiečkom v prehrávači alebo v Nastaveniach → Sekcie a kanály.' : 'Prázdna kategória. Kanály pridáš v Nastaveniach → Sekcie a kanály.'}</p>`;
+  else {
+    const over = list.length > limit, shown = over ? list.slice(0, limit - 1) : list;
+    body = `<div class="cgrid">${shown.map(cardBtn).join('')}${over ? moreCard(s, list.length - shown.length) : ''}</div>`;
+  }
+  return `<section class="sec" data-secid="${s.id}">${head}${body}</section>`;
+}
+const hkey = sc => sc.id || (sc.closest('.sec') || {}).dataset?.secid;
+function renderHome(prefer) {
+  const ref = prefer || nav.cur;
+  const keepX = {};
+  $$('#s-home .hscroll').forEach(sc => { keepX[hkey(sc)] = sc.scrollLeft; });
+  const now = Date.now();
+  const F = featured(), feat = F.list;
+  $('#heroHead').innerHTML = `${F.fav ? I('heart-f') : ''}<h3>${esc(F.title)}</h3><span class="sec-count">${countTxt(feat.length)}</span>`;
+  $('#hero').innerHTML = feat.map(c => bannerHTML(c, now)).join('');
+  $('#pills').innerHTML = S.quick.map(secById).filter(Boolean).map(pillHTML).join('')
+    + `<button class="pill f" data-act="screen" data-screen="channels" data-group="main" style="--pc:#9AA4FF">${I('grid')}Všetky kanály</button>`;
+  const box = $('#sections');
+  const cols = fitGrid(box);
+  const rows = Math.max(1, +S.set.secRows || 2);
+  box.innerHTML = S.sections.filter(s => s.show && s.type !== 'fav').map(s => secHTML(s, cols * rows)).join('');
+  $$('#s-home .hscroll').forEach(sc => { const v = keepX[hkey(sc)]; if (v) sc.scrollLeft = v; });
+  if (!S.ambCh && feat[0]) setAmbient(feat[0]);
+  if (ref && !ref.isConnected) { const t = twin(ref); nav.cur = null; if (t && S.screen === 'home' && !P.open && modal.hidden) setFocus(t); }
+}
+function setAmbient(ch) { S.ambCh = ch.id; const a = $('#ambient'); a.style.setProperty('--h1', ch.c1); a.style.setProperty('--h2', ch.c2); }
+function renderCat() {
+  const s = secById(S.catId); if (!s) return;
+  const ic = $('#catIc'); ic.style.setProperty('--sc', s.color); ic.innerHTML = catIcon(s);
+  $('#catName').textContent = s.name;
+  const list = secList(s);
+  $('#catCount').textContent = countTxt(list.length);
+  $('#catActions').innerHTML = `<button class="btn small-btn f" data-act="screen" data-screen="home" data-group="main">${I('back')}Domov</button>`
+    + (s.type !== 'recent' ? `<button class="btn small-btn f" data-act="org-open" data-id="${s.id}" data-group="main">${I('pencil')}Upraviť kanály a poradie</button>` : '');
+  const g = $('#catGrid'); fitGrid(g);
+  g.innerHTML = list.length ? list.map(cardBtn).join('') : `<p class="empty">V tejto sekcii zatiaľ nie sú žiadne kanály.</p>`;
+}
+const filterCh = v => v === 'all' ? ordered() : secList(secById(v));
+const chipsHTML = (which, cur) => [['all', 'Všetky'], ...S.sections.filter(s => s.type !== 'recent').map(s => [s.id, s.name])].map(([v, l]) =>
+  `<button class="chip f ${cur === v ? 'on' : ''}" data-act="chip" data-which="${which}" data-v="${v}" data-group="main">${esc(l)}</button>`).join('');
+
+function renderChannels() {
+  if (S.chipCh !== 'all' && !secById(S.chipCh)) S.chipCh = 'all';
+  const keep = nav.cur && nav.cur.closest('#chGrid') ? nav.cur.dataset.ch : null;
+  $('#chChips').innerHTML = chipsHTML('ch', S.chipCh);
+  const list = filterCh(S.chipCh);
+  fitGrid($('#chGrid'));
+  $('#chGrid').innerHTML = list.length ? list.map(cardBtn).join('') : `<p class="empty">Zatiaľ tu nič nie je. Kanály pridáš v Nastaveniach → Sekcie a kanály.</p>`;
+  $('#chCount').textContent = countTxt(list.length);
+  if (keep) { const el = $(`#chGrid [data-ch="${keep}"]`) || $('#chGrid .card') || $('#chChips .chip.on'); nav.cur = null; setFocus(el); }
+}
+
+/* Guide */
+let G = {};
+function renderGuide(keep) {
+  if (S.chipGuide !== 'all' && !secById(S.chipGuide)) S.chipGuide = 'all';
+  const sc = $('#gScroll');
+  const prevL = sc.scrollLeft, prevT = sc.scrollTop;
+  const now = Date.now(), wide = isWide();
+  const ppm = wide ? 4.4 : 3, chw = wide ? 230 : 62;
+  const ws = Math.floor((now - 90 * MIN) / (30 * MIN)) * 30 * MIN, we = ws + 10 * 60 * MIN;
+  const gw = (we - ws) / MIN * ppm;
+  G = { ws, we, ppm, chw };
+  $('#gDate').textContent = dateTxt(now);
+  $('#gChips').innerHTML = chipsHTML('guide', S.chipGuide);
+  let times = '';
+  for (let t = ws; t < we; t += 30 * MIN) times += `<span style="left:${(t - ws) / MIN * ppm}px">${hm(t)}</span>`;
+  const rows = filterCh(S.chipGuide).map(ch => {
+    const cells = EPG[ch.id].filter(p => p.end > ws && p.start < we).map(p => {
+      const l = Math.max(p.start, ws), r = Math.min(p.end, we);
+      const st = p.end <= now ? 'past' : p.start <= now ? 'now' : 'future';
+      const bell = S.rem.has(ch.id + ':' + p.start) ? I('bell') : '';
+      return `<button class="prog f ${st}" data-act="prog" data-group="main" data-ch="${ch.id}" data-start="${p.start}" data-end="${p.end}" style="left:${(l - ws) / MIN * ppm + 2}px;width:${Math.max(4, (r - l) / MIN * ppm - 4)}px">`
+        + (st === 'now' ? `<i class="pf" style="width:${frac(p, now) * 100}%"></i>` : '')
+        + `<span class="pt">${bell}${esc(p.title)}</span><span class="pm">${hm(p.start)} – ${hm(p.end)}</span></button>`;
+    }).join('');
+    return `<div class="g-row"><div class="g-ch">${tileStatic(ch, 'mini')}<b>${ch.n}</b><span class="nm">${esc(ch.name)}</span></div><div class="g-track">${cells}</div></div>`;
+  }).join('');
+  const nowX = (now - ws) / MIN * ppm;
+  sc.style.setProperty('--chw', chw + 'px');
+  sc.innerHTML = `<div class="g-inner" style="--chw:${chw}px;--gw:${gw}px">`
+    + `<div class="g-ruler"><div class="g-corner"></div><div class="g-times">${times}<em class="g-nowtag" style="left:${nowX}px">teraz</em></div></div>`
+    + (rows || `<p class="empty" style="padding-left:${chw}px">V tejto sekcii nie sú žiadne kanály.</p>`)
+    + `<div class="now-line" style="left:${chw + nowX}px"></div></div>`;
+  if (keep) { sc.scrollLeft = prevL; sc.scrollTop = prevT; }
+  else { sc.scrollLeft = Math.max(0, nowX - 40 * ppm); sc.scrollTop = 0; }
+  const first = $('#gScroll .prog.now') || $('#gScroll .prog');
+  if (first) renderGDetail(first); else $('#gDetail').innerHTML = '';
+}
+function renderGDetail(el) {
+  const ch = byId[el.dataset.ch], start = +el.dataset.start;
+  const p = EPG[ch.id].find(x => x.start === start); if (!p) return;
+  const now = Date.now();
+  const st = p.end <= now ? 'past' : p.start <= now ? 'now' : 'future';
+  const rem = S.rem.has(ch.id + ':' + p.start);
+  const badge = st === 'past' ? `<span class="badge arch">${I('hist')}Archív</span>`
+    : st === 'now' ? `<span class="badge live"><i class="dot"></i>Živé · ${remain(p, now)}</span>`
+    : `<span class="badge">${rem ? I('bell') + 'Pripomienka' : remain(p, now)}</span>`;
+  const hint = st === 'past' ? 'prehrať z archívu' : st === 'now' ? 'pozerať naživo' : rem ? 'zrušiť pripomienku' : 'pripomenúť';
+  $('#gDetail').innerHTML = `${tileStatic(ch, 'mini')}<div><div class="eyebrow">${badge}<span>${ch.n} · ${esc(ch.name)}</span></div>`
+    + `<h3>${esc(p.title)}</h3><div class="meta"><span>${dayWord(p.start)} ${hm(p.start)} – ${hm(p.end)}</span><span>${p.genre}</span><span>${Math.round((p.end - p.start) / MIN)} min</span></div>`
+    + `<p>${esc(p.desc)}</p><div class="g-hint"><b>OK</b> ${hint}</div></div>`;
+}
+function updateGuideNow() {
+  if (S.screen !== 'guide' || !G.ws) return;
+  const now = Date.now(), x = (now - G.ws) / MIN * G.ppm;
+  const line = $('#gScroll .now-line'), tag = $('#gScroll .g-nowtag');
+  if (line) line.style.left = G.chw + x + 'px';
+  if (tag) tag.style.left = x + 'px';
+  $$('#gScroll .prog').forEach(c => {
+    const s = +c.dataset.start, e = +c.dataset.end;
+    const st = e <= now ? 'past' : s <= now ? 'now' : 'future';
+    c.classList.remove('past', 'now', 'future'); c.classList.add(st);
+    const pf = $('.pf', c);
+    if (st === 'now') { if (pf) pf.style.width = frac({ start: s, end: e }, now) * 100 + '%'; }
+    else if (pf) pf.remove();
+  });
+}
+
+/* Search */
+function renderResults() {
+  const q = norm($('#q').value.trim());
+  const now = Date.now();
+  let html;
+  if (!q) {
+    html = `<h4>Tvoje obľúbené</h4>` + favIds().map(id => resHTML(byId[id], progAt(id, now))).join('');
+  } else {
+    const hits = [];
+    ordered().forEach(c => {
+      const p = progAt(c.id, now), nx = progNext(c.id, p);
+      if (norm(c.name).includes(q) || norm(p.title).includes(q)) hits.push(resHTML(c, p));
+      else if (nx && norm(nx.title).includes(q)) hits.push(resHTML(c, nx, true));
+    });
+    html = hits.length ? `<h4>${hits.length} ${plural(hits.length, 'výsledok', 'výsledky', 'výsledkov')}</h4>` + hits.join('')
+      : `<p class="empty">Pre „${esc($('#q').value)}“ sme nič nenašli. Skús názov kanála alebo relácie.</p>`;
+  }
+  $('#results').innerHTML = html;
+}
+const resHTML = (c, p, later) => `<button class="res f" data-act="play" data-ch="${c.id}" data-group="main">${tileStatic(c, 'mini')}<span><b>${c.n} · ${esc(c.name)}</b><small>${later ? 'O ' + hm(p.start) : 'Teraz'}: ${esc(p.title)}</small></span></button>`;
+
+/* Settings */
+const seg = (k, opts) => `<div class="seg">${opts.map(([v, l]) => `<button class="f ${S.set[k] === v ? 'on' : ''}" data-act="set" data-k="${k}" data-v="${v}" data-group="main">${l}</button>`).join('')}</div>`;
+const setRow = (title, sub, ctrl) => `<div class="set-row"><div class="lbl"><b>${title}</b>${sub ? `<small>${sub}</small>` : ''}</div>${ctrl}</div>`;
+function renderSettings() {
+  const sw = Object.entries(ACCENTS).map(([k, [c]]) => `<button class="swatch f ${S.set.accent === k ? 'on' : ''}" style="--sw:${c}" data-act="set" data-k="accent" data-v="${k}" data-group="main" aria-label="Farba ${k}"></button>`).join('');
+  const custom = S.sections.filter(s => s.custom).length;
+  $('#settings').innerHTML = `
+    <div class="set-group"><h3>Domovská obrazovka</h3>
+      ${setRow('Štýl', 'Nočný neón: tmavé pozadie so svetelnými vlnami. Liquid glass: sklenený panel nad rozmazanou farbou, na starších TV môže byť pomalší.', seg('look', [['classic', 'Nočný neón'], ['glass', 'Liquid glass']]))}
+      ${setRow('Riadkov v sekciách', 'Naposledy pozerané je vždy jeden riadok', seg('secRows', [['1', '1'], ['2', '2'], ['3', '3']]))}
+      ${setRow('Sekcie, kategórie a poradie kanálov', `${S.sections.length - 2} kategórií${custom ? `, z toho ${custom} vlastné` : ''} · ${S.quick.length} tlačidlá na vrchu`, `<button class="btn small-btn f" data-act="org-open" data-group="main">${I('pencil')}Upraviť</button>`)}
+    </div>
+    <div class="set-group"><h3>Playlisty</h3>
+      ${setRow(`<span class="pl-card"><span class="pl-icon">${I('link')}</span><span class="lbl"><b>Môj IPTV</b><small>M3U · ${CH.length} kanálov · EPG z playlistu · ukážkové dáta</small></span></span>`, '', `<button class="btn small-btn f" data-act="playlist" data-group="main">Upraviť</button>`)}
+      ${setRow('Pridať ďalší playlist', 'M3U odkaz alebo prihlásenie Xtream Codes', `<button class="btn small-btn f" data-act="playlist" data-new="1" data-group="main">${I('plus')}Pridať</button>`)}
+    </div>
+    <div class="set-group"><h3>Kanály</h3>
+      <div class="preview">${['Tatra 1', 'Šport Live 1', 'Kino Max', 'Vltava 1'].map(n => cardStatic(byId[idOf(n)])).join('')}</div>
+      ${setRow('Veľkosť kanálov', '', seg('tile', [['s', 'Malé'], ['m', 'Stredné'], ['l', 'Veľké']]))}
+      ${setRow('Zaoblenie rohov', '', seg('round', [['soft', 'Jemné'], ['med', 'Stredné'], ['strong', 'Výrazné']]))}
+      ${setRow('Pozadie kanálov', 'Skutočné logá z playlistu bývajú priehľadné PNG', seg('tilebg', [['tint', 'Farba kanála'], ['dark', 'Tmavé'], ['light', 'Svetlé']]))}
+      ${setRow('Farba zvýraznenia', 'Rámik okolo vybranej položky', `<div class="swatches">${sw}</div>`)}
+      ${setRow('Relácia pod kanálom', 'Názov a priebeh toho, čo práve beží', `<button class="toggle f ${S.set.caps === 'on' ? 'on' : ''}" data-act="set" data-k="caps" data-v="toggle" data-group="main" aria-label="Relácia pod kanálom"></button>`)}
+      ${setRow('Čísla kanálov v rohu', '', `<button class="toggle f ${S.set.nums === 'on' ? 'on' : ''}" data-act="set" data-k="nums" data-v="toggle" data-group="main" aria-label="Čísla kanálov"></button>`)}
+    </div>
+    <div class="set-group"><h3>Prehrávač</h3>
+      ${setRow('Predvolený jazyk zvuku', 'Ak ho stream obsahuje', seg('lang', AUDIO.map(a => [a[0], a[1]])))}
+      ${setRow('Predvolené titulky', '', seg('subs', SUBS.map(a => [a[0], a[1]])))}
+      ${setRow('Skryť ovládanie po', '', seg('hide', [['3', '3 s'], ['5', '5 s'], ['8', '8 s']]))}
+    </div>
+    <div class="set-group"><h3>Ostatné</h3>
+      ${setRow('Ovládanie', 'Klávesy, diaľkový ovládač a gestá', `<button class="btn small-btn f" data-act="help" data-group="main">Zobraziť</button>`)}
+      ${setRow('Obnoviť ukážku', 'Vráti nastavenia, sekcie, obľúbené a históriu do pôvodného stavu', `<button class="btn small-btn f" data-act="reset" data-group="main">Obnoviť</button>`)}
+    </div>`;
+}
+function setSetting(k, v, el) {
+  if (v === 'toggle') { v = S.set[k] === 'on' ? 'off' : 'on'; if (el) el.classList.toggle('on', v === 'on'); }
+  else $$(`[data-act="set"][data-k="${k}"]`).forEach(b => b.classList.toggle('on', b.dataset.v === v));
+  S.set[k] = v;
+  if (k === 'lang') P.audio = v;
+  if (k === 'subs') P.subs = v;
+  applySettings();
+  if (k === 'secRows' && S.screen === 'home') renderHome();
+  if (k === 'look') toast(v === 'glass' ? 'Liquid glass zapnutý' : 'Klasický vzhľad');
+}
+
+/* ---------- Organizer ---------- */
+const ib = (act, id, icon, opt = {}) => `<button class="ibtn f ${opt.cls || ''}" data-act="${act}" data-id="${id}"${opt.list ? ` data-list="${opt.list}"` : ''}${opt.disabled ? ' disabled' : ''} aria-label="${opt.title || ''}" title="${opt.title || ''}">${I(icon)}</button>`;
+function orgItem(o, btns) {
+  return `<div class="org-item ${S.orgSel === o.id ? 'sel' : ''} ${o.off ? 'off' : ''}"><button class="org-main f" data-act="org-sel" data-id="${o.id}" data-group="main"><span class="sec-ic" style="--sc:${o.color}">${o.icon}</span><span class="o-nm"><b>${esc(o.name)}</b><small>${o.sub}</small></span></button>${btns ? `<span class="org-btns">${btns}</span>` : ''}</div>`;
+}
+function renderOrganizer() {
+  const L = [`<div class="org-group">Domovská obrazovka</div>`];
+  L.push(orgItem({ id: 'quick', icon: I('pin'), color: '#F2B84B', name: 'Tlačidlá na vrchu', sub: `${S.quick.length} ${plural(S.quick.length, 'kategória', 'kategórie', 'kategórií')}` }, ''));
+  const n = S.sections.length;
+  S.sections.forEach((s, i) => {
+    let b = ib('s-up', s.id, 'up', { disabled: i === 0, title: 'Posunúť vyššie' }) + ib('s-down', s.id, 'down', { disabled: i === n - 1, title: 'Posunúť nižšie' })
+      + ib('s-eye', s.id, s.show ? 'eye' : 'eye-off', { cls: s.show ? '' : 'off', title: s.show ? 'Skryť na domovskej obrazovke' : 'Zobraziť na domovskej obrazovke' });
+    if (s.type !== 'recent') b += ib('s-pin', s.id, 'pin', { cls: S.quick.includes(s.id) ? 'on' : 'off', title: 'Tlačidlo na vrchu' });
+    if (s.type === 'cat') b += ib('s-edit', s.id, 'pencil', { title: 'Premenovať, farba a ikona' });
+    if (s.custom) b += ib('s-del', s.id, 'trash', { title: 'Zmazať kategóriu' });
+    L.push(orgItem({ id: s.id, icon: catIcon(s), color: s.color, name: s.name, sub: (s.show ? '' : 'Skrytá · ') + countTxt(secList(s).length), off: !s.show }, b));
+  });
+  L.push(`<div class="org-group">Kanály</div>`);
+  L.push(orgItem({ id: 'all', icon: I('grid'), color: '#7C8799', name: 'Poradie a čísla kanálov', sub: countTxt(CH.length) }, ''));
+  $('#orgLeft').innerHTML = L.join('');
+  renderOrgRight();
+}
+function chRow(ch, list, i, len, removable) {
+  const btns = list ? ib('o-up', ch.id, 'up', { list, disabled: i === 0, title: 'Vyššie' }) + ib('o-down', ch.id, 'down', { list, disabled: i === len - 1, title: 'Nižšie' })
+    + (removable ? ib('o-rm', ch.id, 'x', { list, title: 'Odobrať zo sekcie' }) : '') : '';
+  return `<div class="org-row"><span class="o-num">${ch.n}</span>${tileStatic(ch, 'mini')}<span class="o-nm"><b>${esc(ch.name)}</b><small>${catName[ch.cat]}</small></span>${btns ? `<span class="org-btns">${btns}</span>` : ''}</div>`;
+}
+function renderOrgRight() {
+  const sel = S.orgSel;
+  let title, sub, action = '', rows = '';
+  const addBtn = (list, txt) => `<button class="btn small-btn f" data-act="o-add" data-list="${list}" data-group="main">${I('plus')}${txt}</button>`;
+  if (sel === 'all') {
+    title = 'Poradie a čísla kanálov'; sub = 'Poradie určuje čísla, ktoré zadávaš na ovládači, a prepínanie CH+ a CH−.';
+    rows = S.order.map((id, i) => chRow(byId[id], 'all', i, S.order.length, false)).join('');
+  } else if (sel === 'quick') {
+    title = 'Tlačidlá na vrchu'; sub = 'Veľké tlačidlá na domovskej obrazovke. Otvoria celú kategóriu.';
+    action = addBtn('quick', 'Pridať kategóriu');
+    rows = S.quick.map(secById).filter(Boolean).map((s, i, a) => `<div class="org-row"><span class="sec-ic" style="--sc:${s.color}">${catIcon(s)}</span><span class="o-nm"><b>${esc(s.name)}</b><small>${countTxt(secList(s).length)}</small></span><span class="org-btns">${ib('o-up', s.id, 'up', { list: 'quick', disabled: i === 0, title: 'Vyššie' })}${ib('o-down', s.id, 'down', { list: 'quick', disabled: i === a.length - 1, title: 'Nižšie' })}${ib('o-rm', s.id, 'x', { list: 'quick', title: 'Odobrať' })}</span></div>`).join('')
+      || `<p class="sec-empty">Žiadne tlačidlá. Pridaj kategóriu.</p>`;
+  } else {
+    const s = secById(sel);
+    if (!s) { S.orgSel = 'quick'; renderOrgRight(); return; }
+    title = s.name;
+    if (s.type === 'recent') {
+      sub = 'Plní sa automaticky podľa toho, čo pozeráš.';
+      action = `<button class="btn small-btn f" data-act="clear-recent" data-group="main">${I('trash')}Vymazať históriu</button>`;
+      rows = secList(s).map(c => chRow(c, null)).join('') || `<p class="sec-empty">História je prázdna.</p>`;
+    } else {
+      sub = (s.type === 'fav' ? 'Tvoje obľúbené kanály. Na domovskej obrazovke sú ako veľké karty úplne hore.' : s.custom ? 'Vlastná kategória.' : 'Kategória z playlistu.') + ' Poradie platí len v tejto sekcii.';
+      action = addBtn(s.id, 'Pridať kanály');
+      rows = s.chs.map((id, i) => chRow(byId[id], s.id, i, s.chs.length, true)).join('') || `<p class="sec-empty">Sekcia je prázdna. Pridaj do nej kanály.</p>`;
+    }
+  }
+  $('#orgRight').innerHTML = `<div class="pane-head"><div><h3>${esc(title)}</h3><p class="muted">${sub}</p></div>${action}</div><div class="org-list">${rows}</div>`;
+}
+const listRef = list => list === 'all' ? S.order : list === 'quick' ? S.quick : (secById(list) || { chs: [] }).chs;
+function refocusOrg(el, fallbackSel) {
+  let t = twin(el);
+  if (t && t.disabled) {
+    const alt = { 'o-up': 'o-down', 'o-down': 'o-up', 's-up': 's-down', 's-down': 's-up' }[el.dataset.act];
+    t = $(`[data-act="${alt}"][data-id="${CSS.escape(el.dataset.id)}"]${el.dataset.list ? `[data-list="${CSS.escape(el.dataset.list)}"]` : ''}`);
+  }
+  nav.cur = null;
+  setFocus((t && !t.disabled && t) || (fallbackSel && $(fallbackSel)) || pickDefault());
+}
+function openPicker(list) {
+  PK = list;
+  const items = list === 'quick'
+    ? S.sections.filter(s => s.type !== 'recent').map(s => ({ id: s.id, on: S.quick.includes(s.id), html: `<span class="sec-ic" style="--sc:${s.color}">${catIcon(s)}</span><span class="o-nm"><b>${esc(s.name)}</b><small>${countTxt(secList(s).length)}</small></span>` }))
+    : ordered().map(c => ({ id: c.id, on: listRef(list).includes(c.id), html: `${tileStatic(c, 'mini')}<span class="o-nm"><b>${c.n} · ${esc(c.name)}</b><small>${catName[c.cat]}</small></span>` }));
+  const title = list === 'quick' ? 'Tlačidlá na vrchu' : `Kanály v sekcii ${esc(secById(list).name)}`;
+  openModal(`<h2>${title}</h2><p class="muted">OK pridá alebo odoberie. Nové položky sa pridajú na koniec.</p>
+    <div class="pick-list">${items.map(it => `<button class="pick f ${it.on ? 'on' : ''}" data-act="pick" data-id="${it.id}"><span class="chk">${I('check')}</span>${it.html}</button>`).join('')}</div>
+    <div class="actions"><button class="btn primary f" data-act="pick-done">Hotovo</button></div>`);
+}
+let PK = null, CM = null;
+function openCatModal(id) {
+  const s = id ? secById(id) : null;
+  CM = { id, color: s ? s.color : PALETTE[S.sections.length % PALETTE.length], icon: s ? s.icon : 'auto', pin: s ? S.quick.includes(s.id) : false };
+  openModal(`<h2>${s ? 'Upraviť kategóriu' : 'Nová kategória'}</h2>
+    <div class="field"><label for="cmName">Názov</label><input id="cmName" class="f" value="${s ? esc(s.name) : ''}" placeholder="Napríklad Večerné filmy" autocomplete="off"></div>
+    <div class="field"><span class="flabel">Farba</span><div class="swatches">${PALETTE.map(c => `<button class="swatch f ${CM.color === c ? 'on' : ''}" style="--sw:${c}" data-act="cm-color" data-v="${c}" aria-label="Farba ${c}"></button>`).join('')}</div></div>
+    <div class="field"><span class="flabel">Ikona</span><div class="icopts">${ICONS.map(ic => `<button class="icopt f ${CM.icon === ic ? 'on' : ''}" data-act="cm-icon" data-v="${ic}" aria-label="${ic === 'auto' ? 'Iniciály' : ic}">${ic === 'auto' ? '<span class="txt-ic">Aa</span>' : I(ic)}</button>`).join('')}</div></div>
+    ${setRow('Tlačidlo na vrchu domovskej obrazovky', '', `<button class="toggle f ${CM.pin ? 'on' : ''}" data-act="cm-pin" aria-label="Tlačidlo na vrchu"></button>`)}
+    <div class="actions"><button class="btn f" data-act="close-modal">Zrušiť</button><button class="btn primary f" data-act="cm-save">${s ? 'Uložiť' : 'Vytvoriť a vybrať kanály'}</button></div>`);
+}
+
+/* ---------- Favorites, recent, reminders ---------- */
+function toggleFav(id) {
+  const f = secById('fav'); if (!id || !f) return;
+  const ch = byId[id], i = f.chs.indexOf(id);
+  if (i >= 0) { f.chs.splice(i, 1); toast(`${ch.name} odobratý z obľúbených`); }
+  else { f.chs.push(id); toast(`${ch.name} pridaný do obľúbených`); }
+  save();
+  if (P.open) renderOSD();
+  else if (S.screen === 'home') renderHome();
+  else if (S.screen === 'channels') renderChannels();
+}
+function pushRecent(id) { S.recent = [id, ...S.recent.filter(x => x !== id)].slice(0, 16); store.set('recent', S.recent); }
+function progAction(id, start) {
+  const p = EPG[id].find(x => x.start === start); if (!p) return;
+  const now = Date.now();
+  if (p.end <= now) { openOrTune(id, (now - p.start) / 1000); toast(`Z archívu: ${p.title}`); return 'play'; }
+  if (p.start <= now) { openOrTune(id, 0); return 'play'; }
+  const k = id + ':' + start;
+  if (S.rem.has(k)) { S.rem.delete(k); toast('Pripomienka zrušená'); }
+  else { S.rem.add(k); toast(`Pripomeniem: ${p.title} o ${hm(p.start)}`); }
+  store.set('rem', [...S.rem]);
+  if (P.open && P.panel === 'prog') { renderSheet('prog'); setFocus($(`#sheet [data-start="${start}"]`)); }
+  else if (S.screen === 'guide') { renderGuide(true); const el = $(`#gScroll [data-ch="${id}"][data-start="${start}"]`); nav.cur = null; setFocus(el, { noScroll: true }); }
+  return 'rem';
+}
+
+/* ---------- Player ---------- */
+const P = { open: false, ch: null, last: null, offset: 0, paused: false, osd: false, panel: null, panelFrom: null,
+  audio: S.set.lang, subs: S.set.subs, quality: 'auto', aspect: 'fit', hideT: 0, bannerT: 0, num: '', numT: 0, tileCh: null, appFocus: null };
+const maxOffset = () => (Date.now() - EPG_FROM) / 1000 - 60;
+const isLive = () => P.offset < 3 && !P.paused;
+function openOrTune(id, offset = 0) { if (!P.open) openPlayer(id, offset); else tune(id, offset); }
+function openPlayer(id, offset = 0) {
+  P.appFocus = nav.cur; clearFocus();
+  P.open = true; player.hidden = false;
+  tune(id, offset);
+  cancelAnimationFrame(vid.raf); vid.last = 0; vid.raf = requestAnimationFrame(frame);
+}
+function closePlayer() {
+  closePanel(true); hideOSD(); hideBanner();
+  P.open = false; player.hidden = true; cancelAnimationFrame(vid.raf);
+  const back = P.appFocus;
+  if (S.screen === 'home') renderHome(back);
+  if (!nav.cur) { const t = twin(back); setFocus(t && visible(t) ? t : pickDefault()); }
+}
+function tune(id, offset = 0) {
+  if (P.ch && P.ch !== id) P.last = P.ch;
+  P.ch = id; P.offset = Math.min(offset, maxOffset()); P.paused = false;
+  pushRecent(id);
+  vid.noise = performance.now() + 320; vid.frozen = false;
+  $('#dog').innerHTML = logoHTML(byId[id]);
+  renderOSD(); renderSubs(true);
+  if (!P.osd && !P.panel) showBanner();
+}
+function step(d) {
+  const o = S.order, i = o.indexOf(P.ch);
+  tune(o[(i + d + o.length) % o.length]);
+  if (P.panel === 'prog') { renderSheet('prog'); setFocus($('#sheet .pr.now') || $('#sheet .f')); }
+}
+function togglePause() {
+  P.paused = !P.paused; vid.frozen = false;
+  player.classList.toggle('paused', P.paused);
+  renderOSD();
+  if (P.osd) armHide();
+  toast(P.paused ? 'Pozastavené · vysielanie sa nahráva do časového posunu' : (isLive() ? 'Naživo' : `Pokračuje s posunom −${durTxt(P.offset)}`));
+}
+function seek(delta) {
+  P.offset = Math.max(0, Math.min(maxOffset(), P.offset - delta));
+  if (P.offset < 3 && !P.paused) P.offset = 0;
+  vid.noise = performance.now() + 90;
+  renderOSD();
+  if (!P.osd && !P.panel) showOSD('#seek');
+  armHide();
+}
+function toLive() { P.offset = 0; P.paused = false; player.classList.remove('paused'); renderOSD(); toast('Naživo'); }
+function restartProg() { const now = Date.now(), p = progAt(P.ch, now - P.offset * 1000); P.offset = (now - p.start) / 1000; renderOSD(); toast(`Od začiatku: ${p.title}`); }
+
+function renderOSD() {
+  const ch = byId[P.ch]; if (!ch) return;
+  player.classList.toggle('paused', P.paused);
+  const now = Date.now(), pos = now - P.offset * 1000;
+  const p = progAt(ch.id, pos), nx = progNext(ch.id, p);
+  if (P.tileCh !== ch.id) { $('#oTile').innerHTML = tileStatic(ch, 'mini'); P.tileCh = ch.id; }
+  $('#oName').textContent = `${ch.n} · ${ch.name}`;
+  $('#oStatus').innerHTML = isLive() ? `<span class="badge live"><i class="dot"></i>Živé</span>`
+    : P.paused ? `<span class="badge">Pozastavené · −${durTxt(P.offset)}</span>`
+    : `<span class="badge arch">${I('hist')}Posun −${durTxt(P.offset)}</span>`;
+  $('#oClock').textContent = hm(now);
+  $('#oTitle').textContent = p.title;
+  $('#oMeta').innerHTML = `<span>${hm(p.start)} – ${hm(p.end)}</span><span>${p.genre}</span><span>Zvuk: ${label(AUDIO, P.audio)}</span><span>Titulky: ${label(SUBS, P.subs).toLowerCase()}</span>${P.quality !== 'auto' ? `<span>${label(QUAL, P.quality)}</span>` : ''}`;
+  const lf = frac(p, now), pf = frac(p, pos);
+  $('#sBuf').style.width = lf * 100 + '%';
+  $('#sPlayed').style.width = pf * 100 + '%';
+  $('#sHead').style.left = pf * 100 + '%';
+  $('#sStart').textContent = hm(p.start);
+  $('#sEnd').textContent = hm(p.end);
+  $('#sPos').textContent = isLive() ? 'Naživo' : `${hms(pos)} · −${durTxt(P.offset)}`;
+  const play = $('#cPlay');
+  $('use', play).setAttribute('href', P.paused ? '#i-play' : '#i-pause');
+  $('.tip', play).textContent = P.paused ? 'Prehrať' : 'Pauza';
+  $('#cLive').classList.toggle('is-live', isLive());
+  const fav = $('#cFav'), on = isFav(ch.id);
+  $('use', fav).setAttribute('href', on ? '#i-heart-f' : '#i-heart');
+  fav.classList.toggle('fav-on', on);
+  $('.tip', fav).textContent = on ? 'Odobrať z obľúbených' : 'Pridať do obľúbených';
+  $('#oNext').innerHTML = nx ? `Ďalej <b>${hm(nx.start)}</b>${esc(nx.title)}` : '';
+}
+function showOSD(sel) {
+  P.osd = true; player.classList.add('osd-on'); hideBanner();
+  renderOSD();
+  if (sel) setFocus($(sel, osd));
+  else if (!nav.cur || !osd.contains(nav.cur)) setFocus($('#cPlay'));
+  armHide();
+}
+function hideOSD() {
+  P.osd = false; player.classList.remove('osd-on'); clearTimeout(P.hideT);
+  if (nav.cur && osd.contains(nav.cur)) clearFocus();
+}
+function armHide() { clearTimeout(P.hideT); if (P.paused || P.panel) return; P.hideT = setTimeout(hideOSD, (+S.set.hide || 5) * 1000); }
+function showBanner() {
+  const ch = byId[P.ch], now = Date.now(), pos = now - P.offset * 1000, p = progAt(ch.id, pos), nx = progNext(ch.id, p);
+  $('#bNum').textContent = ch.n;
+  $('#bTile').innerHTML = tileStatic(ch, 'mini');
+  $('#bName').textContent = ch.name + (isLive() ? ' · ŽIVÉ' : ' · ARCHÍV');
+  $('#bTitle').textContent = p.title;
+  $('#bBar').style.width = frac(p, now) * 100 + '%';
+  $('#bNext').innerHTML = nx ? `<b>${hm(nx.start)}</b>${esc(nx.title)}` : '';
+  $('#banner').classList.add('on'); $('#pHint').classList.add('on');
+  clearTimeout(P.bannerT); P.bannerT = setTimeout(hideBanner, 3800);
+}
+function hideBanner() { $('#banner').classList.remove('on'); $('#pHint').classList.remove('on'); clearTimeout(P.bannerT); }
+
+function openPanel(name) {
+  P.panelFrom = P.osd ? nav.cur : null;
+  hideOSD(); hideBanner();
+  P.panel = name;
+  if (name === 'list') {
+    renderList(); sheet.classList.remove('on'); chPanel.classList.add('on');
+    const cur = $(`#chPanel [data-ch="${P.ch}"]`); setFocus(cur, { noScroll: true }); cur.scrollIntoView({ block: 'center' });
+  } else {
+    renderSheet(name); chPanel.classList.remove('on'); sheet.classList.add('on');
+    const f = $('#sheet .opt.on') || $('#sheet .pr.now') || $('#sheet .f'); setFocus(f, { noScroll: true }); if (f) f.scrollIntoView({ block: 'center' });
+  }
+}
+function closePanel(silent) {
+  if (!P.panel) return;
+  const from = P.panelFrom;
+  P.panel = null; P.panelFrom = null;
+  chPanel.classList.remove('on'); sheet.classList.remove('on'); clearFocus();
+  if (!silent && from && P.open) { showOSD(); setFocus(from); }
+}
+function renderList() {
+  const now = Date.now();
+  chPanel.innerHTML = `<div class="panel-head"><h3>Kanály</h3><span>${countTxt(CH.length)}</span></div><div class="plist">` + ordered().map(c => {
+    const p = progAt(c.id, now);
+    return `<button class="pitem f ${c.id === P.ch ? 'cur' : ''}" data-act="tune" data-ch="${c.id}"><span class="pnum">${c.n}</span>${tileStatic(c, 'mini')}<span class="pinfo"><b>${esc(c.name)}</b><small>${esc(p.title)}</small><span class="bar"><i style="width:${frac(p, now) * 100}%"></i></span></span></button>`;
+  }).join('') + `</div>`;
+}
+function renderSheet(name) {
+  if (name === 'audio') {
+    const sec = (title, k, list) => `<div class="sheet-sec">${title}</div>` + list.map(([v, l, s]) =>
+      `<button class="opt f ${P[k] === v ? 'on' : ''}" data-act="opt" data-k="${k}" data-v="${v}"><span>${l}${s ? `<small>${s}</small>` : ''}</span>${I('check')}</button>`).join('');
+    sheet.innerHTML = `<div class="panel-head"><h3>Zvuk a titulky</h3></div><div class="plist">${sec('Zvuková stopa', 'audio', AUDIO)}${sec('Titulky', 'subs', SUBS)}${sec('Kvalita', 'quality', QUAL)}${sec('Pomer strán', 'aspect', ASPECT)}</div>`;
+  } else {
+    const ch = byId[P.ch], now = Date.now(), pos = now - P.offset * 1000;
+    const list = EPG[ch.id].filter(p => p.end > now - 12 * 60 * MIN && p.start < now + 14 * 60 * MIN);
+    sheet.innerHTML = `<div class="panel-head"><h3>${esc(ch.name)}</h3><span>Program</span></div><div class="plist">` + list.map(p => {
+      const st = p.end <= now ? 'past' : p.start <= now ? 'now' : 'future';
+      const playing = pos >= p.start && pos < p.end;
+      const right = st === 'past' ? `${I('hist')}${playing ? 'Prehráva sa' : 'Archív'}` : st === 'now' ? `<i class="dot"></i>${playing ? 'Teraz' : 'Naživo'}` : (S.rem.has(ch.id + ':' + p.start) ? I('bell') : '');
+      return `<button class="pr f ${st}" data-act="sprog" data-ch="${ch.id}" data-start="${p.start}"><span class="pr-time">${hm(p.start)}</span><span class="pr-t"><b>${esc(p.title)}</b><small>${p.genre}</small></span><span class="pr-st">${right}</span></button>`;
+    }).join('') + `</div>`;
+  }
+}
+function setOpt(k, v) {
+  P[k] = v;
+  $$(`#sheet .opt[data-k="${k}"]`).forEach(b => b.classList.toggle('on', b.dataset.v === v));
+  if (k === 'aspect') $('#video').className = v === 'fit' ? '' : 'ar-' + v;
+  if (k === 'subs') renderSubs(true);
+  if (k === 'audio') toast(`Zvuk: ${label(AUDIO, v)}`);
+  if (k === 'quality') { vid.noise = performance.now() + 200; toast(`Kvalita: ${label(QUAL, v)}`); }
+  renderOSD();
+}
+const SUB_LINES = {
+  sk: ['Počkaj, ešte sme neskončili.', 'Vieš, kde bola v ten večer?', 'Zajtra ráno ti všetko vysvetlím.', 'Toto sú ukážkové titulky.'],
+  en: ['Wait, we are not done yet.', 'Do you know where she was that night?', 'I will explain everything tomorrow morning.', 'These are sample subtitles.'],
+};
+let subI = 0;
+function renderSubs(reset) {
+  const el = $('#subs');
+  if (P.subs === 'off' || !P.open) { el.hidden = true; return; }
+  if (reset) subI = 0;
+  el.hidden = false; el.textContent = SUB_LINES[P.subs][subI % 4];
+}
+
+/* Fake picture: drifting light in the channel's colours */
+const cv = $('#video'), cx = cv.getContext('2d');
+const vid = { raf: 0, t: Math.random() * 100, last: 0, noise: 0, frozen: false };
+const noiseCv = document.createElement('canvas'); noiseCv.width = 128; noiseCv.height = 72;
+const ncx = noiseCv.getContext('2d'), noiseImg = ncx.createImageData(128, 72);
+const hexA = (h, a) => { const n = parseInt(h.slice(1), 16); return `rgba(${n >> 16 & 255},${n >> 8 & 255},${n & 255},${a})`; };
+function frame(ts) {
+  vid.raf = requestAnimationFrame(frame);
+  const dt = vid.last ? Math.min(0.05, (ts - vid.last) / 1000) : 0; vid.last = ts;
+  const ch = byId[P.ch]; if (!ch) return;
+  const W = cv.width, H = cv.height;
+  if (ts < vid.noise) {
+    const d = noiseImg.data;
+    for (let i = 0; i < d.length; i += 4) { const v = Math.random() * 200 | 0; d[i] = d[i + 1] = d[i + 2] = v; d[i + 3] = 255; }
+    ncx.putImageData(noiseImg, 0, 0); cx.imageSmoothingEnabled = false; cx.drawImage(noiseCv, 0, 0, W, H); cx.imageSmoothingEnabled = true;
+    return;
+  }
+  if (P.paused) { if (vid.frozen) return; vid.frozen = true; } else vid.t += dt;
+  const t = vid.t, seed = CH.indexOf(ch) * 1.7;
+  cx.globalCompositeOperation = 'source-over';
+  cx.fillStyle = '#06070B'; cx.fillRect(0, 0, W, H);
+  cx.globalCompositeOperation = 'lighter';
+  const cols = [ch.c1, ch.c2, ch.c1];
+  for (let i = 0; i < 3; i++) {
+    const x = W * (0.5 + 0.38 * Math.sin(t * 0.23 * (i + 1) + seed + i * 2.1));
+    const y = H * (0.5 + 0.32 * Math.cos(t * 0.19 * (i + 1.3) + seed * 0.5 + i));
+    const r = H * (0.55 + 0.18 * Math.sin(t * 0.4 + i));
+    const g = cx.createRadialGradient(x, y, 0, x, y, r);
+    g.addColorStop(0, hexA(cols[i], i === 1 ? 0.35 : 0.5)); g.addColorStop(1, hexA(cols[i], 0));
+    cx.fillStyle = g; cx.fillRect(0, 0, W, H);
+  }
+  cx.globalCompositeOperation = 'source-over';
+  const v = cx.createRadialGradient(W / 2, H / 2, H * 0.3, W / 2, H / 2, W * 0.7);
+  v.addColorStop(0, 'rgba(0,0,0,0)'); v.addColorStop(1, 'rgba(0,0,0,.55)');
+  cx.fillStyle = v; cx.fillRect(0, 0, W, H);
+}
+
+/* Night look: slow neon light ribbons behind the content */
+const wv = $('#waves'), wx = wv.getContext('2d');
+let wvT = 0, wvLast = 0;
+const RIBBONS = [[258, .26, 1, .9], [196, .36, -1, .7], [312, .31, 1, .55]];
+function waves(ts) {
+  requestAnimationFrame(waves);
+  if (S.set.look !== 'classic' || P.open || document.hidden) { wvLast = 0; return; }
+  if (wvLast && ts - wvLast < 40) return;
+  if (!reduceMotion && wvLast) wvT += (ts - wvLast) / 1000;
+  wvLast = ts;
+  const W = wv.width, H = wv.height;
+  wx.clearRect(0, 0, W, H);
+  wx.globalCompositeOperation = 'lighter';
+  RIBBONS.forEach(([hue, yb, dir, amp], k) => {
+    for (let j = 0; j < 18; j++) {
+      wx.beginPath();
+      for (let x = -10; x <= W + 10; x += 12) {
+        const y = H * yb
+          + Math.sin(x * 0.0058 + wvT * 0.32 * dir + k * 1.7 + j * 0.085) * H * 0.11 * amp
+          + Math.sin(x * 0.0125 - wvT * 0.21 + j * 0.05 + k) * H * 0.045 * (1 + j * 0.05)
+          + j * 1.8;
+        if (x < 0) wx.moveTo(x, y); else wx.lineTo(x, y);
+      }
+      wx.strokeStyle = `hsla(${hue + j * 2}, 95%, ${60 + j}%, ${0.16 - j * 0.0065})`;
+      wx.lineWidth = j % 6 === 0 ? 3 : 1.1;
+      wx.stroke();
+    }
+  });
+  wx.globalCompositeOperation = 'source-over';
+}
+
+/* ---------- Number entry ---------- */
+function numKey(d) {
+  P.num = (P.num + d).slice(-3);
+  const el = $('#numEntry'); el.textContent = P.num; el.hidden = false;
+  clearTimeout(P.numT); P.numT = setTimeout(commitNum, 1400);
+}
+function commitNum() {
+  const n = +P.num; P.num = ''; $('#numEntry').hidden = true;
+  const c = CH.find(x => x.n === n);
+  if (c) openOrTune(c.id); else toast(`Kanál ${n} neexistuje`);
+}
+
+/* ---------- Modal ---------- */
+let modalBack = null;
+function openModal(html) {
+  if (modal.hidden) modalBack = nav.cur;
+  clearFocus();
+  $('#dialog').innerHTML = html; modal.hidden = false;
+  setFocus($('#dialog .f'));
+}
+function closeModal(noRestore) {
+  modal.hidden = true; clearFocus();
+  const back = modalBack; modalBack = null;
+  if (!noRestore) { const t = twin(back); if (t && visible(t)) setFocus(t, { noScroll: true }); }
+}
+function openHelp() {
+  openModal(`<h2>Ovládanie</h2>
+    <div class="help-grid">
+      <div><h4>Menu</h4><dl><dt>Šípky</dt><dd>pohyb</dd><dt>OK / Enter</dt><dd>vybrať</dd><dt>Späť / Esc</dt><dd>späť</dd><dt>0 – 9</dt><dd>prepnúť na číslo kanála</dd></dl></div>
+      <div><h4>Prehrávač</h4><dl><dt>↑ ↓, CH+ CH−</dt><dd>ďalší a predchádzajúci kanál</dd><dt>←</dt><dd>zoznam kanálov</dd><dt>→</dt><dd>program kanála</dd><dt>OK</dt><dd>ovládanie</dd><dt>Medzerník, ⏯</dt><dd>pauza</dd><dt>⏪ ⏩</dt><dd>±30 s</dd><dt>L</dt><dd>posledný kanál</dd><dt>I</dt><dd>info o relácii</dd></dl></div>
+      <div><h4>Dotyk a myš</h4><dl><dt>Ťuknutie</dt><dd>ovládanie</dd><dt>Potiahnutie ↑ ↓</dt><dd>zmena kanála</dd><dt>Klik na lištu</dt><dd>pretáčanie</dd></dl></div>
+    </div>
+    <div class="actions"><button class="btn primary f" data-act="close-modal">Rozumiem</button></div>`);
+}
+function openPlaylist(isNew) {
+  openModal(`<h2>${isNew ? 'Pridať playlist' : 'Upraviť playlist'}</h2>
+    <p class="muted">Toto je zatiaľ len vzhľad formulára. Načítanie skutočného playlistu a EPG pridáme v ďalšom kroku.</p>
+    <div class="seg" id="plType"><button class="f on" data-act="pltype" data-v="m3u">M3U odkaz</button><button class="f" data-act="pltype" data-v="xt">Xtream Codes</button></div>
+    <div class="field"><label for="plName">Názov</label><input id="plName" class="f" value="${isNew ? '' : 'Môj IPTV'}" placeholder="Napríklad Obývačka"></div>
+    <div id="plM3u" style="display:grid;gap:18px">
+      <div class="field"><label for="plUrl">Adresa playlistu (M3U)</label><input id="plUrl" class="f" placeholder="http://poskytovatel.example/playlist.m3u"></div>
+      <div class="field"><label for="plEpg">EPG vo formáte XMLTV (nepovinné)</label><input id="plEpg" class="f" placeholder="http://poskytovatel.example/epg.xml.gz"></div>
+    </div>
+    <div id="plXt" style="display:grid;gap:18px" hidden>
+      <div class="field"><label for="xtServer">Server</label><input id="xtServer" class="f" placeholder="http://server.example:8080"></div>
+      <div class="field"><label for="xtUser">Používateľ</label><input id="xtUser" class="f" autocomplete="off"></div>
+      <div class="field"><label for="xtPass">Heslo</label><input id="xtPass" class="f" type="password" autocomplete="off"></div>
+    </div>
+    <div class="actions"><button class="btn f" data-act="close-modal">Zrušiť</button><button class="btn primary f" data-act="save-playlist">Uložiť</button></div>`);
+}
+
+/* ---------- Actions ---------- */
+function activate(el, e) {
+  if (!el) return;
+  const a = el.dataset.act, id = el.dataset.ch;
+  switch (a) {
+    case 'screen': go(el.dataset.screen); break;
+    case 'play': openOrTune(id); break;
+    case 'cat': S.catId = el.dataset.sec; nav.mem['main:cat'] = null; go('cat'); break;
+    case 'look': setSetting('look', S.set.look === 'glass' ? 'classic' : 'glass'); break;
+    case 'chip': {
+      const w = el.dataset.which, v = el.dataset.v;
+      if (w === 'ch') { S.chipCh = v; renderChannels(); } else { S.chipGuide = v; renderGuide(); }
+      nav.cur = null; setFocus($(`[data-act="chip"][data-which="${w}"][data-v="${v}"]`), { noScroll: true });
+      break;
+    }
+    case 'prog': progAction(id, +el.dataset.start); break;
+    case 'set': setSetting(el.dataset.k, el.dataset.v, el); break;
+    case 'playlist': openPlaylist(!!el.dataset.new); break;
+    case 'help': openHelp(); break;
+    case 'reset':
+      S.set = Object.assign({}, DEFAULT_SET); S.sections = defaultSections(); S.quick = DEF_QUICK.slice(); S.recent = DEF_RECENT.slice(); S.rem = new Set();
+      S.order = CH.slice().sort((x, y) => +x.id.slice(1) - +y.id.slice(1)).map(c => c.id); renumber();
+      save(); store.set('recent', S.recent); store.set('rem', []);
+      applySettings(); renderSettings(); setFocus($('[data-act="reset"]'), { noScroll: true }); toast('Ukážka obnovená');
+      break;
+    case 'close-modal': closeModal(); break;
+    case 'save-playlist': closeModal(); toast('Uložené len naoko. Načítanie playlistu príde v ďalšom kroku.'); break;
+    case 'pltype':
+      $$('#plType button').forEach(b => b.classList.toggle('on', b === el));
+      $('#plM3u').hidden = el.dataset.v !== 'm3u'; $('#plXt').hidden = el.dataset.v === 'm3u';
+      break;
+
+    /* organizer */
+    case 'org-open': S.orgSel = el.dataset.id || 'quick'; nav.mem['main:organize'] = null; go('organize'); break;
+    case 'org-sel':
+      S.orgSel = el.dataset.id; renderOrganizer(); refocusOrg(el);
+      if (!isWide()) $('#orgRight').scrollIntoView({ block: 'start', behavior: reduceMotion ? 'auto' : 'smooth' });
+      break;
+    case 's-up': case 's-down': {
+      const i = S.sections.findIndex(s => s.id === el.dataset.id), j = i + (a === 's-up' ? -1 : 1);
+      if (i < 0 || j < 0 || j >= S.sections.length) break;
+      [S.sections[i], S.sections[j]] = [S.sections[j], S.sections[i]];
+      save(); renderOrganizer(); refocusOrg(el);
+      break;
+    }
+    case 's-eye': { const s = secById(el.dataset.id); s.show = !s.show; save(); renderOrganizer(); refocusOrg(el); toast(s.show ? `${s.name} sa zobrazí na domovskej obrazovke` : `${s.name} je skrytá`); break; }
+    case 's-pin': {
+      const sid = el.dataset.id, qi = S.quick.indexOf(sid);
+      if (qi >= 0) S.quick.splice(qi, 1); else S.quick.push(sid);
+      save(); renderOrganizer(); refocusOrg(el); toast(qi >= 0 ? 'Tlačidlo odobraté z vrchu' : 'Pridané ako tlačidlo na vrchu');
+      break;
+    }
+    case 's-edit': openCatModal(el.dataset.id); break;
+    case 's-del': {
+      if (!el.classList.contains('armed')) { el.classList.add('armed'); toast('Stlač ešte raz a kategória sa zmaže'); setTimeout(() => el.classList.remove('armed'), 3000); break; }
+      const sid = el.dataset.id, name = secById(sid).name;
+      S.sections = S.sections.filter(s => s.id !== sid); S.quick = S.quick.filter(q => q !== sid);
+      if (S.orgSel === sid) S.orgSel = 'quick';
+      save(); renderOrganizer(); nav.cur = null; setFocus($('#orgLeft .org-main')); toast(`Kategória ${name} zmazaná`);
+      break;
+    }
+    case 'new-cat': openCatModal(null); break;
+    case 'o-up': case 'o-down': {
+      const arr = listRef(el.dataset.list), i = arr.indexOf(el.dataset.id), j = i + (a === 'o-up' ? -1 : 1);
+      if (i < 0 || j < 0 || j >= arr.length) break;
+      [arr[i], arr[j]] = [arr[j], arr[i]];
+      if (el.dataset.list === 'all') renumber();
+      save(); renderOrganizer(); refocusOrg(el);
+      break;
+    }
+    case 'o-rm': {
+      const arr = listRef(el.dataset.list), i = arr.indexOf(el.dataset.id);
+      if (i < 0) break;
+      arr.splice(i, 1); save(); renderOrganizer();
+      const rms = $$(`#orgRight [data-act="o-rm"]`);
+      nav.cur = null; setFocus(rms[Math.min(i, rms.length - 1)] || $('#orgRight .f') || pickDefault());
+      break;
+    }
+    case 'o-add': openPicker(el.dataset.list); break;
+    case 'pick': {
+      const arr = listRef(PK), i = arr.indexOf(el.dataset.id);
+      if (i >= 0) arr.splice(i, 1); else arr.push(el.dataset.id);
+      el.classList.toggle('on', i < 0); save();
+      break;
+    }
+    case 'pick-done': closeModal(true); renderOrganizer(); nav.cur = null; setFocus($(`#orgRight [data-act="o-add"]`) || pickDefault()); break;
+    case 'clear-recent': S.recent = []; store.set('recent', []); renderOrganizer(); nav.cur = null; setFocus(pickDefault()); toast('História vymazaná'); break;
+    case 'cm-color': CM.color = el.dataset.v; $$('[data-act="cm-color"]').forEach(b => b.classList.toggle('on', b === el)); break;
+    case 'cm-icon': CM.icon = el.dataset.v; $$('[data-act="cm-icon"]').forEach(b => b.classList.toggle('on', b === el)); break;
+    case 'cm-pin': CM.pin = !CM.pin; el.classList.toggle('on', CM.pin); break;
+    case 'cm-save': {
+      const name = $('#cmName').value.trim() || 'Moja kategória';
+      let created = false;
+      if (CM.id) { const s = secById(CM.id); s.name = name; s.color = CM.color; s.icon = CM.icon; }
+      else { const s = { id: 'u' + Date.now().toString(36), type: 'cat', custom: true, name, color: CM.color, icon: CM.icon, show: true, chs: [] }; S.sections.push(s); CM.id = s.id; created = true; }
+      const qi = S.quick.indexOf(CM.id);
+      if (CM.pin && qi < 0) S.quick.push(CM.id);
+      if (!CM.pin && qi >= 0) S.quick.splice(qi, 1);
+      save(); closeModal(true);
+      S.orgSel = CM.id;
+      if (S.screen !== 'organize') go('organize', false); else renderOrganizer();
+      renderOrganizer();
+      if (created) { toast(`Kategória ${name} vytvorená`); openPicker(CM.id); }
+      else { nav.cur = null; setFocus($(`#orgLeft .org-main[data-id="${CM.id}"]`)); toast('Uložené'); }
+      break;
+    }
+
+    /* player */
+    case 'p-close': closePlayer(); break;
+    case 'p-pause': togglePause(); break;
+    case 'p-rew': seek(-30); break;
+    case 'p-ff': seek(30); break;
+    case 'p-live': toLive(); break;
+    case 'p-restart': restartProg(); break;
+    case 'p-up': step(1); break;
+    case 'p-down': step(-1); break;
+    case 'p-list': openPanel('list'); break;
+    case 'p-prog': openPanel('prog'); break;
+    case 'p-audio': openPanel('audio'); break;
+    case 'p-fav': toggleFav(P.ch); break;
+    case 'tune': closePanel(true); tune(id); break;
+    case 'sprog': { const r = progAction(id, +el.dataset.start); if (r === 'play') closePanel(true); break; }
+    case 'opt': setOpt(el.dataset.k, el.dataset.v); break;
+    case 'seek': {
+      if (!e || e.clientX == null) break;
+      const r = $('.track', el).getBoundingClientRect(), f = Math.min(1, Math.max(0, (e.clientX - r.left) / r.width));
+      const now = Date.now(), p = progAt(P.ch, now - P.offset * 1000);
+      P.offset = Math.max(0, (now - Math.min(now, p.start + f * (p.end - p.start))) / 1000);
+      if (P.offset < 3) P.offset = 0;
+      renderOSD(); armHide();
+      break;
+    }
+  }
+}
+
+/* ---------- Keys ---------- */
+function keyName(e) {
+  const k = e.key, c = e.keyCode;
+  if (k === 'ArrowUp' || c === 38) return 'up';
+  if (k === 'ArrowDown' || c === 40) return 'down';
+  if (k === 'ArrowLeft' || c === 37) return 'left';
+  if (k === 'ArrowRight' || c === 39) return 'right';
+  if (k === 'Enter' || c === 13) return 'ok';
+  if (k === 'Escape' || c === 461 || k === 'GoBack' || k === 'BrowserBack') return 'back';
+  if (k === 'Backspace') return 'bksp';
+  if (k === 'PageUp' || k === 'ChannelUp' || c === 33 || c === 427) return 'chup';
+  if (k === 'PageDown' || k === 'ChannelDown' || c === 34 || c === 428) return 'chdown';
+  if (k === ' ' || k === 'MediaPlayPause' || k === 'MediaPlay' || k === 'MediaPause' || c === 415 || c === 19) return 'playpause';
+  if (k === 'MediaRewind' || c === 412) return 'rew';
+  if (k === 'MediaFastForward' || c === 417) return 'ff';
+  if (/^[0-9]$/.test(k)) return k;
+  if (k === '?' || k === 'h' || k === 'H') return 'help';
+  if (k === 'l' || k === 'L') return 'last';
+  if (k === 'i' || k === 'I') return 'info';
+  return null;
+}
+const DIRS = { up: 1, down: 1, left: 1, right: 1 };
+document.addEventListener('keydown', e => {
+  const k = keyName(e); if (!k) return;
+  const inInput = e.target && e.target.tagName === 'INPUT';
+  if (inInput && !(k === 'up' || k === 'down' || k === 'ok' || k === 'back')) return;
+  document.body.classList.remove('touch');
+  e.preventDefault();
+  if (!modal.hidden) {
+    if (k === 'back') return closeModal();
+    if (k === 'ok') return inInput ? move('down') : activate(nav.cur);
+    if (DIRS[k]) move(k);
+    return;
+  }
+  if (P.open) return playerKey(k);
+  if (inInput && k === 'ok') { move('down'); return; }
+  if (DIRS[k]) { move(k); return; }
+  if (k === 'ok') { if (nav.cur) activate(nav.cur); else setFocus(pickDefault()); return; }
+  if (k === 'back' || k === 'bksp') {
+    if (nav.cur && nav.cur.closest('.topbar')) { setFocus(pickDefault()); return; }
+    if (S.screen === 'organize') { go('settings'); return; }
+    if (S.screen !== 'home') { go('home'); return; }
+    setFocus($('#topnav .nav-item.active'));
+    return;
+  }
+  if (/^\d$/.test(k)) return numKey(k);
+  if (k === 'help') return openHelp();
+});
+function playerKey(k) {
+  if (/^\d$/.test(k)) return numKey(k);
+  if (k === 'chup') return step(1);
+  if (k === 'chdown') return step(-1);
+  if (k === 'playpause') { togglePause(); if (!P.osd && !P.panel) showOSD(); return; }
+  if (k === 'rew') return seek(-30);
+  if (k === 'ff') return seek(30);
+  if (k === 'last') { if (P.last) tune(P.last); else toast('Zatiaľ nie je posledný kanál'); return; }
+  if (k === 'help') return openHelp();
+  if (P.panel) {
+    if (k === 'back' || k === 'bksp') return closePanel();
+    if (k === 'ok') return activate(nav.cur);
+    if (DIRS[k] && !move(k) && ((P.panel === 'list' && k === 'right') || (P.panel !== 'list' && k === 'left'))) closePanel();
+    return;
+  }
+  if (P.osd) {
+    armHide();
+    if (k === 'back' || k === 'bksp') return hideOSD();
+    if (k === 'ok') return activate(nav.cur);
+    if (k === 'info') return;
+    if (DIRS[k]) {
+      if (nav.cur && nav.cur.id === 'seek' && (k === 'left' || k === 'right')) return seek(k === 'left' ? -30 : 30);
+      move(k);
+    }
+    return;
+  }
+  switch (k) {
+    case 'up': step(1); break;
+    case 'down': step(-1); break;
+    case 'left': openPanel('list'); break;
+    case 'right': openPanel('prog'); break;
+    case 'ok': showOSD('#cPlay'); break;
+    case 'info': showBanner(); break;
+    case 'back': case 'bksp': closePlayer(); break;
+  }
+}
+
+/* ---------- Pointer & touch ---------- */
+let suppressClick = false, swipe = null;
+document.addEventListener('pointerdown', e => { document.body.classList.toggle('touch', e.pointerType === 'touch'); });
+document.addEventListener('pointermove', e => {
+  if (e.pointerType !== 'mouse') return;
+  document.body.classList.remove('touch');
+  if (P.open && !P.panel && modal.hidden) { if (!P.osd) showOSD(); else armHide(); }
+  const el = e.target.closest && e.target.closest('.f');
+  const root = activeRoot();
+  if (el && el !== nav.cur && el.tagName !== 'INPUT' && !el.disabled && root && root.contains(el)) setFocus(el, { noScroll: true });
+});
+document.addEventListener('click', e => {
+  if (suppressClick) return;
+  const el = e.target.closest('[data-act]');
+  if (!el || el.disabled) return;
+  if (el.classList.contains('f')) setFocus(el, { noScroll: true });
+  activate(el, e);
+});
+document.addEventListener('focusin', e => { const el = e.target; if (el.classList && el.classList.contains('f') && el !== nav.cur) setFocus(el, { noScroll: true }); });
+$('#q').addEventListener('input', renderResults);
+modal.addEventListener('click', e => { if (e.target === modal) closeModal(); });
+player.addEventListener('pointerdown', e => { if (e.pointerType !== 'mouse') swipe = { x: e.clientX, y: e.clientY }; });
+player.addEventListener('pointerup', e => {
+  if (!swipe) return;
+  const dx = e.clientX - swipe.x, dy = e.clientY - swipe.y; swipe = null;
+  if (Math.abs(dy) > 70 && Math.abs(dx) < 90 && !e.target.closest('.panel')) {
+    step(dy < 0 ? 1 : -1);
+    suppressClick = true; setTimeout(() => { suppressClick = false; }, 60);
+  }
+});
+player.addEventListener('click', e => {
+  if (suppressClick || e.target.closest('[data-act], .panel, .seek-labels')) return;
+  if (P.panel) { closePanel(true); return; }
+  if (P.osd) hideOSD(); else showOSD();
+});
+let resizeT;
+addEventListener('resize', () => { clearTimeout(resizeT); resizeT = setTimeout(() => { if (S.screen === 'guide') renderGuide(true); if (S.screen === 'home') renderHome(); if (S.screen === 'channels') renderChannels(); if (S.screen === 'cat') renderCat(); }, 200); });
+
+/* ---------- Clock ---------- */
+setInterval(() => {
+  const now = Date.now();
+  $('#hClock').textContent = hm(now);
+  if (P.open) {
+    if (P.paused) P.offset = Math.min(P.offset + 1, maxOffset());
+    if (P.osd) renderOSD();
+    if (P.subs !== 'off' && !P.paused && now % 4000 < 1000) { subI++; renderSubs(); }
+  }
+}, 1000);
+setInterval(() => { if (!P.open) updateCaps(); updateGuideNow(); }, 30000);
+
+/* ---------- Boot ---------- */
+if (matchMedia('(pointer: coarse)').matches) document.body.classList.add('touch');
+applySettings();
+$('#hClock').textContent = hm(Date.now());
+requestAnimationFrame(waves);
+go('home');
+})();
+</script>
