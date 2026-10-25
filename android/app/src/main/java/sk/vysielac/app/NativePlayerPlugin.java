@@ -4,7 +4,10 @@ import android.graphics.Color;
 import android.os.Handler;
 import android.os.Looper;
 import android.view.Gravity;
+import android.view.Display;
+import android.view.SurfaceView;
 import android.view.TextureView;
+import android.view.WindowManager;
 import android.view.View;
 import android.view.ViewGroup;
 import android.webkit.WebView;
@@ -30,6 +33,7 @@ import androidx.media3.exoplayer.DefaultRenderersFactory;
 import androidx.media3.exoplayer.ExoPlayer;
 import androidx.media3.exoplayer.DecoderCounters;
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory;
+import androidx.media3.exoplayer.upstream.DefaultBandwidthMeter;
 import androidx.media3.exoplayer.hls.DefaultHlsExtractorFactory;
 import androidx.media3.exoplayer.hls.HlsMediaSource;
 import androidx.media3.extractor.DefaultExtractorsFactory;
@@ -73,6 +77,9 @@ public class NativePlayerPlugin extends Plugin {
         float volume = 1f;
         boolean soft;
         TextureView tv;
+        SurfaceView sv;
+        boolean onTop;
+        boolean afr;
 
         Slot(int id) { this.id = id; }
     }
@@ -106,9 +113,11 @@ public class NativePlayerPlugin extends Plugin {
         s.box.setVisibility(View.GONE);
         s.frame = new AspectRatioFrameLayout(getContext());
         s.frame.setResizeMode(AspectRatioFrameLayout.RESIZE_MODE_FIT);
-        TextureView tv = new TextureView(getContext());
-        s.tv = tv;
-        s.frame.addView(tv, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+        // Full screen: a SurfaceView under the page (exact frame timing, hardware overlay, and Android can match the
+        // display refresh rate to the video). The mini player lies above the page, which needs a TextureView.
+        s.sv = new SurfaceView(getContext());
+        s.tv = new TextureView(getContext());
+        s.frame.addView(s.sv, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
         s.box.addView(s.frame, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT, Gravity.CENTER));
         s.subs = new SubtitleView(getContext());
         s.subs.setUserDefaultStyle();
@@ -138,9 +147,11 @@ public class NativePlayerPlugin extends Plugin {
         DefaultLoadControl load = new DefaultLoadControl.Builder()
             .setBufferDurationsMs(20000, 60000, 2500, 5000)
             .build();
-        s.player = new ExoPlayer.Builder(getContext(), renderers).setLoadControl(load).build();
+        // Assume a fast home connection at the start, so HLS begins in the best quality instead of climbing up to it.
+        DefaultBandwidthMeter bw = new DefaultBandwidthMeter.Builder(getContext()).setInitialBitrateEstimate(20_000_000L).build();
+        s.player = new ExoPlayer.Builder(getContext(), renderers).setLoadControl(load).setBandwidthMeter(bw).build();
         s.player.setVideoChangeFrameRateStrategy(C.VIDEO_CHANGE_FRAME_RATE_STRATEGY_ONLY_IF_SEAMLESS);
-        s.player.setVideoTextureView(s.tv);
+        attachSurface(s);
 
         s.player.addListener(new Player.Listener() {
             @Override
@@ -175,11 +186,48 @@ public class NativePlayerPlugin extends Plugin {
             public void onVideoSizeChanged(@NonNull VideoSize v) {
                 if (v.width > 0 && v.height > 0) me.frame.setAspectRatio(v.width * v.pixelWidthHeightRatio / v.height);
                 emitTracks(me);
+                matchRefreshRate(me);
             }
 
             @Override
             public void onCues(@NonNull CueGroup cues) { me.subs.setCues(cues.cues); }
         });
+    }
+
+    private void attachSurface(Slot s) {
+        View want = s.onTop ? s.tv : s.sv, other = s.onTop ? s.sv : s.tv;
+        if (other.getParent() != null) s.frame.removeView(other);
+        if (want.getParent() == null) s.frame.addView(want, 0, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+        if (s.onTop) s.player.setVideoTextureView(s.tv); else s.player.setVideoSurfaceView(s.sv);
+    }
+
+    /**
+     * TV boxes: switch the screen to the video's own frame rate (50 Hz for European TV) when the TV offers such a
+     * mode with the same resolution, like Kodi does. 25/50 fps on a 60 Hz screen is what makes motion judder.
+     */
+    private void matchRefreshRate(Slot s) {
+        if (!s.afr || android.os.Build.VERSION.SDK_INT < 23) return;
+        Format f = s.player.getVideoFormat();
+        if (f == null || f.frameRate <= 0) return;
+        Display d = getActivity().getWindowManager().getDefaultDisplay();
+        Display.Mode cur = d.getMode(), best = null;
+        for (Display.Mode m : d.getSupportedModes()) {
+            if (m.getPhysicalWidth() != cur.getPhysicalWidth() || m.getPhysicalHeight() != cur.getPhysicalHeight()) continue;
+            float r = m.getRefreshRate(), k = Math.round(r / f.frameRate);
+            if (k >= 1 && Math.abs(r - k * f.frameRate) < 0.05f * k && (best == null || r < best.getRefreshRate())) best = m;
+        }
+        if (best == null || best.getModeId() == cur.getModeId()) return;
+        WindowManager.LayoutParams lp = getActivity().getWindow().getAttributes();
+        lp.preferredDisplayModeId = best.getModeId();
+        getActivity().getWindow().setAttributes(lp);
+    }
+
+    private void resetRefreshRate() {
+        if (android.os.Build.VERSION.SDK_INT < 23) return;
+        WindowManager.LayoutParams lp = getActivity().getWindow().getAttributes();
+        if (lp.preferredDisplayModeId == 0) return;
+        lp.preferredDisplayModeId = 0;
+        getActivity().getWindow().setAttributes(lp);
     }
 
     private static String errorType(int code) {
@@ -296,8 +344,10 @@ public class NativePlayerPlugin extends Plugin {
         String kind = call.getString("kind", "");
         double startAt = call.getDouble("startAt", 0.0);
         boolean soft = Boolean.TRUE.equals(call.getBoolean("soft", false));
+        boolean afr = Boolean.TRUE.equals(call.getBoolean("afr", false));
         ui(call, () -> {
             Slot s = slot(id);
+            s.afr = afr;
             if (s.soft != soft) buildPlayer(s, soft);
             Map<String, String> headers = new HashMap<>();
             if (ref != null && !ref.isEmpty()) headers.put("Referer", ref);
@@ -342,6 +392,7 @@ public class NativePlayerPlugin extends Plugin {
             if (s == null) return;
             s.player.stop();
             s.player.clearMediaItems();
+            resetRefreshRate();
             s.state = "idle";
             s.subs.setCues(java.util.Collections.emptyList());
             s.box.setVisibility(View.GONE);
@@ -410,6 +461,7 @@ public class NativePlayerPlugin extends Plugin {
             WebView web = getBridge().getWebView();
             FrameLayout layer = onTop ? front : back;
             if (s.box.getParent() != layer) { ((ViewGroup) s.box.getParent()).removeView(s.box); layer.addView(s.box); }
+            if (s.onTop != onTop) { s.onTop = onTop; attachSurface(s); }
             FrameLayout.LayoutParams lp = new FrameLayout.LayoutParams(Math.max(1, w), Math.max(1, h));
             lp.leftMargin = web.getLeft() + x;
             lp.topMargin = web.getTop() + y;

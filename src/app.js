@@ -15,7 +15,7 @@ import { nameKey } from './data/xmltv.js';
 import { catchupUrl, hasArchive as hasArchiveReal } from './data/catchup.js';
 import * as library from './data/library.js';
 import { Engine, langMatches } from './player/engine.js';
-import { NativeEngine } from './player/native-engine.js';
+import { NativeEngine, nativeOpts } from './player/native-engine.js';
 
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
@@ -134,7 +134,7 @@ const catIcon = s => s.icon === 'auto' ? `<span class="txt-ic">${esc(initials(s.
 const ACCENTS = { white: ['#FFFFFF', '#0A0A17'], amber: ['#F2B84B', '#1B1406'], coral: ['#FF7A59', '#1E0B05'], mint: ['#4FD1A5', '#04170F'], violet: ['#A08CFF', '#0F0A24'], ice: ['#7CC4FF', '#03121F'] };
 const PALETTE = ['#2F6BFF', '#E5394B', '#8B5CF6', '#16A34A', '#F59E0B', '#EC4899', '#0EA5A4', '#F97316'];
 const ICONS = ['auto', 'film', 'ball', 'news', 'kids', 'globe', 'note', 'cup', 'heart', 'sparkle'];
-const DEFAULT_SET = { look: 'classic', secRows: '2', tile: 'm', round: 'med', tilebg: 'tint', nums: 'off', caps: 'on', accent: 'white', hide: '5', lang: 'sk', subs: 'off', resume: 'off', backMini: 'off', pipAuto: 'on' };
+const DEFAULT_SET = { look: 'classic', secRows: '2', tile: 'm', round: 'med', tilebg: 'tint', nums: 'off', caps: 'on', accent: 'white', hide: '5', lang: 'sk', subs: 'off', resume: 'off', backMini: 'off', pipAuto: 'on', afr: 'on' };
 function defaultSections() {
   return [
     { id: 'recent', type: 'recent', name: 'Naposledy pozerané', color: '#94A3B8', icon: 'hist', show: true },
@@ -754,6 +754,7 @@ function renderSettings() {
       ${setRow('Skryť ovládanie po', '', seg('hide', [['3', '3 s'], ['5', '5 s'], ['8', '8 s']]))}
       ${setRow('Po spustení pokračovať', 'Appka hneď pustí naposledy pozeraný kanál, ako set-top box', toggleBtn('resume', 'Po spustení pokračovať'))}
       ${Native && nativeInfo && nativeInfo.pip ? setRow('Okno nad aplikáciami', 'Keď počas pozerania odídeš z appky (tlačidlo Domov), kanál hrá ďalej v malom okne nad ostatnými aplikáciami', `<button class="toggle f ${S.set.pipAuto !== 'off' ? 'on' : ''}" data-act="set" data-k="pipAuto" data-v="toggle" data-group="main" aria-label="Okno nad aplikáciami"></button>`) : ''}
+      ${Native && IS_TV ? setRow('Obnovovacia frekvencia podľa vysielania', 'TV sa prepne na 50 Hz pri európskom vysielaní, aby sa obraz pri pohybe netrhal (ako v Kodi). Ak TV pri prepnutí na chvíľu zčernie, je to normálne.', `<button class="toggle f ${S.set.afr !== 'off' ? 'on' : ''}" data-act="set" data-k="afr" data-v="toggle" data-group="main" aria-label="Obnovovacia frekvencia"></button>`) : ''}
       ${setRow('Späť zmenší do okienka', 'Tlačidlo Späť v prehrávači kanál nezavrie, ale nechá ho hrať v malom okienku. Zavrieš ho tlačidlom Stop alebo opakovaným Späť.', toggleBtn('backMini', 'Späť zmenší do okienka'))}
     </div>
     <div class="set-group"><h3>Rodičovský zámok</h3><div id="lockRows">${lockRows()}</div></div>
@@ -772,6 +773,7 @@ function setSetting(k, v, el) {
   applySettings();
   if (k === 'secRows' && S.screen === 'home') renderHome();
   if (k === 'pipAuto') syncAutoPip();
+  if (k === 'afr') nativeOpts.afr = !!(Native && IS_TV && v !== 'off');
   if (k === 'look') toast(v === 'glass' ? 'Liquid glass zapnutý' : 'Klasický vzhľad');
 }
 
@@ -2506,6 +2508,7 @@ if (IS_TV) document.documentElement.classList.add('tv');
 (async () => {
   await detectRelay();
   if (Native && nativeInfo && nativeInfo.tv && !IS_TV) { IS_TV = true; document.documentElement.classList.add('tv'); }
+  nativeOpts.afr = !!(Native && IS_TV && S.set.afr !== 'off');
   if (Native) document.documentElement.classList.add('native');
   if (canRecord()) { $('#navRecs').hidden = false; refreshRecs(); }
   let L = null, E = null;

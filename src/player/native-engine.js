@@ -8,6 +8,7 @@ import { probe, guessKind } from '../data/net.js';
 import { langLabel } from './engine.js';
 
 const NP = registerPlugin('NativePlayer');
+export const nativeOpts = { afr: false };   // TV boxes: switch the screen to the video's frame rate
 const SOFT = new Set();   // channels that needed the app's own audio decoder (remembered until restart)
 const engines = new Map();
 let wired = false;
@@ -98,7 +99,7 @@ export class NativeEngine {
     this.layout(true);
     this.lastProgress = Date.now();
     try {
-      await NP.open({ id: this.nid, url: s.url, ua: s.ua || '', ref: s.ref || '', kind: kind === 'unknown' ? '' : kind, startAt: s.startAt || 0, soft: !!s.soft || SOFT.has(s.url) });
+      await NP.open({ id: this.nid, url: s.url, ua: s.ua || '', ref: s.ref || '', kind: kind === 'unknown' ? '' : kind, startAt: s.startAt || 0, soft: !!s.soft || SOFT.has(s.url), afr: nativeOpts.afr });
     } catch (e) { this.fail('network', e.message); }
     this.sendVolume();
   }

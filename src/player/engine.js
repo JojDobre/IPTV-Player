@@ -122,6 +122,10 @@ export class Engine {
       maxMaxBufferLength: 90,
       maxBufferSize: 120 * 1000 * 1000,
       maxBufferHole: 0.5,
+      // Start in the best quality (home connections are fast); ABR still steps down if the network cannot keep up.
+      abrEwmaDefaultEstimate: 20e6,
+      abrBandWidthUpFactor: 0.8,
+      capLevelToPlayerSize: false,
       liveSyncDurationCount: 3,
       liveMaxLatencyDurationCount: Infinity,
       liveDurationInfinity: true,
