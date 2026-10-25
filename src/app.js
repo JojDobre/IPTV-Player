@@ -1138,13 +1138,18 @@ function progAction(id, start) {
 const P = { open: false, ch: null, last: null, offset: 0, paused: false, osd: false, panel: null, panelFrom: null,
   audio: S.set.lang, subs: S.set.subs, quality: 'auto', aspect: 'fit', hideT: 0, bannerT: 0, num: '', numT: 0, tileCh: null, appFocus: null,
   real: false, mode: 'live', archStart: 0, base: null, kinds: {}, prefApplied: false, error: false };
-const engine = new Engine($('#vid'), {
-  onState: engineState,
-  onTracks: () => { applyPrefs(); if (P.panel === 'audio') refreshSheet(); if (P.osd) renderOSD(); },
-  onKind: k => { if (P.ch) P.kinds[P.ch] = k; },
-  onReconnect: () => { if (P.mode === 'live') P.base = null; },
-  onMuted: () => toast('Prehliadač spustil video bez zvuku. Zvuk zapneš kliknutím do obrazu.'),
+// Two players for the two-picture mode. `engine` is always the active one (sound, controls, zapping);
+// the other only runs while two pictures are on.
+const mkEngine = (el, me) => new Engine(el, {
+  onState: (s, i) => { if (me() === engine) engineState(s, i); else paneLabels(); },
+  onTracks: () => { if (me() !== engine) return; applyPrefs(); if (P.panel === 'audio') refreshSheet(); if (P.osd) renderOSD(); },
+  onKind: k => { const id = me() === engine ? P.ch : M.ch; if (id) P.kinds[id] = k; },
+  onReconnect: () => { if (me() === engine && P.mode === 'live') P.base = null; },
+  onMuted: () => { if (me() === engine) toast('Prehliadač spustil video bez zvuku. Zvuk zapneš kliknutím do obrazu.'); },
 });
+const E1 = mkEngine($('#vid'), () => E1), E2 = mkEngine($('#vid2'), () => E2);
+let engine = E1;
+E1.v.classList.add('active');
 const maxOffset = () => { const ch = byId[P.ch]; return ch && ch.catchup ? ch.catchup.days * 86400 : 4 * 3600; };
 const isLive = () => P.offset < 3 && !P.paused && P.mode === 'live';
 function openOrTune(id, offset = 0) {
@@ -1161,6 +1166,8 @@ function openPlayer(id, offset = 0) {
   cancelAnimationFrame(vid.raf); vid.last = 0; vid.raf = requestAnimationFrame(frame);
 }
 function closePlayer() {
+  if (M.on) endMulti();
+  if (engine === E2) { engine.close(); E2.v.classList.remove('active'); engine = E1; E1.v.classList.add('active'); player.classList.remove('solo2'); applyVolume(); }
   if (P.mini) { P.mini = false; P.appFocus = null; setMiniUI(false); if (nav.cur && $('#miniBar').contains(nav.cur)) clearFocus(); }
   closePanel(true); hideOSD(); hideBanner(); hideStatus();
   engine.close();
@@ -1180,6 +1187,7 @@ function setMiniUI(on) {
 }
 function enterMini() {
   if (!P.open || P.mini) return;
+  if (M.on) endMulti();
   closePanel(true); hideOSD(); hideBanner();
   if (document.fullscreenElement && !IS_TV) document.exitFullscreen().catch(() => {});
   P.mini = true;
@@ -1234,7 +1242,7 @@ function tune(id, offset = 0) {
     P.mode = 'live'; P.offset = Math.min(offset, maxOffset());
     vid.noise = performance.now() + 320; vid.frozen = false;
   }
-  renderOSD(); renderSubs(true); renderMini();
+  renderOSD(); renderSubs(true); renderMini(); paneLabels();
   if (!P.osd && !P.panel && !P.mini) showBanner();
 }
 function step(d) {
@@ -1463,7 +1471,7 @@ function openPanel(name) {
 function closePanel(silent) {
   if (!P.panel) return;
   const from = P.panelFrom;
-  P.panel = null; P.panelFrom = null;
+  P.panel = null; P.panelFrom = null; P.pick = null;
   chPanel.classList.remove('on'); sheet.classList.remove('on'); clearFocus();
   if (!silent && from && P.open) { showOSD(); setFocus(from); }
 }
@@ -1603,6 +1611,70 @@ function playRec(r) {
   if (isLocked(ch.id)) askPin(() => { UNLOCKED = true; go2(); }); else go2();
 }
 
+/* ---------- Two pictures ---------- */
+// The other pane's channel and its playback position, swapped with P when the active pane changes.
+const M = { on: false, ch: null, saved: null };
+const otherEngine = () => (engine === E1 ? E2 : E1);
+const PANE_KEYS = ['ch', 'mode', 'offset', 'archStart', 'base', 'rec', 'paused', 'prefApplied'];
+function paneLabels() {
+  if (!M.on) return;
+  const left = engine === E1 ? P.ch : M.ch, right = engine === E2 ? P.ch : M.ch;
+  const lab = (el, id, e) => { const ch = byId[id]; el.innerHTML = ch ? `${tileStatic(ch, 'mini')}<b>${esc(ch.name)}</b>${e === engine ? I('vol') : ''}${e.state !== 'playing' && e.state !== 'idle' ? '<span class="spin"></span>' : ''}` : ''; };
+  lab($('#mvL'), left, E1); lab($('#mvR'), right, E2);
+  $('#mvL').classList.toggle('on', engine === E1); $('#mvR').classList.toggle('on', engine === E2);
+}
+function pickMulti() {
+  if (!P.real) { toast('Dva obrazy fungujú len so skutočnými kanálmi'); return; }
+  if (M.on) { endMulti(); return; }
+  P.pick = 'multi';
+  openPanel('list');
+  toast('Vyber druhý kanál');
+}
+function startMulti(id) {
+  const ch = byId[id];
+  if (!ch || !ch.url) { toast('Tento kanál sa nedá pustiť'); return; }
+  if (id === P.ch) { toast('Vyber iný kanál ako ten, čo už beží'); return; }
+  const go2 = () => {
+    if (P.mini) exitMini();
+    M.on = true; M.ch = id; M.saved = { mode: 'live', offset: 0, archStart: 0, base: null, rec: null, paused: false, prefApplied: false };
+    player.classList.add('multi'); player.classList.remove('solo2');
+    const o = otherEngine();
+    o.open(srcFor(ch, { live: true, kind: P.kinds[id] }));
+    o.v.muted = true;
+    pushRecent(id);
+    paneLabels();
+    toast('Dva obrazy · ← → prepína zvuk a ovládanie, Späť vráti jeden obraz');
+  };
+  if (isLocked(id)) askPin(() => { UNLOCKED = true; go2(); }); else go2();
+}
+/** Make the other pane active: it gets the sound, the controls and the channel keys. */
+function swapPane() {
+  if (!M.on) return;
+  const o = otherEngine(), cur = {};
+  for (const k of PANE_KEYS) cur[k] = P[k];
+  const sv = M.saved || {};
+  P.ch = M.ch; for (const k of PANE_KEYS.slice(1)) P[k] = sv[k];
+  M.ch = cur.ch; M.saved = cur;
+  engine.v.classList.remove('active'); engine.v.muted = true;
+  engine = o;
+  engine.v.classList.add('active');
+  applyVolume();
+  player.classList.toggle('paused', !!P.paused);
+  hideStatus(); if (engine.state !== 'playing') engineState(engine.state, {});
+  renderOSD(); renderSubs(true); paneLabels();
+  if (!P.osd && !P.panel) showBanner();
+}
+/** Back to one picture, keeping the active pane. */
+function endMulti() {
+  if (!M.on) return;
+  otherEngine().close();
+  M.on = false; M.ch = null; M.saved = null;
+  player.classList.remove('multi');
+  $('#mvL').innerHTML = ''; $('#mvR').innerHTML = '';
+  // The active player may be the right one; put it on the main element's place again.
+  player.classList.toggle('solo2', engine === E2);
+}
+
 /* ---------- Sleep timer ---------- */
 const SLEEP = { at: 0, kind: '', warned: false };
 const SLEEP_OPTS = [['0', 'Vypnutý'], ['15', '15 minút'], ['30', '30 minút'], ['60', '1 hodina'], ['90', '1,5 hodiny'], ['120', '2 hodiny'], ['end', 'Do konca relácie']];
@@ -1668,7 +1740,7 @@ function renderSheet(name) {
 function setOpt(k, v) {
   P[k] = v;
   $$(`#sheet .opt[data-k="${k}"]`).forEach(b => b.classList.toggle('on', b.dataset.v === v));
-  if (k === 'aspect') { $('#video').className = v === 'fit' ? '' : 'ar-' + v; $('#vid').className = v === 'fit' ? '' : 'ar-' + v; }
+  if (k === 'aspect') { $('#video').className = v === 'fit' ? '' : 'ar-' + v; for (const e of [E1, E2]) { e.v.classList.remove('ar-fill', 'ar-zoom', 'ar-43'); if (v !== 'fit') e.v.classList.add('ar-' + v); } }
   if (k === 'subs') renderSubs(true);
   if (k === 'audio') toast(`Zvuk: ${label(AUDIO, v)}`);
   if (k === 'quality') { vid.noise = performance.now() + 200; toast(`Kvalita: ${label(QUAL, v)}`); }
@@ -2015,7 +2087,8 @@ function activate(el, e) {
     case 'p-prog': openPanel('prog'); break;
     case 'p-audio': openPanel('audio'); break;
     case 'p-fav': toggleFav(P.ch); break;
-    case 'tune': closePanel(true); tune(id); break;
+    case 'tune': { const pick = P.pick; closePanel(true); if (pick === 'multi') startMulti(id); else tune(id); break; }
+    case 'p-multi': pickMulti(); break;
     case 'sprog': { const r = progAction(id, +el.dataset.start); if (r === 'play') closePanel(true); break; }
     case 'opt': setOpt(el.dataset.k, el.dataset.v); break;
     case 'eopt': {
@@ -2163,6 +2236,11 @@ function playerKey(k) {
     return;
   }
   if (P.error && k === 'ok') { hideStatus(); engine.retry(); return; }
+  if (M.on) {
+    if (k === 'left') { if (engine !== E1) swapPane(); return; }
+    if (k === 'right') { if (engine !== E2) swapPane(); return; }
+    if (k === 'back' || k === 'bksp') { endMulti(); toast('Jeden obraz'); return; }
+  }
   switch (k) {
     case 'up': step(1); break;
     case 'down': step(-1); break;
@@ -2249,6 +2327,7 @@ player.addEventListener('click', e => {
   if (engine.v.muted && S.set.muted !== 'on') { engine.v.muted = false; updateMuteBtn(); }
   if (suppressClick || e.target.closest('[data-act], .panel, .seek-labels')) return;
   if (P.panel) { closePanel(true); return; }
+  if (M.on && !e.target.closest('.osd-bottom, .osd-top')) { const right = e.clientX > innerWidth / 2; if (right ? engine !== E2 : engine !== E1) { swapPane(); return; } }
   if (P.osd) hideOSD(); else showOSD();
 });
 let resizeT;
@@ -2310,4 +2389,4 @@ if (IS_TV) document.documentElement.classList.add('tv');
   }
 })();
 // Handy in the browser console when something misbehaves: vysielac.engine.tracks(), vysielac.P …
-window.vysielac = { engine, P, S, importPlaylist, get channels() { return CH; } };
+window.vysielac = { get engine() { return engine; }, P, S, M: () => M, importPlaylist, get channels() { return CH; } };

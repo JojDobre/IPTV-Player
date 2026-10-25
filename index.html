@@ -55,6 +55,7 @@
     <symbol id="i-unlock" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round"><rect x="5" y="10.5" width="14" height="10" rx="2"/><path d="M8.5 10.5V7.5a3.5 3.5 0 0 1 6.8-1.2"/></g></symbol>
     <symbol id="i-rec" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.9"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="4" fill="currentColor" stroke="none"/></g></symbol>
     <symbol id="i-stop" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="2" fill="currentColor"/></symbol>
+    <symbol id="i-split" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round"><rect x="2.5" y="6" width="9" height="12" rx="1.6"/><rect x="12.5" y="6" width="9" height="12" rx="1.6"/></g></symbol>
     <symbol id="i-full" viewBox="0 0 24 24"><path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
     <symbol id="i-sparkle" viewBox="0 0 24 24"><path d="M12 3.5 13.8 10.2 20.5 12l-6.7 1.8L12 20.5l-1.8-6.7L3.5 12l6.7-1.8z" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round"/></symbol>
   </defs>
@@ -146,7 +147,9 @@
 
 <div id="player" hidden>
   <div class="stage" id="stage">
-    <video id="vid" playsinline preload="auto"></video>
+    <video id="vid" class="pv" playsinline preload="auto"></video>
+    <video id="vid2" class="pv" playsinline preload="auto" muted></video>
+    <div class="mv-lab left" id="mvL"></div><div class="mv-lab right" id="mvR"></div>
     <canvas id="video" width="384" height="216"></canvas>
     <div class="demo-tag">Ukážka bez streamu</div>
     <div class="dog" id="dog"></div>
@@ -184,6 +187,7 @@
           <button class="cbtn f" data-act="p-audio" aria-label="Zvuk a titulky"><svg class="ic"><use href="#i-audio"/></svg><span class="tip">Zvuk a titulky</span></button>
           <button class="cbtn f" id="cRec" data-act="p-rec" aria-label="Nahrať" hidden><svg class="ic"><use href="#i-rec"/></svg><span class="tip">Nahrať reláciu</span></button>
           <button class="cbtn f" id="cSleep" data-act="p-sleep" aria-label="Časovač vypnutia"><svg class="ic"><use href="#i-moon"/></svg><span class="tip">Časovač vypnutia</span></button>
+          <button class="cbtn f" id="cMulti" data-act="p-multi" aria-label="Dva obrazy"><svg class="ic"><use href="#i-split"/></svg><span class="tip">Dva obrazy</span></button>
           <button class="cbtn f" data-act="p-mini" aria-label="Malé okienko"><svg class="ic"><use href="#i-pip"/></svg><span class="tip">Malé okienko</span></button>
           <button class="cbtn f" id="cFav" data-act="p-fav" aria-label="Obľúbené"><svg class="ic"><use href="#i-heart"/></svg><span class="tip">Obľúbené</span></button>
           <button class="cbtn f pc-only" id="cMute" data-act="p-mute" aria-label="Stlmiť"><svg class="ic"><use href="#i-vol"/></svg><span class="tip">Stlmiť</span></button>
