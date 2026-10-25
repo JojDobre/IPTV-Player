@@ -9,7 +9,7 @@ import '@fontsource/bebas-neue/400.css';
 import '@fontsource/fraunces/600-italic.css';
 import './styles.css';
 import { buildDemo } from './data/demo.js';
-import { detectRelay, imgUrl, useRelay, relayHasFfmpeg, streamInfo, canRecord, recList, recAdd, recStop, recDelete, recFileUrl } from './data/net.js';
+import { detectRelay, Native, nativeInfo, imgUrl, useRelay, relayHasFfmpeg, streamInfo, canRecord, recList, recAdd, recStop, recDelete, recFileUrl } from './data/net.js';
 import { xtreamUrls } from './data/m3u.js';
 import { nameKey } from './data/xmltv.js';
 import { catchupUrl, hasArchive as hasArchiveReal } from './data/catchup.js';
@@ -1157,11 +1157,13 @@ function openOrTune(id, offset = 0) {
   if (P.mini) exitMini();
   tune(id, offset);
 }
+const nativePlaying = on => { if (Native) Native.playing({ on }).catch(() => {}); };
 function openPlayer(id, offset = 0) {
   if (isLocked(id)) return askPin(() => { UNLOCKED = true; openPlayer(id, offset); });
   P.appFocus = nav.cur; clearFocus();
   P.open = true; player.hidden = false;
   document.body.classList.add('playing');
+  nativePlaying(true);
   tune(id, offset);
   cancelAnimationFrame(vid.raf); vid.last = 0; vid.raf = requestAnimationFrame(frame);
 }
@@ -1172,6 +1174,7 @@ function closePlayer() {
   closePanel(true); hideOSD(); hideBanner(); hideStatus();
   engine.close();
   P.open = false; player.hidden = true; cancelAnimationFrame(vid.raf);
+  nativePlaying(false);
   document.body.classList.remove('playing');
   if (document.fullscreenElement && !IS_TV) document.exitFullscreen().catch(() => {});
   const back = P.appFocus;
@@ -1192,6 +1195,7 @@ function enterMini() {
   if (document.fullscreenElement && !IS_TV) document.exitFullscreen().catch(() => {});
   P.mini = true;
   document.body.classList.remove('playing');
+  nativePlaying(false);
   setMiniUI(true); renderMini();
   const back = P.appFocus;
   if (S.screen === 'home') renderHome(back);
@@ -1203,6 +1207,7 @@ function exitMini() {
   P.mini = false; setMiniUI(false);
   P.appFocus = nav.cur; clearFocus();
   document.body.classList.add('playing');
+  nativePlaying(true);
   if (document.pictureInPictureElement) document.exitPictureInPicture().catch(() => {});
   showBanner();
 }
@@ -1600,7 +1605,7 @@ function playRec(r) {
   const ch = byId[r.ch];
   if (!ch) { toast('Kanál tejto nahrávky už nie je v playliste'); return; }
   const go2 = () => {
-    if (!P.open) { P.appFocus = nav.cur; clearFocus(); P.open = true; player.hidden = false; document.body.classList.add('playing'); cancelAnimationFrame(vid.raf); vid.last = 0; vid.raf = requestAnimationFrame(frame); }
+    if (!P.open) { P.appFocus = nav.cur; clearFocus(); P.open = true; player.hidden = false; document.body.classList.add('playing'); nativePlaying(true); cancelAnimationFrame(vid.raf); vid.last = 0; vid.raf = requestAnimationFrame(frame); }
     else if (P.mini) exitMini();
     if (P.ch && P.ch !== ch.id) P.last = P.ch;
     P.ch = ch.id; P.real = true; player.classList.add('real'); hideStatus(); $('#dog').innerHTML = '';
@@ -1827,7 +1832,7 @@ function waves(ts) {
 }
 
 /* ---------- Volume & fullscreen (PC; a TV uses its own remote volume) ---------- */
-const IS_TV = /Web0S|webOS|SmartTV|Tizen|AFT\w|Android TV|BRAVIA|GoogleTV/i.test(navigator.userAgent);
+let IS_TV = /Web0S|webOS|SmartTV|Tizen|AFT\w|Android TV|BRAVIA|GoogleTV/i.test(navigator.userAgent);
 function applyVolume() { const v = engine.v; v.volume = Math.max(0, Math.min(1, +S.set.vol || 1)); v.muted = S.set.muted === 'on'; updateMuteBtn(); }
 function updateMuteBtn() { const b = $('#cMute'); if (!b) return; const m = engine.v.muted; $('use', b).setAttribute('href', m ? '#i-mute' : '#i-vol'); $('.tip', b).textContent = m ? 'Zapnúť zvuk' : 'Stlmiť'; }
 function setMuted(m) { S.set.muted = m ? 'on' : 'off'; store.set('settings3', S.set); applyVolume(); toast(m ? 'Zvuk stlmený' : `Hlasitosť ${Math.round(engine.v.volume * 100)} %`); }
@@ -2138,6 +2143,7 @@ function keyName(e) {
   if (k === 'p' || k === 'P' || c === 403) return 'mini';
   if (k === 'ContextMenu' || c === 93) return 'menu';
   if (k === 'MediaStop' || c === 413) return 'stop';
+  if (k === 'Guide' || c === 458) return 'guide';
   return null;
 }
 const DIRS = { up: 1, down: 1, left: 1, right: 1 };
@@ -2180,6 +2186,8 @@ document.addEventListener('keydown', e => {
   if (DIRS[k]) { move(k); return; }
   if (k === 'ok') { if (nav.cur) activate(nav.cur); else setFocus(pickDefault()); return; }
   if (k === 'back' || k === 'bksp') {
+    // In the Android app, Back on the top menu of the home screen leaves the app.
+    if (Native && S.screen === 'home' && nav.cur && nav.cur.closest('.topbar')) { Native.exit(); return; }
     if (nav.cur && nav.cur.closest('.topbar')) { setFocus(pickDefault()); return; }
     if (S.screen === 'organize') { endGrab(); go('settings'); return; }
     if (S.screen !== 'home') { go('home'); return; }
@@ -2188,6 +2196,7 @@ document.addEventListener('keydown', e => {
   }
   if (/^\d$/.test(k)) return numKey(k);
   if (k === 'help') return openHelp();
+  if (k === 'guide') return go('guide');
 });
 let okHold = null;
 document.addEventListener('keyup', e => {
@@ -2205,6 +2214,7 @@ document.addEventListener('contextmenu', e => {
 function playerKey(k) {
   if (/^\d$/.test(k)) return numKey(k);
   if (k === 'stop') return closePlayer();
+  if (k === 'guide') return openPanel('prog');
   if (k === 'mute') return setMuted(!engine.v.muted);
   if (k === 'volup') return changeVolume(0.1);
   if (k === 'voldown') return changeVolume(-0.1);
@@ -2377,6 +2387,8 @@ applyVolume();
 if (IS_TV) document.documentElement.classList.add('tv');
 (async () => {
   await detectRelay();
+  if (Native && nativeInfo && nativeInfo.tv && !IS_TV) { IS_TV = true; document.documentElement.classList.add('tv'); }
+  if (Native) document.documentElement.classList.add('native');
   if (canRecord()) { $('#navRecs').hidden = false; refreshRecs(); }
   let L = null, E = null;
   try { L = await library.getLibrary(); if (L) E = await library.getEpg(); } catch (e) { console.warn(e); }

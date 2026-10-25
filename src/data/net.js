@@ -1,12 +1,21 @@
-// Where requests go. With the local relay (PC build) everything is routed through /api/*;
-// on the TV the packaged app talks to the provider directly.
+// Where requests go. On the PC the local Node relay answers /api/* on the same address as the page;
+// in the Android app the same relay runs inside the app on 127.0.0.1 (see android/…/Relay.java).
+import { Capacitor, registerPlugin } from '@capacitor/core';
 
-let relay = false, ffmpeg = false, rec = false;
+export const Native = Capacitor.isNativePlatform() ? registerPlugin('LocalRelay') : null;
+export let nativeInfo = null;
+let relay = false, ffmpeg = false, rec = false, base = '';
 export const useRelay = () => relay;
 export const relayHasFfmpeg = () => ffmpeg;
 export const canRecord = () => relay && ffmpeg && rec;
 
 export async function detectRelay() {
+  if (Native) {
+    try { nativeInfo = await Native.info(); base = `http://127.0.0.1:${nativeInfo.port}`; relay = true; return relay; } catch (e) { console.warn(e); }
+  }
+  // For testing the Android relay from a desktop browser: ?relay=http://127.0.0.1:PORT
+  const test = new URLSearchParams(location.search).get('relay');
+  if (test && /^http:\/\/127\.0\.0\.1:\d+$/.test(test)) { base = test; relay = true; return relay; }
   try {
     const r = await fetch('/api/ping', { cache: 'no-store' });
     if (r.ok) { const j = await r.json(); relay = !!j.ok; ffmpeg = !!j.ffmpeg; rec = !!j.rec; }
@@ -16,7 +25,7 @@ export async function detectRelay() {
 
 const enc = encodeURIComponent;
 // Absolute URLs: players such as mpegts.js download inside their own worker, where "/api/..." cannot be resolved.
-const abs = p => new URL(p, location.href).href;
+const abs = p => (base && p.startsWith('/') ? base + p : new URL(p, location.href).href);
 const extra = o => (o && o.ua ? `&ua=${enc(o.ua)}` : '') + (o && o.ref ? `&ref=${enc(o.ref)}` : '');
 export const fetchUrl = (url, o) => (relay ? abs(`/api/fetch?url=${enc(url)}${extra(o)}`) : url);
 export const streamUrl = (url, o) => (relay ? abs(`/api/stream?url=${enc(url)}${extra(o)}`) : url);
@@ -29,7 +38,7 @@ export const imgUrl = url => (relay && /^https?:/i.test(url) ? abs(`/api/img?url
 
 export async function probe(url, o) {
   if (!relay) return { type: 'unknown' };
-  const r = await fetch(`/api/probe?url=${enc(url)}${extra(o)}`);
+  const r = await fetch(abs(`/api/probe?url=${enc(url)}${extra(o)}`));
   return r.ok ? r.json() : { type: 'unknown' };
 }
 

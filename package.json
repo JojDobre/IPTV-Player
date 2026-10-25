@@ -1,6 +1,6 @@
 {
   "name": "vysielac",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "private": true,
   "type": "module",
   "description": "IPTV prehrávač pre TV, PC a mobil",
@@ -14,6 +14,8 @@
     "node": ">=18"
   },
   "dependencies": {
+    "@capacitor/android": "8.5.3",
+    "@capacitor/core": "8.5.3",
     "@fontsource/bebas-neue": "5.2.5",
     "@fontsource/fraunces": "5.2.5",
     "@fontsource/onest": "5.2.5",
@@ -22,6 +24,7 @@
     "mpegts.js": "1.8.0"
   },
   "devDependencies": {
+    "@capacitor/cli": "8.5.3",
     "vite": "6.3.5"
   }
 }

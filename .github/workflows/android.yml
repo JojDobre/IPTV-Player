@@ -1,0 +1,62 @@
+# Builds the Android app (phones, tablets, Android TV) on every push and publishes it as the
+# "android-test" pre-release, so the APK can be downloaded straight to the device.
+name: Android APK
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: android
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Web app
+        run: |
+          npm ci
+          npm test
+          npm run build
+          npx cap sync android
+
+      - name: APK
+        working-directory: android
+        env:
+          VERSION_CODE: ${{ github.run_number }}
+        run: |
+          export VERSION_NAME="$(node -p "require('../package.json').version")-${GITHUB_SHA::7}"
+          chmod +x gradlew
+          ./gradlew --no-daemon assembleDebug
+          cp app/build/outputs/apk/debug/app-debug.apk ../vysielac.apk
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: vysielac-apk
+          path: vysielac.apk
+
+      - name: Publish test release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release delete android-test --yes --cleanup-tag || true
+          gh release create android-test vysielac.apk --prerelease --target "$GITHUB_SHA" \
+            --title "Android – testovacia verzia" \
+            --notes "Automaticky zostavené z ${GITHUB_SHA::7}. Stiahni vysielac.apk do telefónu alebo TV boxu a nainštaluj (treba povoliť inštaláciu z neznámych zdrojov)."

@@ -67,6 +67,20 @@ alebo P ho vráti na celú obrazovku. Na PC ide z okienka spraviť aj okno nad o
   Otestované s 10 000 kanálmi a 480 000 reláciami: štart z úložiska pod 1 s, pohyb šípkami 5–15 ms.
 - Playlist sa obnovuje každých 12 h, program každých 8 h, ručne cez **Nastavenia → Obnoviť**.
 
+## Android (mobil, tablet, Android TV) – testovacia verzia
+
+Každá zmena na GitHube sa sama zostaví do APK: **Releases → „Android – testovacia verzia“ → vysielac.apk**.
+Stiahni ho priamo v telefóne alebo TV boxe a nainštaluj (Android sa raz spýta na povolenie inštalácie z neznámych zdrojov).
+Ďalšie verzie sa nainštalujú cez staré, nastavenia ostanú.
+
+- Appka nepotrebuje PC: rovnaký relay ako `npm start` beží priamo v nej (`android/…/Relay.java`).
+- Na TV boxe sa ukáže v zozname aplikácií pre TV; ovládač funguje vrátane Späť, CH+/CH−, ⏯, ⏪ ⏩, červeného a modrého tlačidla.
+- Zatiaľ prehráva webový prehrávač (hls.js / mpegts.js v Android WebView). Kanály so zvukom AC3/MP2 alebo obrazom
+  HEVC/MPEG-2 tu ešte nemusia ísť, nahrávanie tiež nie (to robí ffmpeg na PC).
+  Ďalší krok je natívny prehrávač ExoPlayer (Media3): hardvérové dekódovanie všetkých bežných kodekov, AC3 aj HEVC.
+
+Ručná stavba (s Android Studio / SDK): `npm run build && npx cap sync android && cd android && ./gradlew assembleDebug`.
+
 ## Pre vývoj
 
 ```

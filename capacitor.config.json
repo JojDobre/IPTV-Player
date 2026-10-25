@@ -1,0 +1,16 @@
+{
+  "appId": "sk.vysielac.app",
+  "appName": "Vysielač",
+  "webDir": "dist",
+  "server": {
+    "androidScheme": "http",
+    "cleartext": true
+  },
+  "android": {
+    "allowMixedContent": true,
+    "backgroundColor": "#07070d"
+  },
+  "plugins": {
+    "CapacitorHttp": { "enabled": false }
+  }
+}
