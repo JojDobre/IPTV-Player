@@ -62,7 +62,9 @@ export class NativeEngine {
     this.t = {}; this.tr = { audio: [], text: [], video: [] };
     this.attempt = 0; this.everPlayed = false; this.stalls = 0; this.holding = false;
     this.lastLayout = '';
+    this.lastPos = -1; this.lastProgress = 0;
     setInterval(() => this.layout(), 250);
+    setInterval(() => this.watch(), 1000);
   }
 
   set(state, info) {
@@ -78,6 +80,7 @@ export class NativeEngine {
     this.attempt = 0; this.everPlayed = false; this.stalls = 0;
     this.t = {}; this.tr = { audio: [], text: [], video: [] };
     this.set('loading');
+    this.lastProgress = Date.now(); this.lastPos = -1;
     await this.start(token);
   }
 
@@ -138,7 +141,27 @@ export class NativeEngine {
     } else if (e.state === 'ended' && this.src.live) this.fail('network', 'Stream skončil');
   }
   onTracksEvent(e) { this.tr = e; this.cb.onTracks?.(); }
-  onTime(e) { this.t = e; }
+  onTime(e) {
+    this.t = e;
+    if (e.pos !== this.lastPos && e.playing) { this.lastPos = e.pos; this.lastProgress = Date.now(); }
+  }
+
+  /**
+   * A channel that stays "loading" never reports an error by itself (a decoder that starts but gives nothing,
+   * a stream ExoPlayer waits on). After a while: first try the app's own audio decoder, then reconnect, then give up.
+   */
+  watch() {
+    if (!this.src || this.state === 'error' || this.state === 'idle' || this.state === 'reconnecting') return;
+    if (!this.t.want && this.everPlayed) { this.lastProgress = Date.now(); return; }   // paused by the user
+    const stuck = Date.now() - this.lastProgress;
+    if (stuck < (this.everPlayed ? 12000 : 15000)) return;
+    this.lastProgress = Date.now();
+    const why = `stav ${this.nstate}, ${this.kind || '?'}${this.tracks().info.codecs ? ', ' + this.tracks().info.codecs : ''}, načítané ${this.ahead().toFixed(1)} s`;
+    if (!this.everPlayed && !this.src.soft) { this.fail('codec', 'nerozbehol sa: ' + why); return; }
+    // Never started even with the app's decoder: one more fresh connection, then say so (about 45 s in total).
+    if (!this.everPlayed && this.attempt >= 1) { NP.stop({ id: this.nid }).catch(() => {}); this.set('error', { type: 'stall', never: true, detail: why }); return; }
+    this.fail('stall', why);
+  }
 
   fail(type, detail) {
     if (!this.src || this.state === 'error') return;
@@ -180,7 +203,7 @@ export class NativeEngine {
     this.v.currentTime = to;
   }
   playableEnd() { const t = this.t; return t.dur > 0 ? t.dur : t.buf || 0; }
-  stats() { const t = this.t; return { ahead: this.ahead(), goal: 2.5, stalls: this.stalls, dropped: t.dropped || 0, frames: t.frames || 0 }; }
+  stats() { const t = this.t; return { ahead: this.ahead(), goal: 2.5, stalls: this.stalls, dropped: t.dropped || 0, frames: t.frames || 0, native: this.nstate, soft: !!(this.src && this.src.soft), codecs: this.tracks().info.codecs || '' }; }
 
   // ---- tracks ----
   tracks() {

@@ -1379,7 +1379,8 @@ function errorText(info) {
     if (code >= 500) return `Server poskytovateľa má problém (kód ${code}). Skús to o chvíľu.`;
     return 'Server poskytovateľa neodpovedá alebo kanál práve nevysiela. Ak kanál ide vo VLC, zavri VLC (predplatné môže dovoliť len jedno pripojenie) a skús znova.';
   }
-  if (info.type === 'stall') return 'Obraz sa zastavil a spojenie sa nepodarilo obnoviť.';
+  if (info.type === 'stall' && info.never) return `Kanál sa nerozbehol ani po opakovaní (${info.detail}). Pošli mi prosím túto správu, prípadne aj adresu kanála z playlistu (bez mena a hesla).`;
+  if (info.type === 'stall') return 'Obraz sa zastavil a spojenie sa nepodarilo obnoviť.' + (Native && info.detail ? ` (${info.detail})` : '');
   return info.detail || 'Neznáma chyba prehrávania.';
 }
 function showStatus(kind, title, sub = '') {
@@ -1532,10 +1533,11 @@ function toggleStats(on = $('#pStats').hidden) {
     el.textContent = [
       `prehrávač   ${i.via || '–'} · ${KIND_NAME[i.kind] || i.kind || '–'}${i.remux ? ` · ffmpeg ${i.remux === 'video' ? 'obraz+zvuk' : 'zvuk'}` : ''}`,
       `obraz       ${v.videoWidth ? `${v.videoWidth}×${v.videoHeight}` : '–'}`,
+      ...(s.codecs ? [`kodeky      ${s.codecs}${s.soft ? ' · zvuk cez dekodér appky' : ''}`] : []),
       `rezerva     ${s.ahead.toFixed(1)} s  (cieľ ${s.goal.toFixed(1)} s)`,
       `zaseknutia  ${s.stalls}`,
       `snímky      ${s.dropped} zahodených z ${s.frames}`,
-      `stav        ${engine.state}${engine.holding ? ' · napĺňam rezervu' : ''}`,
+      `stav        ${engine.state}${engine.holding ? ' · napĺňam rezervu' : ''}${s.native ? ` · prehrávač ${s.native}` : ''}`,
     ].join('\n');
   };
   draw(); statsT = setInterval(draw, 500);
@@ -1708,6 +1710,7 @@ function playerActions() {
     ['p-mini', 'pip', 'Malé okienko'],
     canFloat() ? ['p-float', 'float', 'Nad aplikáciami'] : null,
     ['p-restart', 'restart', 'Od začiatku'],
+    ['p-stats', 'eye', $('#pStats').hidden ? 'Technické info' : 'Skryť technické info'],
   ].filter(Boolean);
 }
 function renderPort() {
@@ -2197,6 +2200,7 @@ function activate(el, e) {
     case 'p-down': step(-1); break;
     case 'p-list': openPanel('list'); break;
     case 'p-more': openPanel('more'); break;
+    case 'p-stats': toggleStats(); break;
     case 'p-rotate': toggleRotate(); break;
     case 'p-float': floatWindow(); break;
     case 'panel-close': closePanel(); break;
