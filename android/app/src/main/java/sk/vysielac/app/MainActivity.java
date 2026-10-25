@@ -9,6 +9,7 @@ public class MainActivity extends BridgeActivity {
     @Override
     public void onCreate(Bundle savedInstanceState) {
         registerPlugin(LocalRelayPlugin.class);
+        registerPlugin(NativePlayerPlugin.class);
         super.onCreate(savedInstanceState);
         // Back belongs to the app (close the player, go home…); it decides itself when to leave.
         getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {

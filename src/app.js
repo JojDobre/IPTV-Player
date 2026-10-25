@@ -15,6 +15,7 @@ import { nameKey } from './data/xmltv.js';
 import { catchupUrl, hasArchive as hasArchiveReal } from './data/catchup.js';
 import * as library from './data/library.js';
 import { Engine, langMatches } from './player/engine.js';
+import { NativeEngine } from './player/native-engine.js';
 
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
@@ -1140,7 +1141,8 @@ const P = { open: false, ch: null, last: null, offset: 0, paused: false, osd: fa
   real: false, mode: 'live', archStart: 0, base: null, kinds: {}, prefApplied: false, error: false };
 // Two players for the two-picture mode. `engine` is always the active one (sound, controls, zapping);
 // the other only runs while two pictures are on.
-const mkEngine = (el, me) => new Engine(el, {
+// In the Android app ExoPlayer does the playing (hardware decoding, AC-3, HEVC, MPEG-TS natively).
+const mkEngine = (el, me) => new (Native ? NativeEngine : Engine)(el, {
   onState: (s, i) => { if (me() === engine) engineState(s, i); else paneLabels(); },
   onTracks: () => { if (me() !== engine) return; applyPrefs(); if (P.panel === 'audio') refreshSheet(); if (P.osd) renderOSD(); },
   onKind: k => { const id = me() === engine ? P.ch : M.ch; if (id) P.kinds[id] = k; },
@@ -1363,6 +1365,7 @@ async function describeCodecs() {
   $('#pStatusSub').textContent = `${$('#pStatusSub').textContent} Kanál má: ${parts.join(' · ')}.`;
 }
 function errorText(info) {
+  if (info.type === 'codec' && Native) return `Toto zariadenie nevie dekódovať zvuk alebo obraz tohto kanála${info.detail ? ` (${info.detail.slice(0, 140)})` : ''}. Pošli prosím túto správu, nech viem, ktorý formát doplniť.`;
   if (info.type === 'codec') return relayHasFfmpeg() ? 'Tento prehliadač nevie prehrať tento kanál ani po prevode cez ffmpeg.'
     : 'Prehliadač nevie prehrať zvuk alebo obraz tohto kanála, najčastejšie zvuk AC3. Pomôže nainštalovať ffmpeg na tomto PC (pozri README), na TV to nevadí.';
   if (info.type === 'network') {

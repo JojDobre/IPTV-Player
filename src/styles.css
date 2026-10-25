@@ -811,3 +811,7 @@ body.playing #toast { top: max(26px, env(safe-area-inset-top, 0px)); bottom: aut
   #player.multi #vid { top: calc(50% - 56.25vw); } #player.multi #vid2 { top: 50%; }
   .mv-lab { top: calc(50% - 56px); } .mv-lab.right { left: 14px; top: calc(50% + 56.25vw - 56px); }
 }
+
+/* Android app: ExoPlayer draws under the page, so the player area is see-through */
+html.native-video body.playing, html.native-video body.playing #player, html.native-video body.playing .stage, html.native-video body.playing .pv { background: transparent !important; }
+html.native-video:has(body.playing) { background: transparent !important; }

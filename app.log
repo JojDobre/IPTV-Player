@@ -1,0 +1,12 @@
+
+  Vysielač beží
+
+  Na tomto PC:      http://localhost:8080
+  V domácej sieti:  http://192.0.2.2:8080
+
+  Zastavíš ho klávesmi Ctrl+C.
+
+20:46:05 ✗ img 404 http://127.0.0.1:9001/missing.png
+20:46:12 ✗ stream 404 http://127.0.0.1:9001/dead.m3u8
+20:46:13 ✗ stream 404 http://127.0.0.1:9001/dead.m3u8
+20:46:15 ✗ stream 404 http://127.0.0.1:9001/dead.m3u8
