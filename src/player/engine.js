@@ -84,7 +84,7 @@ export class Engine {
       this.cb.onKind?.(kind);
     }
     this.kind = kind;
-    const url = s.remux ? remuxUrl(s.url, s) : streamUrl(s.url, s);
+    const url = s.remux ? remuxUrl(s.url, s, s.remux === 'video') : streamUrl(s.url, s);
 
     try {
       if (kind === 'hls' && !preferNative) {
@@ -206,9 +206,10 @@ export class Engine {
   fail(type, detail) {
     if (!this.src || this.state === 'error') return;
     const s = this.src;
-    if (type === 'codec' && !s.remux && useRelay() && relayHasFfmpeg()) {
-      s.remux = true;
-      this.set('reconnecting', { attempt: 0, reason: 'codec', detail });
+    // Codec trouble: first convert only the sound (cheap), and if the picture still fails, the picture too.
+    if (type === 'codec' && s.remux !== 'video' && useRelay() && relayHasFfmpeg()) {
+      s.remux = s.remux ? 'video' : 'audio';
+      this.set('reconnecting', { attempt: 0, reason: 'codec', level: s.remux, detail });
       const token = ++this.token;
       this.teardown();
       this.start(token);
@@ -228,7 +229,7 @@ export class Engine {
     this.retryT = setTimeout(() => { if (token !== this.token) return; this.teardown(); this.cb.onReconnect?.(); this.start(token); }, delay);
   }
 
-  retry() { if (this.src) { const s = this.src; s.remux = s.remux && relayHasFfmpeg(); this.open(s); } }
+  retry() { if (this.src) { const s = this.src; if (!relayHasFfmpeg()) s.remux = false; this.open(s); } }
 
   progressed() {
     this.lastProgress = Date.now();

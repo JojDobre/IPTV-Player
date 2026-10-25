@@ -9,7 +9,7 @@ import '@fontsource/bebas-neue/400.css';
 import '@fontsource/fraunces/600-italic.css';
 import './styles.css';
 import { buildDemo } from './data/demo.js';
-import { detectRelay, imgUrl, useRelay, relayHasFfmpeg } from './data/net.js';
+import { detectRelay, imgUrl, useRelay, relayHasFfmpeg, streamInfo } from './data/net.js';
 import { xtreamUrls } from './data/m3u.js';
 import { nameKey } from './data/xmltv.js';
 import { catchupUrl, hasArchive as hasArchiveReal } from './data/catchup.js';
@@ -1156,13 +1156,30 @@ function engineState(state, info) {
     return;
   }
   if (state === 'reconnecting') {
-    showStatus('spin', info.reason === 'codec' ? 'Prehliadač nepozná zvuk tohto kanála, prekladám ho…' : 'Obnovujem spojenie…', info.attempt > 1 ? `Pokus ${info.attempt}` : '');
+    showStatus('spin', info.reason === 'codec' ? (info.level === 'video' ? 'Prehliadač nepozná obraz tohto kanála, prekladám ho…' : 'Prehliadač nepozná zvuk tohto kanála, prekladám ho…') : 'Obnovujem spojenie…',
+      info.reason === 'codec' && info.level === 'video' ? 'Prevod obrazu zaťaží procesor tohto PC. Na TV nebude potrebný.' : info.attempt > 1 ? `Pokus ${info.attempt}` : '');
     return;
   }
-  if (state === 'error') showStatus('error', 'Kanál sa nedá prehrať', errorText(info));
+  if (state === 'error') {
+    showStatus('error', 'Kanál sa nedá prehrať', errorText(info));
+    if (info.type === 'codec') describeCodecs();
+  }
+}
+/** After a codec failure, ask ffprobe what the stream contains and say it in plain words. */
+async function describeCodecs() {
+  const ch = byId[P.ch]; if (!ch) return;
+  const want = P.ch;
+  const streams = await streamInfo(engine.src?.url || ch.url, srcFor(ch, {}));
+  if (P.ch !== want || !P.error || !streams.length) return;
+  const NAMES = { hevc: 'HEVC (H.265)', h264: 'H.264', mpeg2video: 'MPEG-2', av1: 'AV1', vp9: 'VP9', ac3: 'AC-3', eac3: 'E-AC-3', mp2: 'MP2', aac: 'AAC', mp3: 'MP3', dts: 'DTS' };
+  const v = streams.find(x => x.codec_type === 'video'), a = streams.filter(x => x.codec_type === 'audio');
+  const parts = [];
+  if (v) parts.push(`obraz ${NAMES[v.codec_name] || v.codec_name}${v.profile ? ' ' + v.profile : ''}${v.width ? `, ${v.width}×${v.height}` : ''}${/10/.test(v.pix_fmt || '') ? ', 10-bit' : ''}${v.field_order && v.field_order !== 'progressive' ? ', prekladaný (interlaced)' : ''}`);
+  if (a.length) parts.push(`zvuk ${[...new Set(a.map(x => NAMES[x.codec_name] || x.codec_name))].join(', ')}`);
+  $('#pStatusSub').textContent = `${$('#pStatusSub').textContent} Kanál má: ${parts.join(' · ')}.`;
 }
 function errorText(info) {
-  if (info.type === 'codec') return relayHasFfmpeg() ? 'Tento prehliadač nevie prehrať obraz tohto kanála (napríklad HEVC bez hardvérovej podpory).'
+  if (info.type === 'codec') return relayHasFfmpeg() ? 'Tento prehliadač nevie prehrať tento kanál ani po prevode cez ffmpeg.'
     : 'Prehliadač nevie prehrať zvuk alebo obraz tohto kanála, najčastejšie zvuk AC3. Pomôže nainštalovať ffmpeg na tomto PC (pozri README), na TV to nevadí.';
   if (info.type === 'network') {
     const code = +((/\b([45]\d\d)\b/.exec(info.detail || '') || [])[1] || 0);
@@ -1298,7 +1315,7 @@ function realAudioSheet() {
   if (t.quality.length) h += `<div class="sheet-sec">Kvalita</div>` + t.quality.map(q => opt('quality', q.id, q.label, q.sub, q.on)).join('');
   h += `<div class="sheet-sec">Pomer strán</div>` + ASPECT.map(([v, l, sub]) => `<button class="opt f ${P.aspect === v ? 'on' : ''}" data-act="opt" data-k="aspect" data-v="${v}"><span>${l}<small>${sub}</small></span>${I('check')}</button>`).join('');
   const i = t.info;
-  h += `<div class="sheet-sec">Technické info</div><p class="opt-note">${KIND_NAME[i.kind] || i.kind || '–'}${i.w ? ` · ${i.w}×${i.h}` : ''} · ${i.via || '–'}${i.remux ? ' · zvuk prekladaný cez ffmpeg' : ''}${P.mode === 'archive' ? ' · archív' : ''}</p>`;
+  h += `<div class="sheet-sec">Technické info</div><p class="opt-note">${KIND_NAME[i.kind] || i.kind || '–'}${i.w ? ` · ${i.w}×${i.h}` : ''} · ${i.via || '–'}${i.remux === 'video' ? ' · obraz aj zvuk prekladané cez ffmpeg' : i.remux ? ' · zvuk prekladaný cez ffmpeg' : ''}${P.mode === 'archive' ? ' · archív' : ''}</p>`;
   return `<div class="panel-head"><h3>Zvuk a titulky</h3></div><div class="plist">${h}</div>`;
 }
 function refreshSheet() {

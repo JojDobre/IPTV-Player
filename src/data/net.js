@@ -19,7 +19,11 @@ const abs = p => new URL(p, location.href).href;
 const extra = o => (o && o.ua ? `&ua=${enc(o.ua)}` : '') + (o && o.ref ? `&ref=${enc(o.ref)}` : '');
 export const fetchUrl = (url, o) => (relay ? abs(`/api/fetch?url=${enc(url)}${extra(o)}`) : url);
 export const streamUrl = (url, o) => (relay ? abs(`/api/stream?url=${enc(url)}${extra(o)}`) : url);
-export const remuxUrl = (url, o) => abs(`/api/remux?url=${enc(url)}${extra(o)}`);
+export const remuxUrl = (url, o, video) => abs(`/api/remux?url=${enc(url)}${extra(o)}${video ? '&v=1' : ''}`);
+export async function streamInfo(url, o) {
+  if (!relay || !ffmpeg) return [];
+  try { const r = await fetch(abs(`/api/info?url=${enc(url)}${extra(o)}`)); return r.ok ? (await r.json()).streams || [] : []; } catch { return []; }
+}
 export const imgUrl = url => (relay && /^https?:/i.test(url) ? abs(`/api/img?url=${enc(url)}`) : url);
 
 export async function probe(url, o) {

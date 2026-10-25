@@ -34,7 +34,10 @@ Veľa slovenských a českých kanálov má zvuk AC3 alebo E-AC3, ktorý Chrome 
 - Mac: `brew install ffmpeg`
 - Linux: `sudo apt install ffmpeg`
 
-Bez ffmpeg takýto kanál ukáže hlásenie „Kanál sa nedá prehrať“ s vysvetlením. Na TV to nevadí, TV si s AC3 poradí sama.
+Ak Chrome nevie ani obraz (HEVC bez hardvérovej podpory, staršie MPEG-2 z DVB), server prekonvertuje aj obraz na H.264.
+To už zaťaží procesor (pri 1080p približne ako prehrávanie videa v programe na strih). Hlásenie pri chybe vypíše, aké kodeky kanál má.
+
+Bez ffmpeg takýto kanál ukáže hlásenie „Kanál sa nedá prehrať“ s vysvetlením. Na TV to nevadí, TV si s AC3, HEVC aj MPEG-2 poradí sama.
 
 ### Z mobilu alebo iného zariadenia doma
 

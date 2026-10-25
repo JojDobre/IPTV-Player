@@ -23,13 +23,39 @@ function remux(req, res, target, q, log) {
   const args = ['-hide_banner', '-loglevel', 'error', '-fflags', '+genpts+discardcorrupt', '-reconnect', '1', '-reconnect_streamed', '1', '-reconnect_delay_max', '4',
     '-user_agent', q.get('ua') || DEFAULT_UA];
   if (q.get('ref')) args.push('-headers', `Referer: ${q.get('ref')}\r\n`);
-  args.push('-i', target, '-map', '0:v:0?', '-map', '0:a?', '-c:v', 'copy', '-c:a', 'aac', '-b:a', '192k', '-ac', '2', '-f', 'mpegts', '-mpegts_flags', '+resend_headers', 'pipe:1');
+  // v=1: the browser cannot decode the picture either (HEVC without hardware support, MPEG-2 from DVB…),
+  // so it is converted to H.264 too. That costs CPU; audio-only conversion costs next to nothing.
+  const video = q.get('v') === '1';
+  if (video) args.push('-hwaccel', 'auto');
+  args.push('-i', target, '-map', '0:v:0?', '-map', '0:a?');
+  if (video) args.push('-c:v', 'libx264', '-preset', 'veryfast', '-tune', 'zerolatency', '-crf', '21', '-maxrate', '10M', '-bufsize', '16M', '-g', '50', '-pix_fmt', 'yuv420p', '-vf', 'yadif=deint=interlaced');
+  else args.push('-c:v', 'copy');
+  args.push('-c:a', 'aac', '-b:a', '192k', '-ac', '2', '-f', 'mpegts', '-mpegts_flags', '+resend_headers', 'pipe:1');
   const ff = spawn(process.env.FFMPEG || 'ffmpeg', args, { stdio: ['ignore', 'pipe', 'pipe'] });
   let err = '';
   ff.stderr.on('data', d => { err = (err + d).slice(-500); });
   res.writeHead(200, { 'content-type': 'video/mp2t', 'cache-control': 'no-cache' });
   ff.stdout.pipe(res);
   ff.on('close', code => { if (code && !res.writableEnded) log(`✗ remux ${code} ${err.trim()}`); res.end(); });
+  res.on('close', () => ff.kill('SIGKILL'));
+}
+
+/** Codecs of a stream via ffprobe, to tell the user exactly what the browser could not play. */
+function info(res, target, q) {
+  const args = ['-v', 'error', '-user_agent', q.get('ua') || DEFAULT_UA, '-rw_timeout', '8000000', '-analyzeduration', '4000000', '-probesize', '4000000',
+    '-show_entries', 'stream=codec_type,codec_name,profile,width,height,pix_fmt,field_order,channels', '-of', 'json', target];
+  const ff = spawn(process.env.FFPROBE || 'ffprobe', args, { stdio: ['ignore', 'pipe', 'pipe'] });
+  let out = '';
+  const kill = setTimeout(() => ff.kill('SIGKILL'), 12000);
+  ff.stdout.on('data', d => { out += d; });
+  ff.on('error', () => {});
+  ff.on('close', () => {
+    clearTimeout(kill);
+    let streams = [];
+    try { streams = JSON.parse(out).streams || []; } catch {}
+    res.writeHead(200, { 'content-type': 'application/json' });
+    res.end(JSON.stringify({ streams }));
+  });
   res.on('close', () => ff.kill('SIGKILL'));
 }
 
@@ -123,6 +149,11 @@ export async function handleApi(req, res, { log = () => {} } = {}) {
   if (route === 'remux') {
     if (!hasFfmpeg()) { res.writeHead(501, { 'content-type': 'text/plain; charset=utf-8' }); res.end('Na tomto PC nie je nainštalovaný ffmpeg.'); return true; }
     remux(req, res, target, q, log);
+    return true;
+  }
+  if (route === 'info') {
+    if (!hasFfmpeg()) { res.writeHead(200, { 'content-type': 'application/json' }); res.end('{"streams":[]}'); return true; }
+    info(res, target, q);
     return true;
   }
 
