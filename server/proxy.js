@@ -98,6 +98,17 @@ async function readFirst(body, min = 376) {
   return { reader, first: Buffer.concat(chunks.map(c => Buffer.from(c))) };
 }
 
+// Many IPTV subscriptions allow a single connection and some stream links are one-time tokens, so the
+// connection opened by /api/probe is kept for a few seconds and handed to the /api/stream request that follows.
+const HANDOFF = new Map();
+const handoffKey = (t, q) => `${t}|${q.get('ua') || ''}|${q.get('ref') || ''}`;
+function dropHandoff(key, h) {
+  if (HANDOFF.get(key) === h) HANDOFF.delete(key);
+  clearTimeout(h.timer);
+  h.reader.cancel().catch(() => {});
+  h.ac.abort();
+}
+
 /** Node request handler. Returns false when the path is not ours. */
 export async function handleApi(req, res, { log = () => {} } = {}) {
   const u = new URL(req.url, 'http://local');
@@ -115,11 +126,15 @@ export async function handleApi(req, res, { log = () => {} } = {}) {
     return true;
   }
 
-  const ac = new AbortController();
-  res.on('close', () => ac.abort());
-  let up;
+  const key = handoffKey(target, q);
+  const pre = route === 'stream' && !req.headers.range ? HANDOFF.get(key) : null;
+  if (pre) { HANDOFF.delete(key); clearTimeout(pre.timer); }
+  const ac = pre ? pre.ac : new AbortController();
+  // The probe's connection outlives the probe response (see HANDOFF); every other request ends with its client.
+  if (route !== 'probe') res.on('close', () => ac.abort());
+  let up = pre ? pre.up : null;
   try {
-    up = await fetch(target, { headers: upstreamHeaders(req, q), redirect: 'follow', signal: ac.signal });
+    if (!up) up = await fetch(target, { headers: upstreamHeaders(req, q), redirect: 'follow', signal: ac.signal });
   } catch (e) {
     if (ac.signal.aborted) return true;
     log(`✗ ${route} ${target} – ${e.cause?.code || e.message}`);
@@ -134,39 +149,37 @@ export async function handleApi(req, res, { log = () => {} } = {}) {
 
   try {
     if (route === 'probe') {
-      const { reader, first } = up.body ? await readFirst(up.body) : { first: Buffer.alloc(0) };
-      reader?.cancel().catch(() => {});
-      ac.abort();
+      const { reader, first } = up.body ? await readFirst(up.body) : { reader: null, first: Buffer.alloc(0) };
+      const type = sniffType(up.headers.get('content-type'), up.url, first);
+      if (reader && up.ok) {
+        const old = HANDOFF.get(key);
+        if (old) dropHandoff(key, old);
+        const h = { up, reader, first, ac };
+        h.timer = setTimeout(() => dropHandoff(key, h), 10000);
+        HANDOFF.set(key, h);
+      } else { reader?.cancel().catch(() => {}); ac.abort(); }
       res.writeHead(200, { 'content-type': 'application/json' });
-      res.end(JSON.stringify({ status: up.status, type: sniffType(up.headers.get('content-type'), up.url, first), url: up.url, contentType: up.headers.get('content-type') }));
+      res.end(JSON.stringify({ status: up.status, type, url: up.url, contentType: up.headers.get('content-type') }));
       return true;
     }
 
     if (route === 'stream' && up.ok) {
       const ct = up.headers.get('content-type');
+      const { reader, first } = pre || await readFirst(up.body, 16);
       // HLS playlists are small: read, rewrite, send. Everything else is piped as it arrives.
-      if (looksLikeHlsPlaylist(ct, up.url)) {
-        const text = await up.text();
+      if (looksLikeHlsPlaylist(ct, up.url, first)) {
+        let text = first.toString('utf8');
+        for (;;) { const { value, done } = await reader.read(); if (done) break; text += Buffer.from(value).toString('utf8'); }
         res.writeHead(200, { 'content-type': 'application/vnd.apple.mpegurl', 'cache-control': 'no-cache' });
         res.end(rewriteHls(text, up.url, extra));
         return true;
       }
-      if (!ct || ct.includes('text') || ct.includes('octet-stream')) {
-        const { reader, first } = await readFirst(up.body, 16);
-        if (looksLikeHlsPlaylist(ct, up.url, first)) {
-          let rest = first.toString('utf8');
-          for (;;) { const { value, done } = await reader.read(); if (done) break; rest += Buffer.from(value).toString('utf8'); }
-          res.writeHead(200, { 'content-type': 'application/vnd.apple.mpegurl', 'cache-control': 'no-cache' });
-          res.end(rewriteHls(rest, up.url, extra));
-          return true;
-        }
-        const head = {};
-        for (const h of PASS_HEADERS) { const v = up.headers.get(h); if (v) head[h] = v; }
-        res.writeHead(up.status, head);
-        res.write(first);
-        Readable.fromWeb(new ReadableStream({ pull: async c => { const { value, done } = await reader.read(); if (done) c.close(); else c.enqueue(value); }, cancel: () => reader.cancel() })).pipe(res);
-        return true;
-      }
+      const head = {};
+      for (const h of PASS_HEADERS) { const v = up.headers.get(h); if (v) head[h] = v; }
+      res.writeHead(up.status, head);
+      res.write(first);
+      Readable.fromWeb(new ReadableStream({ pull: async c => { const { value, done } = await reader.read(); if (done) c.close(); else c.enqueue(value); }, cancel: () => reader.cancel() })).on('error', () => res.destroy()).pipe(res);
+      return true;
     }
 
     const head = { 'cache-control': route === 'img' ? 'public, max-age=604800' : 'no-cache' };

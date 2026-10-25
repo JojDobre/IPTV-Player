@@ -173,7 +173,7 @@ export class Engine {
     this.ts = p;
     const E = mpegts.Events;
     p.on(E.ERROR, (type, detail, info) => {
-      const msg = `${type} ${detail}${info?.msg ? ': ' + info.msg : ''}`;
+      const msg = `${type} ${detail}${info?.code ? ' ' + info.code : ''}${info?.msg ? ': ' + info.msg : ''}`;
       this.fail(CODEC_ERRORS.test(msg) && type !== 'NetworkError' ? 'codec' : type === 'NetworkError' ? 'network' : 'media', msg);
     });
     p.on(E.MEDIA_INFO, () => this.cb.onTracks?.());
@@ -217,8 +217,9 @@ export class Engine {
     if (type === 'codec') { this.teardown(); this.set('error', { type, detail }); return; }
     this.attempt++;
     // A channel that never started is most likely offline: give up quickly. One that was playing gets more patience.
-    if (this.attempt > (this.everPlayed ? 8 : 2)) { this.teardown(); this.set('error', { type, detail }); return; }
-    const delay = Math.min(10000, 500 * 2 ** (this.attempt - 1));
+    if (this.attempt > (this.everPlayed ? 8 : 3)) { this.teardown(); this.set('error', { type, detail }); return; }
+    // The first pause is a full second: providers that allow one connection need a moment to release the old one.
+    const delay = Math.min(10000, 1000 * 2 ** (this.attempt - 1));
     // Archive playback resumes where it stopped; live goes back to the live edge.
     if (!s.live) s.startAt = this.v.currentTime || s.startAt;
     this.set('reconnecting', { attempt: this.attempt, detail });

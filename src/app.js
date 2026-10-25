@@ -1164,7 +1164,14 @@ function engineState(state, info) {
 function errorText(info) {
   if (info.type === 'codec') return relayHasFfmpeg() ? 'Tento prehliadač nevie prehrať obraz tohto kanála (napríklad HEVC bez hardvérovej podpory).'
     : 'Prehliadač nevie prehrať zvuk alebo obraz tohto kanála, najčastejšie zvuk AC3. Pomôže nainštalovať ffmpeg na tomto PC (pozri README), na TV to nevadí.';
-  if (info.type === 'network') return 'Server poskytovateľa neodpovedá alebo kanál práve nevysiela.';
+  if (info.type === 'network') {
+    const code = +((/\b([45]\d\d)\b/.exec(info.detail || '') || [])[1] || 0);
+    if (code === 401 || code === 403 || code === 458 || code === 509 || code === 429)
+      return `Poskytovateľ odmietol pripojenie (kód ${code}). Najčastejšie preto, že ten istý účet práve pozerá iné zariadenie alebo program (napríklad VLC) a predplatné dovoľuje len jedno pripojenie naraz. Zavri ho a skús znova.`;
+    if (code === 404) return 'Poskytovateľ tento kanál nenašiel (kód 404). Možno sa zmenil playlist, skús ho v Nastaveniach obnoviť.';
+    if (code >= 500) return `Server poskytovateľa má problém (kód ${code}). Skús to o chvíľu.`;
+    return 'Server poskytovateľa neodpovedá alebo kanál práve nevysiela. Ak kanál ide vo VLC, zavri VLC (predplatné môže dovoliť len jedno pripojenie) a skús znova.';
+  }
   if (info.type === 'stall') return 'Obraz sa zastavil a spojenie sa nepodarilo obnoviť.';
   return info.detail || 'Neznáma chyba prehrávania.';
 }
