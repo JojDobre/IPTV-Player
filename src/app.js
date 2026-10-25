@@ -134,7 +134,7 @@ const catIcon = s => s.icon === 'auto' ? `<span class="txt-ic">${esc(initials(s.
 const ACCENTS = { white: ['#FFFFFF', '#0A0A17'], amber: ['#F2B84B', '#1B1406'], coral: ['#FF7A59', '#1E0B05'], mint: ['#4FD1A5', '#04170F'], violet: ['#A08CFF', '#0F0A24'], ice: ['#7CC4FF', '#03121F'] };
 const PALETTE = ['#2F6BFF', '#E5394B', '#8B5CF6', '#16A34A', '#F59E0B', '#EC4899', '#0EA5A4', '#F97316'];
 const ICONS = ['auto', 'film', 'ball', 'news', 'kids', 'globe', 'note', 'cup', 'heart', 'sparkle'];
-const DEFAULT_SET = { look: 'classic', secRows: '2', tile: 'm', round: 'med', tilebg: 'tint', nums: 'off', caps: 'on', accent: 'white', hide: '5', lang: 'sk', subs: 'off', resume: 'off', backMini: 'off' };
+const DEFAULT_SET = { look: 'classic', secRows: '2', tile: 'm', round: 'med', tilebg: 'tint', nums: 'off', caps: 'on', accent: 'white', hide: '5', lang: 'sk', subs: 'off', resume: 'off', backMini: 'off', pipAuto: 'on' };
 function defaultSections() {
   return [
     { id: 'recent', type: 'recent', name: 'Naposledy pozerané', color: '#94A3B8', icon: 'hist', show: true },
@@ -753,6 +753,7 @@ function renderSettings() {
       ${setRow('Predvolené titulky', '', seg('subs', SUBS.map(a => [a[0], a[1]])))}
       ${setRow('Skryť ovládanie po', '', seg('hide', [['3', '3 s'], ['5', '5 s'], ['8', '8 s']]))}
       ${setRow('Po spustení pokračovať', 'Appka hneď pustí naposledy pozeraný kanál, ako set-top box', toggleBtn('resume', 'Po spustení pokračovať'))}
+      ${Native && nativeInfo && nativeInfo.pip ? setRow('Okno nad aplikáciami', 'Keď počas pozerania odídeš z appky (tlačidlo Domov), kanál hrá ďalej v malom okne nad ostatnými aplikáciami', `<button class="toggle f ${S.set.pipAuto !== 'off' ? 'on' : ''}" data-act="set" data-k="pipAuto" data-v="toggle" data-group="main" aria-label="Okno nad aplikáciami"></button>`) : ''}
       ${setRow('Späť zmenší do okienka', 'Tlačidlo Späť v prehrávači kanál nezavrie, ale nechá ho hrať v malom okienku. Zavrieš ho tlačidlom Stop alebo opakovaným Späť.', toggleBtn('backMini', 'Späť zmenší do okienka'))}
     </div>
     <div class="set-group"><h3>Rodičovský zámok</h3><div id="lockRows">${lockRows()}</div></div>
@@ -770,6 +771,7 @@ function setSetting(k, v, el) {
   if (k === 'subs') P.subs = v;
   applySettings();
   if (k === 'secRows' && S.screen === 'home') renderHome();
+  if (k === 'pipAuto') syncAutoPip();
   if (k === 'look') toast(v === 'glass' ? 'Liquid glass zapnutý' : 'Klasický vzhľad');
 }
 
@@ -1159,7 +1161,7 @@ function openOrTune(id, offset = 0) {
   if (P.mini) exitMini();
   tune(id, offset);
 }
-const nativePlaying = on => { if (Native) Native.playing({ on }).catch(() => {}); };
+const nativePlaying = on => { if (Native) Native.playing({ on }).catch(() => {}); syncAutoPip(); };
 function openPlayer(id, offset = 0) {
   if (isLocked(id)) return askPin(() => { UNLOCKED = true; openPlayer(id, offset); });
   P.appFocus = nav.cur; clearFocus();
@@ -1177,6 +1179,7 @@ function closePlayer() {
   engine.close();
   P.open = false; player.hidden = true; cancelAnimationFrame(vid.raf);
   nativePlaying(false);
+  if (forcedLand) toggleRotate(false);
   document.body.classList.remove('playing');
   if (document.fullscreenElement && !IS_TV) document.exitFullscreen().catch(() => {});
   const back = P.appFocus;
@@ -1431,6 +1434,8 @@ function renderOSD() {
   $('#sPos').textContent = isLive() ? 'Naživo' : `${hms(pos)} · −${durTxt(P.offset)}`;
   const play = $('#cPlay');
   $('use', play).setAttribute('href', P.paused ? '#i-play' : '#i-pause');
+  $('use', $('#cPlay2')).setAttribute('href', P.paused ? '#i-play' : '#i-pause');
+  if (isPortraitPhone()) renderPort();
   $('.tip', play).textContent = P.paused ? 'Prehrať' : 'Pauza';
   $('#cLive').classList.toggle('is-live', isLive());
   const fav = $('#cFav'), on = isFav(ch.id);
@@ -1443,7 +1448,7 @@ function showOSD(sel) {
   P.osd = true; player.classList.add('osd-on'); hideBanner();
   renderOSD();
   if (sel) setFocus($(sel, osd));
-  else if (!nav.cur || !osd.contains(nav.cur)) setFocus($('#cPlay'));
+  else if (!nav.cur || !osd.contains(nav.cur)) setFocus($(isPhone() ? '#cPlay2' : '#cPlay'));
   armHide();
 }
 function hideOSD() {
@@ -1468,6 +1473,7 @@ function openPanel(name) {
   P.panelFrom = P.osd ? nav.cur : null;
   hideOSD(); hideBanner();
   P.panel = name;
+  addPanelX();
   if (name === 'list') {
     renderList(); sheet.classList.remove('on'); chPanel.classList.add('on');
     const cur = $(`#chPanel [data-ch="${P.ch}"]`); setFocus(cur, { noScroll: true }); cur.scrollIntoView({ block: 'center' });
@@ -1476,6 +1482,8 @@ function openPanel(name) {
     const f = $('#sheet .opt.on') || $('#sheet .pr.now') || $('#sheet .f'); setFocus(f, { noScroll: true }); if (f) f.scrollIntoView({ block: 'center' });
   }
 }
+// Touch screens get a close button in every panel (there is no Back key to press).
+function addPanelX() { requestAnimationFrame(() => $$('#chPanel .panel-head, #sheet .panel-head').forEach(h => { if (!$('.panel-x', h)) h.insertAdjacentHTML('beforeend', PANEL_X); })); }
 function closePanel(silent) {
   if (!P.panel) return;
   const from = P.panelFrom;
@@ -1683,6 +1691,97 @@ function endMulti() {
   player.classList.toggle('solo2', engine === E2);
 }
 
+/* ---------- Phones ---------- */
+const isPhone = () => document.body.classList.contains('touch') && !IS_TV;
+const isPortraitPhone = () => isPhone() && innerHeight > innerWidth && !P.mini;
+const PANEL_X = `<button class="panel-x m-only" data-act="panel-close" aria-label="Zavrieť">${I('x')}</button>`;
+/** The player's less frequent actions: the "⋯" sheet in landscape, a row of chips below the picture upright. */
+function playerActions() {
+  const fav = isFav(P.ch);
+  return [
+    ['p-prog', 'guide', 'Program'],
+    ['p-audio', 'audio', 'Zvuk a titulky'],
+    ['p-fav', fav ? 'heart-f' : 'heart', fav ? 'V obľúbených' : 'Obľúbené'],
+    canRecord() && P.real && !P.rec ? ['p-rec', 'rec', 'Nahrať'] : null,
+    ['p-sleep', 'moon', SLEEP.at ? `Vypnem o ${sleepLeft()}` : 'Časovač'],
+    P.real ? ['p-multi', 'split', M.on ? 'Jeden obraz' : 'Dva obrazy'] : null,
+    ['p-mini', 'pip', 'Malé okienko'],
+    canFloat() ? ['p-float', 'float', 'Nad aplikáciami'] : null,
+    ['p-restart', 'restart', 'Od začiatku'],
+  ].filter(Boolean);
+}
+function renderPort() {
+  const ch = byId[P.ch]; if (!ch) return;
+  const now = Date.now(), pos = now - P.offset * 1000, p = progAt(ch.id, pos), nx = progNext(ch.id, p);
+  $('#ppHead').innerHTML = `<div class="pp-ch">${tileStatic(ch, 'mini')}<div><b>${ch.n} · ${esc(ch.name)}</b>${$('#oStatus').innerHTML}</div></div>`
+    + (p.none ? `<p class="pp-t">${esc(catName[ch.cat] || '')}</p>` : `<h2 class="pp-t">${esc(p.title)}</h2><div class="pp-time"><span>${hm(p.start)}</span><span class="bar"><i style="width:${frac(p, pos) * 100}%"></i></span><span>${hm(p.end)}</span></div>`)
+    + (nx ? `<p class="pp-next">Ďalej <b>${hm(nx.start)}</b> ${esc(nx.title)}</p>` : '');
+  const acts = playerActions();
+  const key = acts.map(a => a[2]).join('|');
+  if ($('#ppActs').dataset.key !== key) {
+    $('#ppActs').dataset.key = key;
+    $('#ppActs').innerHTML = acts.map(([a, ic, l]) => `<button class="pp-act f" data-act="${a}">${I(ic)}<span>${esc(l)}</span></button>`).join('');
+  }
+  if ($('#ppList').dataset.ch !== P.ch || !$('#ppList').children.length) renderPortList();
+}
+function renderPortList() {
+  if (S.chipPort && S.chipPort !== 'all' && !secById(S.chipPort)) S.chipPort = 'all';
+  const cur = S.chipPort || 'all';
+  $('#ppChips').innerHTML = [['all', 'Všetky'], ...S.sections.filter(s => s.type !== 'recent').map(s => [s.id, s.name])]
+    .map(([v, l]) => `<button class="chip f ${cur === v ? 'on' : ''}" data-act="pp-chip" data-v="${v}">${esc(l)}</button>`).join('');
+  const box = $('#ppList'); box.dataset.ch = P.ch;
+  lazyFill(box, filterCh(cur), listItem, 80);
+}
+$('#pPort').addEventListener('scroll', e => lazyNear(e.target, $('#ppList')), { passive: true });
+
+/** Upright phone: go landscape and full screen; and back. */
+let forcedLand = false;
+async function toggleRotate(force) {
+  forcedLand = force === undefined ? !forcedLand : force;
+  if (Native) {
+    Native.orientation({ mode: forcedLand ? 'landscape' : 'portrait' }).catch(() => {});
+    // Back upright, then let the sensor decide again so turning the phone still works.
+    if (!forcedLand) setTimeout(() => { if (!forcedLand) Native.orientation({ mode: 'auto' }).catch(() => {}); }, 2500);
+    return;
+  }
+  try {
+    if (forcedLand) { if (!document.fullscreenElement) await document.documentElement.requestFullscreen(); await screen.orientation?.lock?.('landscape'); }
+    else { screen.orientation?.unlock?.(); if (document.fullscreenElement) await document.exitFullscreen(); }
+  } catch {}
+}
+
+/** Picture over other apps: Android's picture-in-picture, or the browser's own on PC. */
+const canFloat = () => (Native ? !!(nativeInfo && nativeInfo.pip) : !!document.pictureInPictureEnabled && P.real);
+function floatWindow() {
+  if (Native) { Native.pipNow().catch(() => toast('Okno nad aplikáciami sa nedá otvoriť')); return; }
+  nativePip();
+}
+function syncAutoPip() { if (Native && nativeInfo && nativeInfo.pip) Native.pip({ auto: P.open && S.set.pipAuto !== 'off' }).catch(() => {}); }
+addEventListener('vysielac-pip', e => {
+  const on = !!e.detail;
+  document.documentElement.classList.toggle('in-pip', on);
+  if (on) { if (P.mini) exitMini(); hideOSD(); closePanel(true); hideBanner(); }
+});
+
+/* Double tap on the left or right of the picture: 30 s back or forward. */
+let lastTap = null;
+function doubleTap(e) {
+  if (!isPhone() || e.target.closest('[data-act], .panel, .p-port, .seek-labels')) return false;
+  const now = Date.now(), prev = lastTap;
+  lastTap = { t: now, x: e.clientX, osd: P.osd };
+  if (!prev || now - prev.t > 320 || Math.abs(prev.x - e.clientX) > 80) return false;
+  const r = $('#stage').getBoundingClientRect(), side = e.clientX < r.left + r.width / 3 ? -1 : e.clientX > r.right - r.width / 3 ? 1 : 0;
+  if (!side) return false;
+  lastTap = null;
+  // The first tap of the pair toggled the controls; put them back as they were.
+  if (prev.osd !== P.osd) { if (prev.osd) showOSD(); else hideOSD(); }
+  seek(side * 30);
+  const rp = $('#tapRipple');
+  rp.className = 'tap-ripple ' + (side < 0 ? 'left' : 'right'); rp.textContent = side < 0 ? '−30 s' : '+30 s';
+  void rp.offsetWidth; rp.classList.add('on');
+  return true;
+}
+
 /* ---------- Sleep timer ---------- */
 const SLEEP = { at: 0, kind: '', warned: false };
 const SLEEP_OPTS = [['0', 'Vypnutý'], ['15', '15 minút'], ['30', '30 minút'], ['60', '1 hodina'], ['90', '1,5 hodiny'], ['120', '2 hodiny'], ['end', 'Do konca relácie']];
@@ -1727,6 +1826,11 @@ function checkSleep() {
 setInterval(checkSleep, 1000);
 
 function renderSheet(name) {
+  if (name === 'more') {
+    sheet.innerHTML = `<div class="panel-head"><h3>Viac</h3>${PANEL_X}</div><div class="plist">`
+      + playerActions().map(([a, ic, l]) => `<button class="mitem f" data-act="more-do" data-v="${a}">${I(ic)}${esc(l)}</button>`).join('') + `</div>`;
+    return;
+  }
   if (name === 'sleep') { sheet.innerHTML = sleepSheet(); return; }
   if (name === 'audio' && P.real) { sheet.innerHTML = realAudioSheet(); return; }
   if (name === 'audio') {
@@ -2092,6 +2196,12 @@ function activate(el, e) {
     case 'p-up': step(1); break;
     case 'p-down': step(-1); break;
     case 'p-list': openPanel('list'); break;
+    case 'p-more': openPanel('more'); break;
+    case 'p-rotate': toggleRotate(); break;
+    case 'p-float': floatWindow(); break;
+    case 'panel-close': closePanel(); break;
+    case 'more-do': { const a = el.dataset.v; closePanel(true); activate({ dataset: { act: a } }); break; }
+    case 'pp-chip': S.chipPort = el.dataset.v; renderPortList(); break;
     case 'p-prog': openPanel('prog'); break;
     case 'p-audio': openPanel('audio'); break;
     case 'p-fav': toggleFav(P.ch); break;
@@ -2154,7 +2264,7 @@ document.addEventListener('keydown', e => {
   const k = keyName(e); if (!k) return;
   const inInput = e.target && e.target.tagName === 'INPUT';
   if (inInput && !(k === 'up' || k === 'down' || k === 'ok' || k === 'back')) return;
-  document.body.classList.remove('touch');
+  if (!(Native && !IS_TV)) document.body.classList.remove('touch');
   e.preventDefault();
   if (!modal.hidden) {
     if (PINE && $('#pinDots')) { if (/^\d$/.test(k)) return pinDigit(k); if (k === 'bksp') return pinDigit('del'); }
@@ -2261,7 +2371,7 @@ function playerKey(k) {
     case 'right': openPanel('prog'); break;
     case 'ok': showOSD('#cPlay'); break;
     case 'info': showBanner(); break;
-    case 'back': case 'bksp': if (S.set.backMini === 'on') enterMini(); else closePlayer(); break;
+    case 'back': case 'bksp': if (forcedLand) toggleRotate(false); else if (S.set.backMini === 'on') enterMini(); else closePlayer(); break;
     case 'stop': closePlayer(); break;
   }
 }
@@ -2330,7 +2440,7 @@ player.addEventListener('pointerdown', e => { if (e.pointerType !== 'mouse') swi
 player.addEventListener('pointerup', e => {
   if (!swipe) return;
   const dx = e.clientX - swipe.x, dy = e.clientY - swipe.y; swipe = null;
-  if (Math.abs(dy) > 70 && Math.abs(dx) < 90 && !e.target.closest('.panel')) {
+  if (Math.abs(dy) > 70 && Math.abs(dx) < 90 && !e.target.closest('.panel, .p-port')) {
     step(dy < 0 ? 1 : -1);
     suppressClick = true; setTimeout(() => { suppressClick = false; }, 60);
   }
@@ -2338,13 +2448,14 @@ player.addEventListener('pointerup', e => {
 player.addEventListener('dblclick', e => { if (!e.target.closest('[data-act], .panel') && !IS_TV) toggleFullscreen(); });
 player.addEventListener('click', e => {
   if (engine.v.muted && S.set.muted !== 'on') { engine.v.muted = false; updateMuteBtn(); }
-  if (suppressClick || e.target.closest('[data-act], .panel, .seek-labels')) return;
+  if (suppressClick || e.target.closest('[data-act], .panel, .seek-labels, .p-port')) return;
+  if (doubleTap(e)) return;
   if (P.panel) { closePanel(true); return; }
   if (M.on && !e.target.closest('.osd-bottom, .osd-top')) { const right = e.clientX > innerWidth / 2; if (right ? engine !== E2 : engine !== E1) { swapPane(); return; } }
   if (P.osd) hideOSD(); else showOSD();
 });
 let resizeT;
-addEventListener('resize', () => { clearTimeout(resizeT); resizeT = setTimeout(() => { if (S.screen === 'guide') renderGuide(true); if (S.screen === 'home') renderHome(); if (S.screen === 'channels') renderChannels(); if (S.screen === 'cat') renderCat(); }, 200); });
+addEventListener('resize', () => { if (P.open && isPortraitPhone()) renderPort(); clearTimeout(resizeT); resizeT = setTimeout(() => { if (S.screen === 'guide') renderGuide(true); if (S.screen === 'home') renderHome(); if (S.screen === 'channels') renderChannels(); if (S.screen === 'cat') renderCat(); }, 200); });
 
 /* ---------- Clock ---------- */
 setInterval(() => {
@@ -2353,7 +2464,7 @@ setInterval(() => {
   if (P.open) {
     if (P.real) syncOffset();
     else if (P.paused) P.offset = Math.min(P.offset + 1, maxOffset());
-    if (P.osd) renderOSD();
+    if (P.osd) renderOSD(); else if (isPortraitPhone()) renderPort();
     if (P.subs !== 'off' && !P.paused && now % 4000 < 1000) { subI++; renderSubs(); }
   }
 }, 1000);

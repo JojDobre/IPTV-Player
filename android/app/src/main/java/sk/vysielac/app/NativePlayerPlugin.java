@@ -404,9 +404,16 @@ public class NativePlayerPlugin extends Plugin {
         return false;
     }
 
+    // Going to the background pauses; the picture-in-picture window keeps playing (the activity is paused there too).
     @Override
     protected void handleOnPause() {
+        if (android.os.Build.VERSION.SDK_INT >= 24 && getActivity().isInPictureInPictureMode()) return;
         for (Slot s : slots.values()) { s.wasPlaying = s.player.getPlayWhenReady(); s.player.pause(); }
+    }
+
+    @Override
+    protected void handleOnStop() {
+        for (Slot s : slots.values()) { if (s.player.getPlayWhenReady()) s.wasPlaying = true; s.player.pause(); }
     }
 
     @Override
@@ -415,6 +422,7 @@ public class NativePlayerPlugin extends Plugin {
             // Live: back to the live edge rather than continuing minutes late.
             if (s.player.isCurrentMediaItemLive()) s.player.seekToDefaultPosition();
             s.player.play();
+            s.wasPlaying = false;
         }
     }
 

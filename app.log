@@ -10,3 +10,13 @@
 20:46:12 ✗ stream 404 http://127.0.0.1:9001/dead.m3u8
 20:46:13 ✗ stream 404 http://127.0.0.1:9001/dead.m3u8
 20:46:15 ✗ stream 404 http://127.0.0.1:9001/dead.m3u8
+20:51:58 ✗ img 404 http://127.0.0.1:9001/missing.png
+20:57:06 ✗ img 404 http://127.0.0.1:9001/missing.png
+20:58:12 ✗ img 404 http://127.0.0.1:9001/missing.png
+20:58:56 ✗ img 404 http://127.0.0.1:9001/missing.png
+21:00:02 ✗ img 404 http://127.0.0.1:9001/missing.png
+21:00:09 ✗ stream 404 http://127.0.0.1:9001/dead.m3u8
+21:00:10 ✗ stream 404 http://127.0.0.1:9001/dead.m3u8
+21:00:12 ✗ stream 404 http://127.0.0.1:9001/dead.m3u8
+21:00:24 ✗ img 404 http://127.0.0.1:9001/missing.png
+21:01:06 ✗ img 404 http://127.0.0.1:9001/missing.png

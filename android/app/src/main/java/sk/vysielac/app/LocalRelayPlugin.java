@@ -1,6 +1,9 @@
 package sk.vysielac.app;
 
 import android.app.UiModeManager;
+import android.content.pm.ActivityInfo;
+import android.content.pm.PackageManager;
+import android.os.Build;
 import android.content.Context;
 import android.content.res.Configuration;
 import android.view.WindowManager;
@@ -27,7 +30,9 @@ public class LocalRelayPlugin extends Plugin {
             JSObject r = new JSObject();
             r.put("port", port);
             r.put("tv", tv);
-            r.put("sdk", android.os.Build.VERSION.SDK_INT);
+            r.put("sdk", Build.VERSION.SDK_INT);
+            r.put("pip", !tv && Build.VERSION.SDK_INT >= Build.VERSION_CODES.O
+                && getContext().getPackageManager().hasSystemFeature(PackageManager.FEATURE_PICTURE_IN_PICTURE));
             call.resolve(r);
         } catch (Exception e) {
             call.reject("Relay sa nespustil: " + e.getMessage());
@@ -46,6 +51,31 @@ public class LocalRelayPlugin extends Plugin {
             if (on) c.hide(WindowInsetsCompat.Type.systemBars()); else c.show(WindowInsetsCompat.Type.systemBars());
         });
         call.resolve();
+    }
+
+    /** landscape | portrait | auto (follow the sensor and the system setting). */
+    @PluginMethod
+    public void orientation(PluginCall call) {
+        String m = call.getString("mode", "auto");
+        int o = "landscape".equals(m) ? ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
+            : "portrait".equals(m) ? ActivityInfo.SCREEN_ORIENTATION_PORTRAIT : ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED;
+        getActivity().runOnUiThread(() -> getActivity().setRequestedOrientation(o));
+        call.resolve();
+    }
+
+    /** Whether leaving the app (Home) while watching continues in a picture-in-picture window. */
+    @PluginMethod
+    public void pip(PluginCall call) {
+        boolean auto = Boolean.TRUE.equals(call.getBoolean("auto", false));
+        getActivity().runOnUiThread(() -> ((MainActivity) getActivity()).setAutoPip(auto));
+        call.resolve();
+    }
+
+    @PluginMethod
+    public void pipNow(PluginCall call) {
+        getActivity().runOnUiThread(() -> {
+            if (((MainActivity) getActivity()).enterPip()) call.resolve(); else call.reject("PiP nie je dostupné");
+        });
     }
 
     /** Back on the home screen with nothing left to close: leave the app like any other. */

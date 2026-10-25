@@ -815,3 +815,92 @@ body.playing #toast { top: max(26px, env(safe-area-inset-top, 0px)); bottom: aut
 /* Android app: ExoPlayer draws under the page, so the player area is see-through */
 html.native-video body.playing, html.native-video body.playing #player, html.native-video body.playing .stage, html.native-video body.playing .pv { background: transparent !important; }
 html.native-video:has(body.playing) { background: transparent !important; }
+
+/* ---------- Phones (touch, not TV) ---------- */
+.m-only { display: none !important; }
+html:not(.tv) body.touch .m-only { display: grid !important; }
+html:not(.tv) body.touch .m-hide { display: none !important; }
+html:not(.tv) body.touch .p-hint, html:not(.tv) body.touch .g-hint { display: none; }
+.panel-x { width: 40px; height: 40px; border-radius: 50%; place-items: center; background: rgba(255,255,255,.1); margin-left: auto; flex: none; }
+.panel-x .ic { width: 20px; height: 20px; }
+.p-port, .tap-ripple { display: none; }
+.osd-center { position: absolute; left: 0; right: 0; top: 50%; transform: translateY(-50%); z-index: 1; place-content: center; grid-auto-flow: column; gap: clamp(28px, 9vw, 72px); pointer-events: none; }
+#player.osd-on .osd-center .cbtn { pointer-events: auto; }
+.osd-center .cbtn { width: 60px; height: 60px; background: rgba(0,0,0,.35); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
+.osd-center .cbtn.big { width: 76px; height: 76px; background: var(--fg); }
+.osd-center .cbtn .ic { width: 28px; height: 28px; }
+html:not(.tv) body.touch .ctrls { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+html:not(.tv) body.touch .ctrls .cgroup { gap: 6px; flex-wrap: nowrap; }
+html:not(.tv) body.touch .cbtn { width: 46px; height: 46px; }
+html:not(.tv) body.touch .cbtn.pill { width: auto; height: 40px; padding: 0 14px; font-size: 12px; }
+html:not(.tv) body.touch #player { --pl: max(16px, env(safe-area-inset-left, 0px)); --pr: max(16px, env(safe-area-inset-right, 0px)); }
+html:not(.tv) body.touch .osd-top { padding-top: max(14px, env(safe-area-inset-top, 0px)); }
+html:not(.tv) body.touch .osd-bottom { gap: 8px; padding-bottom: max(14px, env(safe-area-inset-bottom, 0px)); }
+html:not(.tv) body.touch .osd-meta, html:not(.tv) body.touch .osd-next { display: none; }
+html:not(.tv) body.touch .osd-title { font-size: 20px; }
+html:not(.tv) body.touch .osd-ch .tile { --tile: 42px; }
+html:not(.tv) body.touch .osd-clock { font-size: 18px; }
+/* double tap feedback */
+.tap-ripple { position: absolute; top: 0; height: 100%; width: 38%; z-index: 3; place-items: center; font-weight: 700; font-size: 18px; color: #fff; pointer-events: none; opacity: 0; }
+.tap-ripple.left { left: 0; background: radial-gradient(circle at 0% 50%, rgba(255,255,255,.22), transparent 70%); }
+.tap-ripple.right { right: 0; background: radial-gradient(circle at 100% 50%, rgba(255,255,255,.22), transparent 70%); }
+.tap-ripple.on { display: grid; animation: tapRip .6s ease-out; }
+@keyframes tapRip { 0% { opacity: 1; } 100% { opacity: 0; } }
+
+/* Upright phone: picture on top (16:9), programme, actions and channels below it */
+@media (orientation: portrait) {
+  html:not(.tv):not(.in-pip) body.touch #player:not(.mini) { --vh: 56.25vw; --vt: env(safe-area-inset-top, 0px); background: var(--bg); }
+  html:not(.tv):not(.in-pip) body.touch #player:not(.mini) .stage,
+  html:not(.tv):not(.in-pip) body.touch #player:not(.mini) .osd,
+  html:not(.tv):not(.in-pip) body.touch #player:not(.mini) .p-status,
+  html:not(.tv):not(.in-pip) body.touch #player:not(.mini) .tap-ripple { inset: auto 0 auto 0; top: var(--vt); height: var(--vh); }
+  html:not(.tv):not(.in-pip) body.touch #player:not(.mini) .stage { background: #000; }
+  html:not(.tv):not(.in-pip) body.touch #player:not(.mini) .tap-ripple { width: 38%; }
+  html:not(.tv):not(.in-pip) body.touch #player:not(.mini) .tap-ripple.left { left: 0; right: auto; }
+  html:not(.tv):not(.in-pip) body.touch #player:not(.mini) .tap-ripple.right { right: 0; left: auto; }
+  html:not(.tv):not(.in-pip) body.touch #player:not(.mini) .osd-title,
+  html:not(.tv):not(.in-pip) body.touch #player:not(.mini) .osd-ch #oTile,
+  html:not(.tv):not(.in-pip) body.touch #player:not(.mini) .osd-ch > div,
+  html:not(.tv):not(.in-pip) body.touch #player:not(.mini) .osd [data-act="p-list"],
+  html:not(.tv):not(.in-pip) body.touch #player:not(.mini) .osd [data-act="p-prog"],
+  html:not(.tv):not(.in-pip) body.touch #player:not(.mini) .osd [data-act="p-audio"],
+  html:not(.tv):not(.in-pip) body.touch #player:not(.mini) .osd [data-act="p-more"],
+  html:not(.tv):not(.in-pip) body.touch #player:not(.mini) .banner,
+  html:not(.tv):not(.in-pip) body.touch #player:not(.mini) .p-hint { display: none !important; }
+  html:not(.tv):not(.in-pip) body.touch #player:not(.mini) .osd-center { top: 36%; }
+  html:not(.tv):not(.in-pip) body.touch #player:not(.mini) .seek-labels #sStart, html:not(.tv):not(.in-pip) body.touch #player:not(.mini) .seek-labels #sEnd { visibility: hidden; }
+  html:not(.tv):not(.in-pip) body.touch #player:not(.mini) .osd .cbtn { width: 40px; height: 40px; }
+  html:not(.tv):not(.in-pip) body.touch #player:not(.mini) .osd .cbtn.pill { width: auto; height: 34px; }
+  html:not(.tv):not(.in-pip) body.touch #player:not(.mini) .osd-center .cbtn { width: 48px; height: 48px; }
+  html:not(.tv):not(.in-pip) body.touch #player:not(.mini) .osd-center .cbtn.big { width: 60px; height: 60px; }
+  html:not(.tv):not(.in-pip) body.touch #player:not(.mini) .osd-bottom { gap: 4px; padding-bottom: 8px; }
+  html:not(.tv):not(.in-pip) body.touch #player:not(.mini) .seek-labels { font-size: 12px; }
+  html:not(.tv):not(.in-pip) body.touch #player:not(.mini) .osd::before { background: linear-gradient(180deg, rgba(0,0,0,.6), transparent 35%, transparent 55%, rgba(0,0,0,.75)); }
+  html:not(.tv):not(.in-pip) body.touch #player:not(.mini) .p-port { display: block; position: absolute; left: 0; right: 0; bottom: 0; top: calc(var(--vt) + var(--vh)); overflow-y: auto; overscroll-behavior: contain; padding: 14px 16px max(16px, env(safe-area-inset-bottom, 0px)); }
+  html:not(.tv):not(.in-pip) body.touch #player:not(.mini) .panel { width: 100%; max-width: none; top: calc(var(--vt) + var(--vh)); height: auto; bottom: 0; border-radius: 18px 18px 0 0; }
+  /* two pictures side by side inside the 16:9 area */
+  html:not(.tv):not(.in-pip) body.touch #player.multi #vid, html:not(.tv):not(.in-pip) body.touch #player.multi #vid2 { width: 50%; top: 50%; transform: translateY(-50%); }
+  html:not(.tv):not(.in-pip) body.touch #player.multi #vid2 { left: 50%; }
+  html:not(.tv):not(.in-pip) body.touch #player.multi .mv-lab { top: auto; bottom: 8px; font-size: 12px; }
+  html:not(.tv):not(.in-pip) body.touch #player.multi .mv-lab.right { left: calc(50% + 8px); }
+  html:not(.tv):not(.in-pip) body.touch #player.multi .mv-lab .tile { --tile: 26px; }
+}
+.pp-ch { display: flex; align-items: center; gap: 12px; }
+.pp-ch .tile { --tile: 44px; }
+.pp-ch b { display: block; font-size: 15px; margin-bottom: 4px; }
+.pp-t { font-family: var(--f-display); font-weight: 700; font-size: 22px; line-height: 1.15; margin: 14px 0 8px; letter-spacing: -.02em; }
+p.pp-t { font-family: var(--f-body); font-weight: 500; font-size: 15px; color: var(--fg-3); }
+.pp-time { display: flex; align-items: center; gap: 10px; font-size: 13px; color: var(--fg-3); font-variant-numeric: tabular-nums; }
+.pp-time .bar { flex: 1; height: 4px; border-radius: 2px; background: rgba(255,255,255,.14); overflow: hidden; }
+.pp-time .bar i { display: block; height: 100%; background: var(--fg); }
+.pp-next { margin: 8px 0 0; font-size: 13px; color: var(--fg-3); }
+.pp-next b { color: var(--fg-2); }
+.pp-acts { display: flex; gap: 8px; margin: 16px -16px 0; padding: 0 16px 4px; overflow-x: auto; scrollbar-width: none; }
+.pp-act { flex: none; display: grid; justify-items: center; gap: 6px; width: 76px; padding: 10px 4px; border-radius: 14px; background: var(--bg-2); font-size: 11.5px; line-height: 1.2; text-align: center; color: var(--fg-2); }
+.pp-act .ic { width: 22px; height: 22px; color: var(--fg); }
+.pp-chips { margin: 16px -16px 10px; padding: 0 16px; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
+.pp-list { display: grid; gap: 4px; }
+
+/* Android picture-in-picture window: only the picture */
+html.in-pip .osd, html.in-pip .banner, html.in-pip .panel, html.in-pip .p-port, html.in-pip .p-stats, html.in-pip #toast,
+html.in-pip .p-hint, html.in-pip .p-status small, html.in-pip #pRetry, html.in-pip .mv-lab, html.in-pip .dog { display: none !important; }

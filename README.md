@@ -89,6 +89,10 @@ Stiahni ho priamo v telefóne alebo TV boxe a nainštaluj (Android sa raz spýta
 - Prehráva natívny **ExoPlayer** (Media3): hardvérové dekódovanie H.264, HEVC a na TV boxoch aj MPEG-2,
   zvuk AC3, E-AC3 a MP2 aj na mobiloch bez Dolby dekodéra (softvérový dekodér FFmpeg). HLS aj MPEG-TS priamo.
   Obraz sa kreslí pod stránkou, ovládanie appky ostáva rovnaké. Štatistiky (D / modré) ukážu kodeky.
+- **Mobil na výšku:** obraz hore, pod ním relácia, akcie a zoznam kanálov s filtrom kategórií. Na šírku celá obrazovka
+  s veľkými tlačidlami; ⟲ prepne na šírku. Dvojité ťuknutie vľavo/vpravo = ∓30 s, potiahnutie hore/dole = iný kanál.
+- **Okno nad aplikáciami:** keď počas pozerania stlačíš Domov, kanál hrá ďalej v malom okne (vypína sa v Nastaveniach),
+  alebo ⋯ → Nad aplikáciami.
 - Nahrávanie zatiaľ len na PC (ffmpeg).
 
 Ručná stavba (s Android Studio / SDK): `npm run build && npx cap sync android && cd android && ./gradlew assembleDebug`.

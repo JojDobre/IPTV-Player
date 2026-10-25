@@ -1,11 +1,52 @@
 package sk.vysielac.app;
 
+import android.app.PictureInPictureParams;
+import android.content.pm.PackageManager;
+import android.content.res.Configuration;
+import android.os.Build;
 import android.os.Bundle;
+import android.util.Rational;
 import android.view.KeyEvent;
 import androidx.activity.OnBackPressedCallback;
 import com.getcapacitor.BridgeActivity;
 
 public class MainActivity extends BridgeActivity {
+    private boolean autoPip = false;
+
+    private boolean pipSupported() {
+        return Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && getPackageManager().hasSystemFeature(PackageManager.FEATURE_PICTURE_IN_PICTURE);
+    }
+
+    private PictureInPictureParams pipParams() {
+        PictureInPictureParams.Builder b = new PictureInPictureParams.Builder().setAspectRatio(new Rational(16, 9));
+        // Android 12+: the window shrinks smoothly by itself when the user goes Home.
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) b.setAutoEnterEnabled(autoPip).setSeamlessResizeEnabled(true);
+        return b.build();
+    }
+
+    void setAutoPip(boolean on) {
+        autoPip = on;
+        if (pipSupported()) setPictureInPictureParams(pipParams());
+    }
+
+    boolean enterPip() {
+        if (!pipSupported()) return false;
+        try { return enterPictureInPictureMode(pipParams()); } catch (Exception e) { return false; }
+    }
+
+    @Override
+    protected void onUserLeaveHint() {
+        super.onUserLeaveHint();
+        if (autoPip && Build.VERSION.SDK_INT < Build.VERSION_CODES.S) enterPip();
+    }
+
+    @Override
+    public void onPictureInPictureModeChanged(boolean inPip, Configuration cfg) {
+        super.onPictureInPictureModeChanged(inPip, cfg);
+        if (getBridge() != null) getBridge().getWebView().evaluateJavascript(
+            "dispatchEvent(new CustomEvent('vysielac-pip',{detail:" + inPip + "}))", null);
+    }
+
     @Override
     public void onCreate(Bundle savedInstanceState) {
         registerPlugin(LocalRelayPlugin.class);
