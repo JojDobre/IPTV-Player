@@ -721,3 +721,6 @@ body.playing #toast { top: max(26px, env(safe-area-inset-top, 0px)); bottom: aut
 .dialog h2, .pane-head h3, .panel-head h3, .g-detail h3, .osd-title { font-family: var(--f-body); letter-spacing: -.025em; }
 .osd-clock, .bn, #numEntry { font-family: var(--f-body); font-weight: 700; }
 @media (max-width: 760px), (pointer: coarse) { .pc-only { display: none; } }
+
+/* playback stats (key D) */
+.p-stats { position: absolute; top: 16px; left: 16px; z-index: 6; margin: 0; padding: 10px 14px; border-radius: 10px; background: rgba(0,0,0,.72); color: #d7ffe9; font: 12px/1.5 ui-monospace, Menlo, Consolas, monospace; white-space: pre; pointer-events: none; }

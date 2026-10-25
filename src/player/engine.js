@@ -46,6 +46,7 @@ export class Engine {
     this.retryT = 0;
     const v = video;
     v.addEventListener('playing', () => this.progressed());
+    v.addEventListener('waiting', () => this.onWaiting());
     v.addEventListener('loadedmetadata', () => this.cb.onTracks?.());
     v.addEventListener('error', () => { if (this.src && !this.hls && !this.ts) this.fail(CODEC_ERRORS.test(v.error?.message || '') || v.error?.code === 4 ? 'codec' : 'media', v.error?.message || 'Chyba prehrávania'); });
     v.audioTracks?.addEventListener?.('addtrack', () => this.cb.onTracks?.());
@@ -66,6 +67,7 @@ export class Engine {
     this.teardown();
     this.src = { live: true, ...src };
     this.attempt = 0; this.mediaRecover = 0; this.everPlayed = false;
+    this.goal = 2; this.stalls = 0; this.userPaused = false;
     this.set('loading');
     await this.start(token);
   }
@@ -103,7 +105,7 @@ export class Engine {
     this.via = 'native';
     v.src = url;
     if (s.startAt) v.addEventListener('loadedmetadata', () => { v.currentTime = s.startAt; }, { once: true });
-    this.play();
+    this.hold(this.goal);
   }
 
   startHls(Hls, url) {
@@ -132,7 +134,7 @@ export class Engine {
     });
     this.hls = hls;
     const E = Hls.Events;
-    hls.on(E.MANIFEST_PARSED, () => { this.cb.onTracks?.(); this.play(); });
+    hls.on(E.MANIFEST_PARSED, () => { this.cb.onTracks?.(); this.hold(this.goal); });
     for (const ev of [E.AUDIO_TRACKS_UPDATED, E.AUDIO_TRACK_SWITCHED, E.SUBTITLE_TRACKS_UPDATED, E.SUBTITLE_TRACK_SWITCH, E.LEVEL_SWITCHED, E.LEVELS_UPDATED]) hls.on(ev, () => this.cb.onTracks?.());
     hls.on(E.ERROR, (_, d) => {
       if (!d.fatal) return;
@@ -181,7 +183,7 @@ export class Engine {
     p.on(E.LOADING_COMPLETE, () => { if (s.live !== false && this.ts === p) this.fail('network', 'Server ukončil spojenie'); });
     p.attachMediaElement(this.v);
     p.load();
-    this.play();
+    this.hold(this.goal);
   }
 
   play() {
@@ -190,11 +192,47 @@ export class Engine {
       if (e.name === 'NotAllowedError') { this.v.muted = true; this.v.play().catch(() => {}); this.cb.onMuted?.(); }
     });
   }
-  pause() { this.v.pause(); }
-  resume() { this.play(); }
+  pause() { this.userPaused = true; this.unhold(); this.v.pause(); }
+  resume() { this.userPaused = false; this.play(); }
+
+  // ---- buffering: live IPTV data arrives in bursts, so the picture starts only with a few seconds in reserve,
+  // and every stall raises that reserve (2 → 3.5 → 5 … 8 s), the way set-top boxes do it.
+  ahead() {
+    const v = this.v, b = v.buffered, t = v.currentTime;
+    for (let i = 0; i < b.length; i++) if (b.start(i) <= t + 0.3 && b.end(i) > t) return b.end(i) - t;
+    return 0;
+  }
+  hold(goal) {
+    this.unhold();
+    const v = this.v, t0 = Date.now(), token = this.token;
+    this.holding = true;
+    if (!v.paused) v.pause();
+    const check = () => {
+      if (token !== this.token || this.userPaused) { this.holding = false; this.holdT = 0; return; }
+      // Archive/VOD with a known length does not need the full reserve once something is buffered.
+      const enough = this.ahead() >= goal || (this.src && !this.src.live && v.readyState >= 3 && this.ahead() >= 1);
+      if (enough || Date.now() - t0 > 8000) { this.holding = false; this.holdT = 0; this.play(); }
+      else this.holdT = setTimeout(check, 150);
+    };
+    this.holdT = setTimeout(check, 150);
+  }
+  unhold() { clearTimeout(this.holdT); this.holdT = 0; this.holding = false; }
+  onWaiting() {
+    const v = this.v;
+    if (!this.src || v.seeking || this.holding || this.userPaused || !this.everPlayed || this.state === 'reconnecting') return;
+    this.stalls++;
+    this.goal = Math.min(8, this.goal + 1.5);
+    this.set('buffering');
+    this.hold(this.goal);
+  }
+  stats() {
+    const v = this.v, q = v.getVideoPlaybackQuality ? v.getVideoPlaybackQuality() : null;
+    return { ahead: this.ahead(), goal: this.goal, stalls: this.stalls, dropped: q ? q.droppedVideoFrames : 0, frames: q ? q.totalVideoFrames : 0 };
+  }
 
   teardown() {
     const v = this.v;
+    this.unhold();
     if (this.hls) { try { this.hls.destroy(); } catch {} this.hls = null; }
     if (this.ts) { const p = this.ts; this.ts = null; try { p.pause(); p.unload(); p.detachMediaElement(); p.destroy(); } catch {} }
     v.removeAttribute('src');
@@ -240,6 +278,7 @@ export class Engine {
   watch() {
     const v = this.v;
     if (!this.src || this.state === 'error' || this.state === 'idle' || this.state === 'reconnecting') return;
+    if (this.holding) { if (this.state === 'playing') this.set('buffering'); }
     if (v.paused) { this.lastProgress = Date.now(); return; }
     const t = v.currentTime;
     if (t !== this.lastT && v.readyState >= 3) {

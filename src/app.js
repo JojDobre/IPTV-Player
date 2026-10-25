@@ -1315,8 +1315,32 @@ function realAudioSheet() {
   if (t.quality.length) h += `<div class="sheet-sec">Kvalita</div>` + t.quality.map(q => opt('quality', q.id, q.label, q.sub, q.on)).join('');
   h += `<div class="sheet-sec">Pomer strán</div>` + ASPECT.map(([v, l, sub]) => `<button class="opt f ${P.aspect === v ? 'on' : ''}" data-act="opt" data-k="aspect" data-v="${v}"><span>${l}<small>${sub}</small></span>${I('check')}</button>`).join('');
   const i = t.info;
-  h += `<div class="sheet-sec">Technické info</div><p class="opt-note">${KIND_NAME[i.kind] || i.kind || '–'}${i.w ? ` · ${i.w}×${i.h}` : ''} · ${i.via || '–'}${i.remux === 'video' ? ' · obraz aj zvuk prekladané cez ffmpeg' : i.remux ? ' · zvuk prekladaný cez ffmpeg' : ''}${P.mode === 'archive' ? ' · archív' : ''}</p>`;
+  h += `<div class="sheet-sec">Technické info</div><p class="opt-note">${KIND_NAME[i.kind] || i.kind || '–'}${i.w ? ` · ${i.w}×${i.h}` : ''} · ${i.via || '–'}${i.remux === 'video' ? ' · obraz aj zvuk prekladané cez ffmpeg' : i.remux ? ' · zvuk prekladaný cez ffmpeg' : ''}${P.mode === 'archive' ? ' · archív' : ''}</p><p class="opt-note">${statsLine()}</p><p class="opt-note">Podrobné štatistiky: kláves D (na TV modré tlačidlo).</p>`;
   return `<div class="panel-head"><h3>Zvuk a titulky</h3></div><div class="plist">${h}</div>`;
+}
+function statsLine() {
+  const s = engine.stats();
+  return `Rezerva ${s.ahead.toFixed(1)} s (cieľ ${s.goal.toFixed(1)} s) · zaseknutia ${s.stalls} · zahodené snímky ${s.dropped}/${s.frames}`;
+}
+let statsT = 0;
+function toggleStats(on = $('#pStats').hidden) {
+  const el = $('#pStats');
+  clearInterval(statsT); statsT = 0;
+  el.hidden = !on;
+  if (!on) return;
+  const draw = () => {
+    if (!P.open) return toggleStats(false);
+    const i = engine.tracks().info, s = engine.stats(), v = engine.v;
+    el.textContent = [
+      `prehrávač   ${i.via || '–'} · ${KIND_NAME[i.kind] || i.kind || '–'}${i.remux ? ` · ffmpeg ${i.remux === 'video' ? 'obraz+zvuk' : 'zvuk'}` : ''}`,
+      `obraz       ${v.videoWidth ? `${v.videoWidth}×${v.videoHeight}` : '–'}`,
+      `rezerva     ${s.ahead.toFixed(1)} s  (cieľ ${s.goal.toFixed(1)} s)`,
+      `zaseknutia  ${s.stalls}`,
+      `snímky      ${s.dropped} zahodených z ${s.frames}`,
+      `stav        ${engine.state}${engine.holding ? ' · napĺňam rezervu' : ''}`,
+    ].join('\n');
+  };
+  draw(); statsT = setInterval(draw, 500);
 }
 function refreshSheet() {
   const f = nav.cur && sheet.contains(nav.cur) ? nav.cur : null;
@@ -1474,7 +1498,7 @@ function openHelp() {
   openModal(`<h2>Ovládanie</h2>
     <div class="help-grid">
       <div><h4>Menu</h4><dl><dt>Šípky</dt><dd>pohyb</dd><dt>OK / Enter</dt><dd>vybrať</dd><dt>Podržať OK</dt><dd>ponuka kanála (aj pravé tlačidlo myši)</dd><dt>Späť / Esc</dt><dd>späť</dd><dt>0 – 9</dt><dd>prepnúť na číslo kanála</dd></dl></div>
-      <div><h4>Prehrávač</h4><dl><dt>↑ ↓, CH+ CH−</dt><dd>ďalší a predchádzajúci kanál</dd><dt>←</dt><dd>zoznam kanálov</dd><dt>→</dt><dd>program kanála</dd><dt>OK</dt><dd>ovládanie</dd><dt>Medzerník, ⏯</dt><dd>pauza</dd><dt>⏪ ⏩</dt><dd>±30 s</dd><dt>L</dt><dd>posledný kanál</dd><dt>I</dt><dd>info o relácii</dd><dt>M, + −</dt><dd>stlmiť, hlasitosť (PC)</dd><dt>F, dvojklik</dt><dd>celá obrazovka (PC)</dd></dl></div>
+      <div><h4>Prehrávač</h4><dl><dt>↑ ↓, CH+ CH−</dt><dd>ďalší a predchádzajúci kanál</dd><dt>←</dt><dd>zoznam kanálov</dd><dt>→</dt><dd>program kanála</dd><dt>OK</dt><dd>ovládanie</dd><dt>Medzerník, ⏯</dt><dd>pauza</dd><dt>⏪ ⏩</dt><dd>±30 s</dd><dt>L</dt><dd>posledný kanál</dd><dt>I</dt><dd>info o relácii</dd><dt>M, + −</dt><dd>stlmiť, hlasitosť (PC)</dd><dt>F, dvojklik</dt><dd>celá obrazovka (PC)</dd><dt>D, modré</dt><dd>štatistiky prehrávania</dd></dl></div>
       <div><h4>Dotyk a myš</h4><dl><dt>Ťuknutie</dt><dd>ovládanie</dd><dt>Potiahnutie ↑ ↓</dt><dd>zmena kanála</dd><dt>Klik na lištu</dt><dd>pretáčanie</dd></dl></div>
     </div>
     <div class="actions"><button class="btn primary f" data-act="close-modal">Rozumiem</button></div>`);
@@ -1704,6 +1728,7 @@ function keyName(e) {
   if (k === '+' || k === '=') return 'volup';
   if (k === '-' || k === '_') return 'voldown';
   if (k === 'f' || k === 'F') return 'full';
+  if (k === 'd' || k === 'D' || c === 406) return 'stats';
   if (k === 'ContextMenu' || c === 93) return 'menu';
   return null;
 }
@@ -1762,6 +1787,7 @@ function playerKey(k) {
   if (k === 'volup') return changeVolume(0.1);
   if (k === 'voldown') return changeVolume(-0.1);
   if (k === 'full') return toggleFullscreen();
+  if (k === 'stats') return toggleStats();
   if (k === 'chup') return step(1);
   if (k === 'chdown') return step(-1);
   if (k === 'playpause') { togglePause(); if (!P.osd && !P.panel) showOSD(); return; }

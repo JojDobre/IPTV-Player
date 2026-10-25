@@ -27,10 +27,12 @@ function remux(req, res, target, q, log) {
   // so it is converted to H.264 too. That costs CPU; audio-only conversion costs next to nothing.
   const video = q.get('v') === '1';
   if (video) args.push('-hwaccel', 'auto');
-  args.push('-i', target, '-map', '0:v:0?', '-map', '0:a?');
+  args.push('-i', target, '-map', '0:v:0?', '-map', '0:a:0?');
   if (video) args.push('-c:v', 'libx264', '-preset', 'veryfast', '-tune', 'zerolatency', '-crf', '21', '-maxrate', '10M', '-bufsize', '16M', '-g', '50', '-pix_fmt', 'yuv420p', '-vf', 'yadif=deint=interlaced');
   else args.push('-c:v', 'copy');
-  args.push('-c:a', 'aac', '-b:a', '192k', '-ac', '2', '-f', 'mpegts', '-mpegts_flags', '+resend_headers', 'pipe:1');
+  // Only the first audio track (the browser player plays one anyway), timestamps smoothed, packets sent at once.
+  args.push('-af', 'aresample=async=1000', '-c:a', 'aac', '-b:a', '192k', '-ac', '2', '-ar', '48000',
+    '-flush_packets', '1', '-muxdelay', '0', '-muxpreload', '0', '-f', 'mpegts', '-mpegts_flags', '+resend_headers', 'pipe:1');
   const ff = spawn(process.env.FFMPEG || 'ffmpeg', args, { stdio: ['ignore', 'pipe', 'pipe'] });
   let err = '';
   ff.stderr.on('data', d => { err = (err + d).slice(-500); });
