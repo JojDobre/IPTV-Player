@@ -52,6 +52,17 @@ D štatistiky prehrávania (na TV modré). Pomoc: kláves `?`.
 **Malé okienko:** kanál sa zmenší do rohu a hrá ďalej, kým prechádzaš appku. CH+/CH− v ňom prepína kanály, kliknutie
 alebo P ho vráti na celú obrazovku. Na PC ide z okienka spraviť aj okno nad ostatnými aplikáciami.
 
+## Funkcie navyše
+
+- **Nahrávanie** (PC s ffmpeg): v programe OK na budúcej relácii → Nahrať, podržanie OK na kanáli → Nahrať reláciu,
+  alebo ⏺ v prehrávači. Nahráva lokálny server aj keď je prehliadač či TV vypnutá, súbory sú v `recordings/`
+  (MP4, všetky zvukové stopy). Pozor: ak poskytovateľ povoľuje len jedno pripojenie, počas nahrávania nepôjde iný kanál.
+- **Dva obrazy:** v ovládaní „Dva obrazy“ → vyber druhý kanál. ← → prepína, ktorý obraz má zvuk a ovládanie, Späť vráti jeden.
+- **Časovač vypnutia:** 15 min až 2 h alebo do konca relácie, minútu pred koncom sa dá predĺžiť.
+- **Rodičovský zámok:** Nastavenia → Rodičovský zámok. PIN na celé kategórie alebo jednotlivé kanály (podržať OK na kanáli).
+- **Program po dňoch** (včera, dnes, zajtra…) a **hľadanie v celom programe** s pripomienkou alebo nahrávaním.
+- **Nastavenia prehrávača:** po spustení pokračovať naposledy pozeraným kanálom, Späť zmenší kanál do okienka.
+
 ## Ako je zabezpečené, aby to nesekalo
 
 - **Prehrávanie:** HLS cez hls.js, MPEG-TS cez mpegts.js (na TV vstavaný hardvérový prehrávač). Buffer 30 s dopredu,
