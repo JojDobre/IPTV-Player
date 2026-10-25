@@ -90,7 +90,11 @@ const DAYS = ['nedeľa', 'pondelok', 'utorok', 'streda', 'štvrtok', 'piatok', '
 const MONTHS = ['januára', 'februára', 'marca', 'apríla', 'mája', 'júna', 'júla', 'augusta', 'septembra', 'októbra', 'novembra', 'decembra'];
 const dateTxt = t => { const d = new Date(t); return `${DAYS[d.getDay()]} ${d.getDate()}. ${MONTHS[d.getMonth()]}`; };
 const greeting = t => { const h = new Date(t).getHours(); return h < 5 ? 'Dobrú noc' : h < 10 ? 'Dobré ráno' : h < 18 ? 'Dobrý deň' : h < 22 ? 'Dobrý večer' : 'Dobrú noc'; };
-const dayWord = t => t < D0 ? 'Včera' : t < D0 + 864e5 ? 'Dnes' : 'Zajtra';
+const sod = t => { const d = new Date(t); d.setHours(0, 0, 0, 0); return d.getTime(); };
+const dayIdx = t => Math.round((sod(t) - sod(Date.now())) / 864e5);
+const DAY_SHORT = ['Ne', 'Po', 'Ut', 'St', 'Št', 'Pi', 'So'];
+const dayLabel = i => i === 0 ? 'Dnes' : i === -1 ? 'Včera' : i === 1 ? 'Zajtra' : (d => `${DAY_SHORT[d.getDay()]} ${d.getDate()}. ${d.getMonth() + 1}.`)(new Date(sod(Date.now()) + i * 864e5 + 12 * 3600e3));
+const dayWord = t => dayLabel(dayIdx(t));
 const plural = (n, one, few, many) => n === 1 ? one : n >= 2 && n <= 4 ? few : many;
 const countTxt = n => `${n} ${plural(n, 'kanál', 'kanály', 'kanálov')}`;
 const norm = s => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
@@ -129,7 +133,7 @@ const catIcon = s => s.icon === 'auto' ? `<span class="txt-ic">${esc(initials(s.
 const ACCENTS = { white: ['#FFFFFF', '#0A0A17'], amber: ['#F2B84B', '#1B1406'], coral: ['#FF7A59', '#1E0B05'], mint: ['#4FD1A5', '#04170F'], violet: ['#A08CFF', '#0F0A24'], ice: ['#7CC4FF', '#03121F'] };
 const PALETTE = ['#2F6BFF', '#E5394B', '#8B5CF6', '#16A34A', '#F59E0B', '#EC4899', '#0EA5A4', '#F97316'];
 const ICONS = ['auto', 'film', 'ball', 'news', 'kids', 'globe', 'note', 'cup', 'heart', 'sparkle'];
-const DEFAULT_SET = { look: 'classic', secRows: '2', tile: 'm', round: 'med', tilebg: 'tint', nums: 'off', caps: 'on', accent: 'white', hide: '5', lang: 'sk', subs: 'off' };
+const DEFAULT_SET = { look: 'classic', secRows: '2', tile: 'm', round: 'med', tilebg: 'tint', nums: 'off', caps: 'on', accent: 'white', hide: '5', lang: 'sk', subs: 'off', resume: 'off', backMini: 'off' };
 function defaultSections() {
   return [
     { id: 'recent', type: 'recent', name: 'Naposledy pozerané', color: '#94A3B8', icon: 'hist', show: true },
@@ -173,7 +177,7 @@ const ordered = () => S.order.map(id => byId[id]);
 const favIds = () => (secById('fav') || { chs: [] }).chs;
 const isFav = id => favIds().includes(id);
 function renumber() { S.order.forEach((id, i) => { byId[id].n = i + 1; }); }
-function save() { const k = S.libKey; store.set('order:' + k, S.order); store.set('sections:' + k, S.sections); store.set('quick:' + k, S.quick); }
+function save() { const k = S.libKey; store.set('order:' + k, S.order); store.set('sections:' + k, S.sections); store.set('quick:' + k, S.quick); rebuildLock(); }
 /** Rebuild everything that depends on the channel list, keeping the user's own arrangement. */
 function reconcile() {
   const k = S.libKey;
@@ -182,7 +186,82 @@ function reconcile() {
   S.quick = (store.get('quick:' + k, null) || DEFAULTS.quick).filter(id => secById(id));
   S.recent = (store.get('recent:' + k, null) || DEFAULTS.recent).filter(id => byId[id]);
   S.rem = new Set(store.get('rem:' + k, []));
+  LOCK = Object.assign({ cats: [], chans: [] }, store.get('lock:' + k, {}));
+  rebuildLock();
 }
+
+/* ---------- Parental lock ---------- */
+// The PIN is a household lock, not real security: it is kept hashed in this device's storage.
+let LOCK = { cats: [], chans: [] }, LOCKED = new Set(), UNLOCKED = false, PINE = null;
+const pinHash = () => store.get('pin', '');
+const hashPin = v => 'p' + hashStr('vysielac:' + v).toString(36);
+function rebuildLock() {
+  LOCKED = new Set(LOCK.chans.filter(id => byId[id]));
+  for (const sid of LOCK.cats) { const s = secById(sid); if (s) for (const c of secList(s)) LOCKED.add(c.id); }
+}
+function saveLock() { store.set('lock:' + S.libKey, LOCK); rebuildLock(); }
+const lockedCfg = id => !!pinHash() && LOCKED.has(id);
+const isLocked = id => lockedCfg(id) && !UNLOCKED;
+/** Ask for the PIN (or a new one with mode 'set'), then run ok(). */
+function askPin(ok, { title = 'Zadaj PIN', sub = 'Tento obsah je zamknutý rodičovským zámkom.', mode = 'check' } = {}) {
+  PINE = { val: '', ok, mode, first: '', title, sub };
+  openModal(pinHTML());
+}
+function pinHTML() {
+  const e = PINE, dots = [0, 1, 2, 3].map(i => `<i class="${i < e.val.length ? 'on' : ''}"></i>`).join('');
+  const keys = ['1', '2', '3', '4', '5', '6', '7', '8', '9', 'del', '0', 'x'].map(k => k === 'del' ? `<button class="pin-k f" data-act="pin-del" aria-label="Zmazať">${I('back')}</button>`
+    : k === 'x' ? `<button class="pin-k f" data-act="close-modal" aria-label="Zrušiť">${I('x')}</button>` : `<button class="pin-k f" data-act="pin-d" data-v="${k}">${k}</button>`).join('');
+  return `<div class="pin-box">${I('lock')}<h2>${e.mode === 'set' ? (e.first ? 'Zopakuj nový PIN' : 'Nový PIN (4 číslice)') : e.title}</h2><p class="muted" id="pinSub">${e.mode === 'set' ? 'PIN si zapamätaj, bez neho zámok nezrušíš.' : e.sub}</p>
+    <div class="pin-dots" id="pinDots">${dots}</div><div class="pin-pad">${keys}</div></div>`;
+}
+function pinDraw(msg) {
+  $('#pinDots').innerHTML = [0, 1, 2, 3].map(i => `<i class="${i < PINE.val.length ? 'on' : ''}"></i>`).join('');
+  if (msg) { $('#pinSub').textContent = msg; const d = $('#pinDots'); d.classList.remove('bad'); void d.offsetWidth; d.classList.add('bad'); }
+}
+function pinDigit(d) {
+  const e = PINE; if (!e) return;
+  if (d === 'del') { e.val = e.val.slice(0, -1); pinDraw(); return; }
+  if (e.val.length >= 4) return;
+  e.val += d; pinDraw();
+  if (e.val.length < 4) return;
+  setTimeout(() => {
+    if (PINE !== e) return;
+    if (e.mode === 'set') {
+      if (!e.first) { e.first = e.val; e.val = ''; $('#dialog').innerHTML = pinHTML(); setFocus($('#dialog .pin-k')); return; }
+      if (e.first !== e.val) { e.first = ''; e.val = ''; $('#dialog').innerHTML = pinHTML(); setFocus($('#dialog .pin-k')); pinDraw('PIN sa nezhodoval, zadaj ho znova.'); return; }
+      store.set('pin', hashPin(e.val));
+    } else if (hashPin(e.val) !== pinHash()) { e.val = ''; pinDraw('Nesprávny PIN, skús znova.'); return; }
+    PINE = null; closeModal(); e.ok();
+  }, 120);
+}
+/** Run fn when allowed: right away if nothing is locked or already unlocked, otherwise after the PIN. */
+function withPin(fn, opts) { if (!pinHash() || UNLOCKED) fn(); else askPin(() => { UNLOCKED = true; fn(); }, opts); }
+function toggleChannelLock(id) {
+  const apply = () => {
+    const on = !LOCK.chans.includes(id);
+    LOCK.chans = on ? [...LOCK.chans, id] : LOCK.chans.filter(x => x !== id); saveLock();
+    toast(on ? `${byId[id].name} je zamknutý` : `${byId[id].name} je odomknutý`);
+    if (S.screen === 'home') renderHome(); else if (!P.open) go(S.screen);
+  };
+  if (!pinHash()) askPin(() => { UNLOCKED = true; apply(); renderLockRows(); }, { mode: 'set' });
+  else withPin(apply, { sub: 'Na zmenu zámku treba PIN.' });
+}
+function openLockCats() {
+  const list = S.sections.filter(s => s.type !== 'recent');
+  openModal(`<h2>Zamknuté kategórie</h2><p class="muted">Kanály v zamknutých kategóriách si pri spustení vypýtajú PIN.</p><div class="menu-list">`
+    + list.map(s => `<button class="mitem f" data-act="lock-cat" data-id="${s.id}">${I(LOCK.cats.includes(s.id) ? 'lock' : 'unlock')}<span>${esc(s.name)}</span><small>${countTxt(secList(s).length)}</small></button>`).join('')
+    + `</div><div class="actions"><button class="btn primary f" data-act="close-modal">Hotovo</button></div>`);
+}
+function lockRows() {
+  const has = !!pinHash();
+  const cats = LOCK.cats.filter(id => secById(id)).length, chans = LOCK.chans.filter(id => byId[id]).length;
+  return setRow('PIN', has ? `Zámok je ${UNLOCKED ? 'teraz odomknutý (do zatvorenia appky)' : 'zapnutý'}` : 'Bez PIN-u sa nič nezamyká',
+      has ? `<div class="actions">${UNLOCKED ? `<button class="btn small-btn f" data-act="lock-now" data-group="main">${I('lock')}Zamknúť</button>` : ''}<button class="btn small-btn f" data-act="pin-change" data-group="main">Zmeniť PIN</button><button class="btn small-btn f" data-act="pin-remove" data-group="main">${I('trash')}Zrušiť zámok</button></div>`
+        : `<button class="btn small-btn primary f" data-act="pin-change" data-group="main">${I('lock')}Nastaviť PIN</button>`)
+    + (has ? setRow('Zamknuté kategórie', cats ? `${cats} ${plural(cats, 'kategória', 'kategórie', 'kategórií')}` : 'Žiadne', `<button class="btn small-btn f" data-act="lock-cats" data-group="main">Vybrať</button>`)
+      + setRow('Zamknuté kanály', `${chans ? countTxt(chans) + ' · ' : ''}Kanál zamkneš podržaním OK (alebo pravým klikom) na kanáli → Zamknúť`, '') : '');
+}
+function renderLockRows() { const el = $('#lockRows'); if (el) el.innerHTML = lockRows(); }
 const hashStr = s => { let h = 2166136261; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return h >>> 0; };
 function groupMeta(name, i) {
   const n = norm(name);
@@ -394,7 +473,7 @@ function fitGrid(box) {
   box.style.setProperty('--cols', cols);
   return cols;
 }
-const artHTML = ch => `<span class="art${hasImg(ch) ? ' img' : ''}" style="${tileStyle(ch)}">${logoHTML(ch)}<span class="t-num">${ch.n}</span></span>`;
+const artHTML = ch => `<span class="art${hasImg(ch) ? ' img' : ''}" style="${tileStyle(ch)}">${logoHTML(ch)}<span class="t-num">${ch.n}</span>${lockedCfg(ch.id) ? `<span class="lock-b">${I('lock')}</span>` : ''}</span>`;
 function capHTML(ch, now = Date.now()) {
   const p = progAt(ch.id, now);
   if (p.none) return `<span class="cap"><b>${esc(ch.name)}</b><small>${ch.n} · ${esc(catName[ch.cat] || '')}</small></span>`;
@@ -483,12 +562,28 @@ function renderChannels() {
 
 /* Guide */
 let G = { rows: new Map(), list: [] };
+let gDay = 0, epgEndC = { raw: undefined, t: 0 };
+/** Where the guide data ends, sampled from a few channels (cheap, cached until the EPG changes). */
+function epgEnd() {
+  if (epgEndC.raw === EPG_RAW && epgEndC.t) return epgEndC.t;
+  let t = 0, n = 0;
+  for (const c of CH) { const l = epgFor(c.id); if (l && l.length) { t = Math.max(t, l[l.length - 1].end); if (++n >= 40) break; } }
+  epgEndC = { raw: EPG_RAW, t };
+  return t;
+}
+/** Days the guide offers: back as far as the longest archive (at least yesterday), forward as far as the EPG reaches. */
+function guideDays() {
+  const back = Math.min(7, Math.max(1, ...CH.map(c => (c.catchup && c.catchup.days) || 0)));
+  const end = epgEnd();
+  const fwd = end ? Math.max(0, Math.min(7, dayIdx(end - 1))) : 0;
+  const out = []; for (let i = -back; i <= fwd; i++) out.push(i); return out;
+}
 const ROW_H = 72, HEAD_H = 40;
 function guideRowHTML(ch, i) {
   const { ws, we, ppm } = G, now = Date.now();
   const cells = progsIn(ch.id, ws, we).map(p => {
     // A channel without a guide gets one block starting where the guide opens, so its label is in view.
-    const l = Math.max(p.start, ws, p.none ? now - 40 * MIN : 0), r = Math.min(p.end, we);
+    const l = Math.max(p.start, ws, p.none && !gDay ? now - 40 * MIN : 0), r = Math.min(p.end, we);
     const st = p.none ? 'none' : p.end <= now ? 'past' : p.start <= now ? 'now' : 'future';
     const bell = S.rem.has(ch.id + ':' + p.start) ? I('bell') : '';
     const noArch = st === 'past' && !hasArchive(ch, p.start) ? ' no-arch' : '';
@@ -518,24 +613,34 @@ function renderGuide(keep) {
   const prevL = sc.scrollLeft, prevT = sc.scrollTop;
   const now = Date.now(), wide = isWide();
   const ppm = wide ? 4.4 : 3, chw = wide ? 230 : 62;
-  const ws = Math.floor((now - 90 * MIN) / (30 * MIN)) * 30 * MIN, we = ws + 10 * 60 * MIN;
+  const days = guideDays();
+  if (!days.includes(gDay)) gDay = 0;
+  const d0 = sod(now + gDay * 864e5 + (gDay ? 12 * 3600e3 : 0));
+  // Today starts 90 minutes back and runs to the small hours; other days cover the whole day.
+  const ws = gDay ? d0 : Math.floor((now - 90 * MIN) / (30 * MIN)) * 30 * MIN;
+  const we = gDay ? d0 + 24 * 60 * MIN : Math.max(ws + 10 * 60 * MIN, sod(now) + 26 * 60 * MIN);
   const gw = (we - ws) / MIN * ppm;
   G = { ws, we, ppm, chw, list: filterCh(S.chipGuide), rows: new Map() };
-  $('#gDate').textContent = dateTxt(now);
+  $('#gDate').textContent = dateTxt(d0 + 12 * 3600e3);
+  $('#gDays').innerHTML = days.map(i => `<button class="chip f ${i === gDay ? 'on' : ''}" data-act="gday" data-v="${i}" data-group="main">${dayLabel(i)}</button>`).join('');
   $('#gChips').innerHTML = chipsHTML('guide', S.chipGuide);
   let times = '';
   for (let t = ws; t < we; t += 30 * MIN) times += `<span style="left:${(t - ws) / MIN * ppm}px">${hm(t)}</span>`;
   const nowX = (now - ws) / MIN * ppm;
   sc.style.setProperty('--chw', chw + 'px');
   sc.innerHTML = `<div class="g-inner" style="--chw:${chw}px;--gw:${gw}px;height:${HEAD_H + G.list.length * ROW_H + 30}px">`
-    + `<div class="g-ruler"><div class="g-corner"></div><div class="g-times">${times}<em class="g-nowtag" style="left:${nowX}px">teraz</em></div></div>`
+    + `<div class="g-ruler"><div class="g-corner"></div><div class="g-times">${times}${gDay ? '' : `<em class="g-nowtag" style="left:${nowX}px">teraz</em>`}</div></div>`
     + (G.list.length ? `<div id="gRows"></div>` : `<p class="empty" style="padding-left:${chw}px">V tejto sekcii nie sú žiadne kanály.</p>`)
-    + `<div class="now-line" style="left:${chw + nowX}px"></div></div>`;
+    + (gDay ? '' : `<div class="now-line" style="left:${chw + nowX}px"></div>`) + `</div>`;
   if (keep) { sc.scrollLeft = prevL; sc.scrollTop = prevT; }
-  else { sc.scrollLeft = Math.max(0, nowX - 40 * ppm); sc.scrollTop = 0; }
+  else { sc.scrollLeft = gDay ? (19 * 60 - 30) * ppm : Math.max(0, nowX - 40 * ppm); sc.scrollTop = 0; }
   fillGuideRows();
-  const first = $('#gScroll .prog.now') || $('#gScroll .prog');
+  const first = gDay ? guideFirstVisible() : $('#gScroll .prog.now') || $('#gScroll .prog');
   if (first) renderGDetail(first); else $('#gDetail').innerHTML = '';
+}
+function guideFirstVisible() {
+  const sc = $('#gScroll'), x = sc.getBoundingClientRect().left + G.chw + 20;
+  return $$('#gScroll .g-row')[0] && [...$$('#gScroll .g-row')[0].querySelectorAll('.prog')].find(p => p.getBoundingClientRect().right > x) || $('#gScroll .prog');
 }
 function renderGDetail(el) {
   const ch = byId[el.dataset.ch], start = +el.dataset.start;
@@ -583,27 +688,39 @@ async function renderResults() {
   const now = Date.now();
   const box = $('#results');
   if (!q) { box.innerHTML = `<h4>Tvoje obľúbené</h4>` + favIds().map(id => resHTML(byId[id], progAt(id, now))).join(''); return; }
-  const list = ordered(), hits = [], seen = new Set();
-  for (const c of list) if (hits.length < 150 && norm(c.name).includes(q)) { hits.push(resHTML(c, progAt(c.id, now))); seen.add(c.id); }
+  // Channels by name, then the whole guide: what is on now, what comes later (OK sets a reminder) and what can be replayed.
+  const list = ordered(), R = { ch: [], now: [], later: [], past: [] }, CAP = 60;
+  for (const c of list) if (R.ch.length < CAP && norm(c.name).includes(q)) R.ch.push(c);
   const show = done => {
     if (run !== searchRun) return;
-    box.innerHTML = hits.length ? `<h4>${hits.length >= 150 ? 'Viac ako 150 výsledkov, spresni hľadanie' : `${hits.length} ${plural(hits.length, 'výsledok', 'výsledky', 'výsledkov')}`}${done ? '' : ' · hľadám aj v programe…'}</h4>` + hits.join('')
-      : done ? `<p class="empty">Pre „${esc(raw)}“ sme nič nenašli. Skús názov kanála alebo relácie.</p>` : `<h4>Hľadám…</h4>`;
+    const n = R.ch.length + R.now.length + R.later.length + R.past.length;
+    const sec = (title, items, fn) => items.length ? `<h4>${title}</h4>` + items.slice(0, CAP).map(fn).join('') : '';
+    R.later.sort((a, b) => a.p.start - b.p.start); R.past.sort((a, b) => b.p.start - a.p.start);
+    box.innerHTML = (n ? '' : done ? `<p class="empty">Pre „${esc(raw)}“ sme nič nenašli. Skús názov kanála alebo relácie.</p>` : `<h4>Hľadám…</h4>`)
+      + sec('Kanály', R.ch, c => resHTML(c, progAt(c.id, now)))
+      + sec('Práve beží', R.now, h => resHTML(h.c, h.p))
+      + sec('Neskôr · OK nastaví pripomienku', R.later, h => progRes(h.c, h.p, 'later'))
+      + sec('Z archívu', R.past, h => progRes(h.c, h.p, 'past'))
+      + (done || !n ? '' : `<p class="opt-note">Hľadám v programe…</p>`);
   };
   show(false);
-  for (let i = 0; i < list.length && hits.length < 150; i++) {
-    if (i % 400 === 399) { await new Promise(r => setTimeout(r, 0)); if (run !== searchRun) return; }
-    const c = list[i];
-    if (seen.has(c.id)) continue;
-    const p = progAt(c.id, now);
-    if (p.none) continue;
-    const nx = progNext(c.id, p);
-    if (norm(p.title).includes(q)) hits.push(resHTML(c, p));
-    else if (nx && norm(nx.title).includes(q)) hits.push(resHTML(c, nx, true));
+  let total = 0;
+  for (let i = 0; i < list.length && total < 4 * CAP; i++) {
+    if (i % 150 === 149) { await new Promise(r => setTimeout(r, 0)); if (run !== searchRun) return; }
+    const c = list[i], progs = epgFor(c.id) || [];
+    for (const p of progs) {
+      if (!p.title || !norm(p.title).includes(q)) continue;
+      if (p.start <= now && p.end > now) R.now.push({ c, p });
+      else if (p.start > now) R.later.push({ c, p });
+      else if (hasArchive(c, p.start)) R.past.push({ c, p });
+      else continue;
+      total++;
+    }
   }
   show(true);
 }
-const resHTML = (c, p, later) => `<button class="res f" data-act="play" data-ch="${c.id}" data-group="main">${tileStatic(c, 'mini')}<span><b>${c.n} · ${esc(c.name)}</b><small>${later ? 'O ' + hm(p.start) : 'Teraz'}: ${esc(p.title)}</small></span></button>`;
+const resHTML = (c, p, later) => `<button class="res f" data-act="play" data-ch="${c.id}" data-group="main">${tileStatic(c, 'mini')}<span><b>${c.n} · ${esc(c.name)}</b><small>${p.none ? esc(catName[c.cat] || '') : `${later ? 'O ' + hm(p.start) : 'Teraz'}: ${esc(p.title)}`}</small></span></button>`;
+const progRes = (c, p, kind) => `<button class="res f" data-act="rprog" data-ch="${c.id}" data-start="${p.start}" data-group="main">${tileStatic(c, 'mini')}<span class="res-i"><b>${esc(p.title)}</b><small>${dayWord(p.start)} ${hm(p.start)} – ${hm(p.end)} · ${esc(c.name)}</small></span><span class="res-st">${kind === 'past' ? I('hist') + 'Archív' : S.rem.has(c.id + ':' + p.start) ? I('bell') + 'Pripomeniem' : ''}</span></button>`;
 
 /* Settings */
 const seg = (k, opts) => `<div class="seg">${opts.map(([v, l]) => `<button class="f ${S.set[k] === v ? 'on' : ''}" data-act="set" data-k="${k}" data-v="${v}" data-group="main">${l}</button>`).join('')}</div>`;
@@ -633,12 +750,16 @@ function renderSettings() {
       ${setRow('Predvolený jazyk zvuku', 'Ak ho stream obsahuje', seg('lang', AUDIO.map(a => [a[0], a[1]])))}
       ${setRow('Predvolené titulky', '', seg('subs', SUBS.map(a => [a[0], a[1]])))}
       ${setRow('Skryť ovládanie po', '', seg('hide', [['3', '3 s'], ['5', '5 s'], ['8', '8 s']]))}
+      ${setRow('Po spustení pokračovať', 'Appka hneď pustí naposledy pozeraný kanál, ako set-top box', toggleBtn('resume', 'Po spustení pokračovať'))}
+      ${setRow('Späť zmenší do okienka', 'Tlačidlo Späť v prehrávači kanál nezavrie, ale nechá ho hrať v malom okienku. Zavrieš ho tlačidlom Stop alebo opakovaným Späť.', toggleBtn('backMini', 'Späť zmenší do okienka'))}
     </div>
+    <div class="set-group"><h3>Rodičovský zámok</h3><div id="lockRows">${lockRows()}</div></div>
     <div class="set-group"><h3>Ostatné</h3>
       ${setRow('Ovládanie', 'Klávesy, diaľkový ovládač a gestá', `<button class="btn small-btn f" data-act="help" data-group="main">Zobraziť</button>`)}
       ${setRow('Obnoviť ukážku', 'Vráti nastavenia, sekcie, obľúbené a históriu do pôvodného stavu', `<button class="btn small-btn f" data-act="reset" data-group="main">Obnoviť</button>`)}
     </div>`;
 }
+const toggleBtn = (k, label) => `<button class="toggle f ${S.set[k] === 'on' ? 'on' : ''}" data-act="set" data-k="${k}" data-v="toggle" data-group="main" aria-label="${label}"></button>`;
 function setSetting(k, v, el) {
   if (v === 'toggle') { v = S.set[k] === 'on' ? 'off' : 'on'; if (el) el.classList.toggle('on', v === 'on'); }
   else $$(`[data-act="set"][data-k="${k}"]`).forEach(b => b.classList.toggle('on', b.dataset.v === v));
@@ -965,6 +1086,7 @@ function openChannelMenu(id) {
       ${arch ? `<button class="mitem f" data-act="m-restart" data-ch="${id}">${I('restart')}Pozerať od začiatku</button>` : ''}
       <button class="mitem f" data-act="m-fav" data-ch="${id}">${I(fav ? 'heart-f' : 'heart')}${fav ? 'Odobrať z obľúbených' : 'Pridať do obľúbených'}</button>
       <button class="mitem f" data-act="m-cats" data-ch="${id}">${I('grid')}Zaradiť do kategórií…</button>
+      <button class="mitem f" data-act="m-lock" data-ch="${id}">${I(LOCK.chans.includes(id) ? 'unlock' : 'lock')}${LOCK.chans.includes(id) ? 'Odomknúť kanál' : 'Zamknúť kanál (PIN)'}</button>
     </div>
     <div class="actions"><button class="btn f" data-act="close-modal">Zavrieť</button></div>`);
 }
@@ -1028,6 +1150,7 @@ function openOrTune(id, offset = 0) {
   tune(id, offset);
 }
 function openPlayer(id, offset = 0) {
+  if (isLocked(id)) return askPin(() => { UNLOCKED = true; openPlayer(id, offset); });
   P.appFocus = nav.cur; clearFocus();
   P.open = true; player.hidden = false;
   document.body.classList.add('playing');
@@ -1090,6 +1213,7 @@ function startArchive(ch, atMs) {
   return true;
 }
 function tune(id, offset = 0) {
+  if (isLocked(id)) return askPin(() => { UNLOCKED = true; tune(id, offset); });
   if (P.ch && P.ch !== id) P.last = P.ch;
   const ch = byId[id];
   P.ch = id; P.paused = false; P.real = !!ch.url;
@@ -1110,7 +1234,10 @@ function tune(id, offset = 0) {
 }
 function step(d) {
   const o = S.order, i = o.indexOf(P.ch);
-  tune(o[(i + d + o.length) % o.length]);
+  // Zapping skips locked channels; they open only when picked directly (with the PIN).
+  let j = i;
+  for (let n = 0; n < o.length; n++) { j = (j + d + o.length) % o.length; if (!isLocked(o[j])) break; }
+  tune(o[j]);
   if (P.panel === 'prog') { renderSheet('prog'); setFocus($('#sheet .pr.now') || $('#sheet .f')); }
 }
 function togglePause() {
@@ -1265,7 +1392,7 @@ function renderOSD() {
     : P.paused ? `<span class="badge">Pozastavené · −${durTxt(P.offset)}</span>`
     : P.mode === 'archive' ? `<span class="badge arch">${I('hist')}Archív · −${durTxt(P.offset)}</span>`
     : `<span class="badge arch">${I('hist')}Posun −${durTxt(P.offset)}</span>`;
-  $('#oClock').textContent = hm(now);
+  $('#oClock').textContent = (SLEEP.at ? `⏾ ${sleepLeft()} · ` : '') + hm(now);
   $('#oTitle').textContent = p.none ? ch.name : p.title;
   const tr = trackSummary();
   $('#oMeta').innerHTML = (p.none ? `<span>${esc(catName[ch.cat] || '')}</span><span>Program nie je k dispozícii</span>` : `<span>${hm(p.start)} – ${hm(p.end)}</span>${p.genre ? `<span>${esc(p.genre)}</span>` : ''}`)
@@ -1387,7 +1514,51 @@ function refreshSheet() {
   const pl = $('.plist', sheet); if (pl) pl.scrollTop = top;
   if (f) { nav.cur = null; setFocus(twin(f) || $('#sheet .f'), { noScroll: true }); }
 }
+/* ---------- Sleep timer ---------- */
+const SLEEP = { at: 0, kind: '', warned: false };
+const SLEEP_OPTS = [['0', 'Vypnutý'], ['15', '15 minút'], ['30', '30 minút'], ['60', '1 hodina'], ['90', '1,5 hodiny'], ['120', '2 hodiny'], ['end', 'Do konca relácie']];
+const sleepLeft = () => { const m = Math.max(0, Math.ceil((SLEEP.at - Date.now()) / 60e3)); return m >= 60 ? `${Math.floor(m / 60)} h ${m % 60} min` : `${m} min`; };
+function sleepSheet() {
+  const ch = byId[P.ch], pos = Date.now() - P.offset * 1000, p = ch ? progAt(ch.id, pos) : { none: true };
+  return `<div class="panel-head"><h3>Časovač vypnutia</h3>${SLEEP.at ? `<span>ešte ${sleepLeft()}</span>` : ''}</div><div class="plist">` +
+    SLEEP_OPTS.filter(([v]) => v !== 'end' || !p.none).map(([v, l]) => `<button class="opt f ${(SLEEP.kind || '0') === v ? 'on' : ''}" data-act="sleep" data-v="${v}"><span>${l}${v === 'end' ? `<small>${esc(p.title)} · do ${hm(p.end)}</small>` : ''}</span>${I('check')}</button>`).join('') +
+    `<p class="opt-note">Minútu pred koncom sa ukáže upozornenie, prehrávanie sa dá predĺžiť.</p></div>`;
+}
+function setSleep(v) {
+  SLEEP.warned = false;
+  if (v === '0') { SLEEP.at = 0; SLEEP.kind = ''; toast('Časovač vypnutý'); }
+  else if (v === 'end') {
+    const ch = byId[P.ch], pos = Date.now() - P.offset * 1000, p = progAt(ch.id, pos);
+    if (p.none) return;
+    // In stream time: what is left of the programme at the current position, not on the wall clock.
+    SLEEP.at = Date.now() + Math.max(60e3, p.end - pos); SLEEP.kind = 'end';
+    toast(`Vypnem po skončení: ${p.title}`);
+  } else { SLEEP.at = Date.now() + +v * 60e3; SLEEP.kind = v; toast(`Vypnem o ${sleepLeft()}`); }
+  $('#cSleep').classList.toggle('on', !!SLEEP.at);
+  if (P.panel === 'sleep') { renderSheet('sleep'); setFocus($('#sheet .opt.on') || $('#sheet .f')); }
+  if (P.osd) renderOSD();
+}
+function checkSleep() {
+  if (!SLEEP.at) return;
+  if (!P.open) { SLEEP.at = 0; SLEEP.kind = ''; $('#cSleep').classList.remove('on'); return; }
+  const left = SLEEP.at - Date.now();
+  if (left <= 0) {
+    SLEEP.at = 0; SLEEP.kind = ''; $('#cSleep').classList.remove('on');
+    if (!modal.hidden && $('#modal .sleep-warn')) closeModal();
+    closePlayer();
+    toast('Časovač vypol prehrávanie. Dobrú noc.');
+    return;
+  }
+  if (left < 60e3 && !SLEEP.warned) {
+    SLEEP.warned = true;
+    openModal(`<div class="sleep-warn"><h2>Prehrávanie sa o minútu zastaví</h2><p class="muted">Časovač vypnutia čoskoro skončí.</p>
+      <div class="actions"><button class="btn primary f" data-act="sleep-more">${I('plus')}Pozerať ďalších 30 minút</button><button class="btn f" data-act="sleep-off">Vypnúť časovač</button><button class="btn f" data-act="close-modal">OK</button></div></div>`);
+  }
+}
+setInterval(checkSleep, 1000);
+
 function renderSheet(name) {
+  if (name === 'sleep') { sheet.innerHTML = sleepSheet(); return; }
   if (name === 'audio' && P.real) { sheet.innerHTML = realAudioSheet(); return; }
   if (name === 'audio') {
     const sec = (title, k, list) => `<div class="sheet-sec">${title}</div>` + list.map(([v, l, s]) =>
@@ -1528,7 +1699,7 @@ function openModal(html) {
   setFocus($('#dialog .f'));
 }
 function closeModal(noRestore) {
-  modal.hidden = true; clearFocus();
+  modal.hidden = true; clearFocus(); PINE = null;
   const back = modalBack; modalBack = null;
   if (!noRestore) { const t = twin(back); if (t && visible(t)) setFocus(t, { noScroll: true }); }
 }
@@ -1576,6 +1747,8 @@ function activate(el, e) {
       break;
     }
     case 'prog': progAction(id, +el.dataset.start); break;
+    case 'rprog': { const st = +el.dataset.start, r = progAction(id, st); if (r === 'rem') { const p = findProg(id, st); el.outerHTML = progRes(byId[id], p, 'later'); setFocus($(`#results [data-act="rprog"][data-ch="${id}"][data-start="${st}"]`), { noScroll: true }); } break; }
+    case 'gday': gDay = +el.dataset.v; renderGuide(); nav.cur = null; setFocus($(`[data-act="gday"][data-v="${gDay}"]`), { noScroll: true }); break;
     case 'set': setSetting(el.dataset.k, el.dataset.v, el); break;
     case 'playlist': openPlaylist(!!el.dataset.new); break;
     case 'help': openHelp(); break;
@@ -1684,6 +1857,23 @@ function activate(el, e) {
     case 'm-restart': { const p = progAt(el.dataset.ch, Date.now()); closeModal(true); openOrTune(el.dataset.ch, (Date.now() - p.start) / 1000); break; }
     case 'm-fav': toggleFav(el.dataset.ch); closeModal(); break;
     case 'm-cats': openMemberPicker(el.dataset.ch); break;
+    case 'm-lock': { const ch = el.dataset.ch; closeModal(true); toggleChannelLock(ch); break; }
+    case 'pin-d': pinDigit(el.dataset.v); break;
+    case 'pin-del': pinDigit('del'); break;
+    case 'pin-change': {
+      const set = () => askPin(() => { UNLOCKED = true; toast('PIN nastavený'); renderLockRows(); }, { mode: 'set' });
+      if (pinHash()) askPin(() => setTimeout(set, 50), { sub: 'Najprv zadaj súčasný PIN.' }); else set();
+      break;
+    }
+    case 'pin-remove': askPin(() => { store.set('pin', ''); UNLOCKED = false; toast('Rodičovský zámok zrušený'); renderLockRows(); }, { sub: 'Na zrušenie zámku zadaj PIN.' }); break;
+    case 'lock-now': UNLOCKED = false; toast('Zamknuté'); renderLockRows(); break;
+    case 'lock-cats': withPin(openLockCats, { sub: 'Na zmenu zámku treba PIN.' }); break;
+    case 'lock-cat': {
+      const sid = el.dataset.id, on = !LOCK.cats.includes(sid);
+      LOCK.cats = on ? [...LOCK.cats, sid] : LOCK.cats.filter(x => x !== sid); saveLock();
+      el.querySelector('svg use').setAttribute('href', on ? '#i-lock' : '#i-unlock');
+      break;
+    }
     case 'p-mute': setMuted(!engine.v.muted); break;
     case 'p-full': toggleFullscreen(); break;
     case 'clear-recent': S.recent = []; store.set('recent:' + S.libKey, []); renderOrganizer(); nav.cur = null; setFocus(pickDefault()); toast('História vymazaná'); break;
@@ -1710,6 +1900,10 @@ function activate(el, e) {
     /* player */
     case 'p-close': closePlayer(); break;
     case 'p-mini': enterMini(); break;
+    case 'p-sleep': openPanel('sleep'); break;
+    case 'sleep': setSleep(el.dataset.v); break;
+    case 'sleep-more': closeModal(); setSleep('30'); break;
+    case 'sleep-off': closeModal(); setSleep('0'); break;
     case 'mini-expand': exitMini(); break;
     case 'mini-close': closePlayer(); break;
     case 'mini-native': nativePip(); break;
@@ -1773,6 +1967,7 @@ function keyName(e) {
   if (k === 'd' || k === 'D' || c === 406) return 'stats';
   if (k === 'p' || k === 'P' || c === 403) return 'mini';
   if (k === 'ContextMenu' || c === 93) return 'menu';
+  if (k === 'MediaStop' || c === 413) return 'stop';
   return null;
 }
 const DIRS = { up: 1, down: 1, left: 1, right: 1 };
@@ -1783,6 +1978,7 @@ document.addEventListener('keydown', e => {
   document.body.classList.remove('touch');
   e.preventDefault();
   if (!modal.hidden) {
+    if (PINE && $('#pinDots')) { if (/^\d$/.test(k)) return pinDigit(k); if (k === 'bksp') return pinDigit('del'); }
     if (k === 'back') return closeModal();
     if (k === 'ok') return inInput ? move('down') : activate(nav.cur);
     if (DIRS[k]) move(k);
@@ -1796,6 +1992,9 @@ document.addEventListener('keydown', e => {
     if (k === 'volup') return changeVolume(0.1);
     if (k === 'voldown') return changeVolume(-0.1);
     if (k === 'playpause') return togglePause();
+    if (k === 'stop') return closePlayer();
+    // Back with nothing left to go back to (focus already on the top menu) closes the mini player.
+    if ((k === 'back' || k === 'bksp') && S.screen === 'home' && nav.cur && nav.cur.closest('.topbar')) { closePlayer(); toast('Okienko zatvorené'); return; }
   }
   if (P.open && !P.mini) return playerKey(k);
   if (GRAB) { grabKey(k); return; }
@@ -1835,6 +2034,7 @@ document.addEventListener('contextmenu', e => {
 });
 function playerKey(k) {
   if (/^\d$/.test(k)) return numKey(k);
+  if (k === 'stop') return closePlayer();
   if (k === 'mute') return setMuted(!engine.v.muted);
   if (k === 'volup') return changeVolume(0.1);
   if (k === 'voldown') return changeVolume(-0.1);
@@ -1873,7 +2073,8 @@ function playerKey(k) {
     case 'right': openPanel('prog'); break;
     case 'ok': showOSD('#cPlay'); break;
     case 'info': showBanner(); break;
-    case 'back': case 'bksp': closePlayer(); break;
+    case 'back': case 'bksp': if (S.set.backMini === 'on') enterMini(); else closePlayer(); break;
+    case 'stop': closePlayer(); break;
   }
 }
 
@@ -2004,6 +2205,7 @@ if (IS_TV) document.documentElement.classList.add('tv');
   try { L = await library.getLibrary(); if (L) E = await library.getEpg(); } catch (e) { console.warn(e); }
   if (L && L.channels && L.channels.length) useLibrary(L, E); else useDemo();
   go('home');
+  if (L && S.set.resume === 'on' && S.recent[0] && byId[S.recent[0]]) openPlayer(S.recent[0]);
   if (L) {
     if (Date.now() - (L.updated || 0) > 12 * 3600e3) importPlaylist(L.source, { silent: true });
     else if (!L.epgUpdated || Date.now() - L.epgUpdated > 8 * 3600e3) refreshEpg();

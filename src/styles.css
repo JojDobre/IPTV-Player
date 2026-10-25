@@ -747,3 +747,31 @@ body.playing #toast { top: max(26px, env(safe-area-inset-top, 0px)); bottom: aut
 .mbtn:hover, .mbtn.focus { background: #fff; color: #000; }
 .mini-bar:has(.focus)::after { content: ''; position: absolute; inset: -3px; border-radius: 16px; box-shadow: 0 0 0 3px var(--accent, #fff); pointer-events: none; }
 @media (max-width: 700px) { #player.mini, .mini-bar { width: 52vw; right: 12px; bottom: 12px; } }
+
+/* sleep timer active */
+#cSleep.on { color: #ffb84d; }
+#cSleep.on::after { content: ''; position: absolute; top: 9px; right: 9px; width: 8px; height: 8px; border-radius: 50%; background: #ffb84d; box-shadow: 0 0 8px #ffb84d; }
+
+/* guide days */
+.guide .g-days { margin-bottom: 10px; }
+.g-days .chip { min-width: 74px; justify-content: center; }
+
+.res .res-i { min-width: 0; display: grid; gap: 2px; flex: 1; }
+.res span.res-st { margin-left: auto; display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--fg-3); white-space: nowrap; }
+.res .res-st .ic { width: 15px; height: 15px; }
+
+/* parental lock */
+.art .lock-b { position: absolute; right: 8px; bottom: 8px; width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; background: rgba(0,0,0,.6); color: #fff; z-index: 2; }
+.art .lock-b .ic { width: 14px; height: 14px; }
+.pin-box { display: grid; justify-items: center; gap: 10px; text-align: center; min-width: min(340px, 80vw); }
+.pin-box > .ic { width: 34px; height: 34px; opacity: .8; }
+.pin-dots { display: flex; gap: 14px; margin: 6px 0 10px; }
+.pin-dots i { width: 16px; height: 16px; border-radius: 50%; border: 2px solid var(--fg-3); transition: background .12s, border-color .12s; }
+.pin-dots i.on { background: var(--fg); border-color: var(--fg); }
+.pin-dots.bad { animation: pinShake .35s; }
+@keyframes pinShake { 25% { transform: translateX(-8px); } 50% { transform: translateX(8px); } 75% { transform: translateX(-4px); } }
+.pin-pad { display: grid; grid-template-columns: repeat(3, 72px); gap: 10px; }
+.pin-k { height: 56px; border-radius: 14px; background: var(--bg-2); font-size: 22px; font-weight: 600; display: grid; place-items: center; }
+.pin-k .ic { width: 22px; height: 22px; }
+.pin-k.focus, .pin-k:hover { background: var(--fg); color: var(--bg); }
+.mitem small { margin-left: auto; color: var(--fg-3); font-size: 13px; }
