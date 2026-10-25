@@ -4,7 +4,8 @@ import { XmltvParser, nameKey } from './xmltv.js';
 import { idbSet } from './db.js';
 
 const enc = encodeURIComponent;
-const via = (url, o) => (o.relay ? new URL(`/api/fetch?url=${enc(url)}${o.ua ? `&ua=${enc(o.ua)}` : ''}`, self.location.href).href : url);
+// o.relay is the relay's base address (the worker cannot know it: in the Android app it is not this page's origin).
+const via = (url, o) => (o.relay ? `${o.relay}/api/fetch?url=${enc(url)}${o.ua ? `&ua=${enc(o.ua)}` : ''}` : url);
 
 async function open(url, o) {
   let r;

@@ -6,6 +6,8 @@ export const Native = Capacitor.isNativePlatform() ? registerPlugin('LocalRelay'
 export let nativeInfo = null;
 let relay = false, ffmpeg = false, rec = false, base = '';
 export const useRelay = () => relay;
+/** Where the relay answers: this page's own server on the PC, 127.0.0.1:port inside the Android app. */
+export const relayBase = () => (relay ? base || location.origin : '');
 export const relayHasFfmpeg = () => ffmpeg;
 export const canRecord = () => relay && ffmpeg && rec;
 

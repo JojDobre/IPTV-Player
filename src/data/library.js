@@ -1,6 +1,6 @@
 // Main-thread side of the library: talks to the worker and keeps the playlist + EPG in IndexedDB.
 import { idbGet, idbSet, idbDel } from './db.js';
-import { useRelay } from './net.js';
+import { relayBase } from './net.js';
 
 let worker, seq = 0;
 const jobs = new Map();
@@ -15,7 +15,7 @@ function call(type, payload, onProgress) {
   return new Promise((resolve, reject) => {
     const id = ++seq;
     jobs.set(id, { resolve, reject, onProgress });
-    worker.postMessage({ id, type, relay: useRelay(), ...payload });
+    worker.postMessage({ id, type, relay: relayBase(), ...payload });
   });
 }
 
