@@ -30,6 +30,8 @@ import androidx.media3.exoplayer.DefaultRenderersFactory;
 import androidx.media3.exoplayer.ExoPlayer;
 import androidx.media3.exoplayer.DecoderCounters;
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory;
+import androidx.media3.exoplayer.hls.DefaultHlsExtractorFactory;
+import androidx.media3.exoplayer.hls.HlsMediaSource;
 import androidx.media3.extractor.DefaultExtractorsFactory;
 import androidx.media3.extractor.ts.DefaultTsPayloadReaderFactory;
 import androidx.media3.ui.AspectRatioFrameLayout;
@@ -309,7 +311,13 @@ public class NativePlayerPlugin extends Plugin {
             DefaultExtractorsFactory ex = new DefaultExtractorsFactory()
                 .setTsExtractorFlags(DefaultTsPayloadReaderFactory.FLAG_ALLOW_NON_IDR_KEYFRAMES | DefaultTsPayloadReaderFactory.FLAG_DETECT_ACCESS_UNITS)
                 .setConstantBitrateSeekingEnabled(true);
-            s.player.setMediaSource(new DefaultMediaSourceFactory(http, ex).createMediaSource(item(url, kind)));
+            int tsFlags = DefaultTsPayloadReaderFactory.FLAG_ALLOW_NON_IDR_KEYFRAMES | DefaultTsPayloadReaderFactory.FLAG_DETECT_ACCESS_UNITS;
+            boolean hls = "hls".equals(kind) || (kind == null || kind.isEmpty()) && url.toLowerCase(java.util.Locale.ROOT).matches(".*\\.m3u8?(\\?.*)?$");
+            // HLS has its own segment reader: the same leniency (no access-unit delimiters, no IDR at the start)
+            // or ExoPlayer buffers half a minute and never shows a frame.
+            s.player.setMediaSource(hls
+                ? new HlsMediaSource.Factory(http).setExtractorFactory(new DefaultHlsExtractorFactory(tsFlags, true)).setAllowChunklessPreparation(true).createMediaSource(item(url, "hls"))
+                : new DefaultMediaSourceFactory(http, ex).createMediaSource(item(url, kind)));
             s.state = "loading";
             s.player.prepare();
             if (startAt > 0) s.player.seekTo((long) (startAt * 1000));
