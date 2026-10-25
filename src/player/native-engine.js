@@ -8,6 +8,7 @@ import { probe, guessKind } from '../data/net.js';
 import { langLabel } from './engine.js';
 
 const NP = registerPlugin('NativePlayer');
+const SOFT = new Set();   // channels that needed the app's own audio decoder (remembered until restart)
 const engines = new Map();
 let wired = false;
 function wire() {
@@ -94,7 +95,7 @@ export class NativeEngine {
     this.layout(true);
     this.lastProgress = Date.now();
     try {
-      await NP.open({ id: this.nid, url: s.url, ua: s.ua || '', ref: s.ref || '', kind: kind === 'unknown' ? '' : kind, startAt: s.startAt || 0 });
+      await NP.open({ id: this.nid, url: s.url, ua: s.ua || '', ref: s.ref || '', kind: kind === 'unknown' ? '' : kind, startAt: s.startAt || 0, soft: !!s.soft || SOFT.has(s.url) });
     } catch (e) { this.fail('network', e.message); }
     this.sendVolume();
   }
@@ -141,6 +142,14 @@ export class NativeEngine {
 
   fail(type, detail) {
     if (!this.src || this.state === 'error') return;
+    // The device's decoder would not start: once more with the app's own (FFmpeg) audio decoders.
+    if (type === 'codec' && !this.src.soft) {
+      this.src.soft = true; SOFT.add(this.src.url);
+      this.set('reconnecting', { attempt: 0, reason: 'codec', level: 'audio', detail });
+      const token = ++this.token;
+      this.start(token);
+      return;
+    }
     if (type === 'codec') { NP.stop({ id: this.nid }).catch(() => {}); this.set('error', { type, detail }); return; }
     this.attempt++;
     if (this.attempt > (this.everPlayed ? 8 : 3)) { NP.stop({ id: this.nid }).catch(() => {}); this.set('error', { type, detail }); return; }

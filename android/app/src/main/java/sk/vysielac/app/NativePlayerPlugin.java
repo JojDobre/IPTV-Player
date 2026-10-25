@@ -69,6 +69,8 @@ public class NativePlayerPlugin extends Plugin {
         String state = "idle";
         boolean wasPlaying;
         float volume = 1f;
+        boolean soft;
+        TextureView tv;
 
         Slot(int id) { this.id = id; }
     }
@@ -96,15 +98,6 @@ public class NativePlayerPlugin extends Plugin {
         if (s != null) return s;
         s = new Slot(id);
         final Slot me = s;
-        DefaultRenderersFactory renderers = new DefaultRenderersFactory(getContext())
-            .setExtensionRendererMode(DefaultRenderersFactory.EXTENSION_RENDERER_MODE_ON)
-            .setEnableDecoderFallback(true);
-        // Start with ~2.5 s in reserve, after a stall wait for 5 s: smooth rather than instant.
-        DefaultLoadControl load = new DefaultLoadControl.Builder()
-            .setBufferDurationsMs(20000, 60000, 2500, 5000)
-            .build();
-        s.player = new ExoPlayer.Builder(getContext(), renderers).setLoadControl(load).build();
-        s.player.setVideoChangeFrameRateStrategy(C.VIDEO_CHANGE_FRAME_RATE_STRATEGY_ONLY_IF_SEAMLESS);
 
         s.box = new FrameLayout(getContext());
         s.box.setBackgroundColor(Color.BLACK);
@@ -112,6 +105,7 @@ public class NativePlayerPlugin extends Plugin {
         s.frame = new AspectRatioFrameLayout(getContext());
         s.frame.setResizeMode(AspectRatioFrameLayout.RESIZE_MODE_FIT);
         TextureView tv = new TextureView(getContext());
+        s.tv = tv;
         s.frame.addView(tv, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
         s.box.addView(s.frame, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT, Gravity.CENTER));
         s.subs = new SubtitleView(getContext());
@@ -121,7 +115,30 @@ public class NativePlayerPlugin extends Plugin {
         s.box.setOnClickListener(v -> { JSObject e = new JSObject(); e.put("id", me.id); notifyListeners("tap", e); });
         s.box.setClickable(false);
         back.addView(s.box, new FrameLayout.LayoutParams(0, 0));
-        s.player.setVideoTextureView(tv);
+        buildPlayer(s, false);
+        slots.put(id, s);
+        startTicking();
+        return s;
+    }
+
+    /**
+     * soft = decode sound with FFmpeg first. Normally the device's own decoders go first (hardware, passthrough to
+     * a soundbar); some report AC-3 / MP2 support and then fail to start, so a failed channel retries with soft.
+     */
+    private void buildPlayer(Slot s, boolean soft) {
+        final Slot me = s;
+        if (s.player != null) s.player.release();
+        s.soft = soft;
+        DefaultRenderersFactory renderers = new DefaultRenderersFactory(getContext())
+            .setExtensionRendererMode(soft ? DefaultRenderersFactory.EXTENSION_RENDERER_MODE_PREFER : DefaultRenderersFactory.EXTENSION_RENDERER_MODE_ON)
+            .setEnableDecoderFallback(true);
+        // Start with ~2.5 s in reserve, after a stall wait for 5 s: smooth rather than instant.
+        DefaultLoadControl load = new DefaultLoadControl.Builder()
+            .setBufferDurationsMs(20000, 60000, 2500, 5000)
+            .build();
+        s.player = new ExoPlayer.Builder(getContext(), renderers).setLoadControl(load).build();
+        s.player.setVideoChangeFrameRateStrategy(C.VIDEO_CHANGE_FRAME_RATE_STRATEGY_ONLY_IF_SEAMLESS);
+        s.player.setVideoTextureView(s.tv);
 
         s.player.addListener(new Player.Listener() {
             @Override
@@ -161,9 +178,6 @@ public class NativePlayerPlugin extends Plugin {
             @Override
             public void onCues(@NonNull CueGroup cues) { me.subs.setCues(cues.cues); }
         });
-        slots.put(id, s);
-        startTicking();
-        return s;
     }
 
     private static String errorType(int code) {
@@ -279,8 +293,10 @@ public class NativePlayerPlugin extends Plugin {
         String ref = call.getString("ref", "");
         String kind = call.getString("kind", "");
         double startAt = call.getDouble("startAt", 0.0);
+        boolean soft = Boolean.TRUE.equals(call.getBoolean("soft", false));
         ui(call, () -> {
             Slot s = slot(id);
+            if (s.soft != soft) buildPlayer(s, soft);
             Map<String, String> headers = new HashMap<>();
             if (ref != null && !ref.isEmpty()) headers.put("Referer", ref);
             DefaultHttpDataSource.Factory http = new DefaultHttpDataSource.Factory()

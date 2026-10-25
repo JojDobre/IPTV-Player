@@ -904,3 +904,6 @@ p.pp-t { font-family: var(--f-body); font-weight: 500; font-size: 15px; color: v
 /* Android picture-in-picture window: only the picture */
 html.in-pip .osd, html.in-pip .banner, html.in-pip .panel, html.in-pip .p-port, html.in-pip .p-stats, html.in-pip #toast,
 html.in-pip .p-hint, html.in-pip .p-status small, html.in-pip #pRetry, html.in-pip .mv-lab, html.in-pip .dog { display: none !important; }
+
+/* Android: the <video> elements are only placeholders for the native picture (WebView would paint a grey poster) */
+html.native .pv { visibility: hidden !important; }

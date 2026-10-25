@@ -1345,7 +1345,7 @@ function engineState(state, info) {
     return;
   }
   if (state === 'reconnecting') {
-    showStatus('spin', info.reason === 'codec' ? (info.level === 'video' ? 'Prehliadač nepozná obraz tohto kanála, prekladám ho…' : 'Prehliadač nepozná zvuk tohto kanála, prekladám ho…') : 'Obnovujem spojenie…',
+    showStatus('spin', info.reason === 'codec' && Native ? 'Zariadenie nezvláda zvuk tohto kanála, skúšam dekodér v appke…' : info.reason === 'codec' ? (info.level === 'video' ? 'Prehliadač nepozná obraz tohto kanála, prekladám ho…' : 'Prehliadač nepozná zvuk tohto kanála, prekladám ho…') : 'Obnovujem spojenie…',
       info.reason === 'codec' && info.level === 'video' ? 'Prevod obrazu zaťaží procesor tohto PC. Na TV nebude potrebný.' : info.attempt > 1 ? `Pokus ${info.attempt}` : '');
     return;
   }
