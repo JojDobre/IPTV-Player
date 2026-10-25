@@ -4,7 +4,7 @@ import { XmltvParser, nameKey } from './xmltv.js';
 import { idbSet } from './db.js';
 
 const enc = encodeURIComponent;
-const via = (url, o) => (o.relay ? `/api/fetch?url=${enc(url)}${o.ua ? `&ua=${enc(o.ua)}` : ''}` : url);
+const via = (url, o) => (o.relay ? new URL(`/api/fetch?url=${enc(url)}${o.ua ? `&ua=${enc(o.ua)}` : ''}`, self.location.href).href : url);
 
 async function open(url, o) {
   let r;

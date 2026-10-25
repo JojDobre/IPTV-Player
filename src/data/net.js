@@ -14,11 +14,13 @@ export async function detectRelay() {
 }
 
 const enc = encodeURIComponent;
+// Absolute URLs: players such as mpegts.js download inside their own worker, where "/api/..." cannot be resolved.
+const abs = p => new URL(p, location.href).href;
 const extra = o => (o && o.ua ? `&ua=${enc(o.ua)}` : '') + (o && o.ref ? `&ref=${enc(o.ref)}` : '');
-export const fetchUrl = (url, o) => (relay ? `/api/fetch?url=${enc(url)}${extra(o)}` : url);
-export const streamUrl = (url, o) => (relay ? `/api/stream?url=${enc(url)}${extra(o)}` : url);
-export const remuxUrl = (url, o) => `/api/remux?url=${enc(url)}${extra(o)}`;
-export const imgUrl = url => (relay && /^https?:/i.test(url) ? `/api/img?url=${enc(url)}` : url);
+export const fetchUrl = (url, o) => (relay ? abs(`/api/fetch?url=${enc(url)}${extra(o)}`) : url);
+export const streamUrl = (url, o) => (relay ? abs(`/api/stream?url=${enc(url)}${extra(o)}`) : url);
+export const remuxUrl = (url, o) => abs(`/api/remux?url=${enc(url)}${extra(o)}`);
+export const imgUrl = url => (relay && /^https?:/i.test(url) ? abs(`/api/img?url=${enc(url)}`) : url);
 
 export async function probe(url, o) {
   if (!relay) return { type: 'unknown' };
