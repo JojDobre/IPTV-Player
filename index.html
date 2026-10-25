@@ -48,6 +48,8 @@
     <symbol id="i-grip" viewBox="0 0 24 24"><g fill="currentColor"><circle cx="9" cy="6" r="1.7"/><circle cx="15" cy="6" r="1.7"/><circle cx="9" cy="12" r="1.7"/><circle cx="15" cy="12" r="1.7"/><circle cx="9" cy="18" r="1.7"/><circle cx="15" cy="18" r="1.7"/></g></symbol>
     <symbol id="i-vol" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z"/><path d="M15.5 9a4 4 0 0 1 0 6M18 6.5a7.5 7.5 0 0 1 0 11"/></g></symbol>
     <symbol id="i-mute" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z"/><path d="m16 9.5 5 5M21 9.5l-5 5"/></g></symbol>
+    <symbol id="i-pip" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><rect x="12" y="11.5" width="6.5" height="5" rx="1" fill="currentColor"/></g></symbol>
+    <symbol id="i-expand" viewBox="0 0 24 24"><path d="M14 4h6v6M20 4l-7 7M10 20H4v-6M4 20l7-7" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></symbol>
     <symbol id="i-full" viewBox="0 0 24 24"><path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
     <symbol id="i-sparkle" viewBox="0 0 24 24"><path d="M12 3.5 13.8 10.2 20.5 12l-6.7 1.8L12 20.5l-1.8-6.7L3.5 12l6.7-1.8z" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round"/></symbol>
   </defs>
@@ -127,6 +129,7 @@
       </div>
     </section>
   </main>
+
 </div>
 
 <div id="player" hidden>
@@ -167,6 +170,7 @@
           <button class="cbtn f" data-act="p-list" aria-label="Zoznam kanálov"><svg class="ic"><use href="#i-list"/></svg><span class="tip">Kanály</span></button>
           <button class="cbtn f" data-act="p-prog" aria-label="Program kanála"><svg class="ic"><use href="#i-guide"/></svg><span class="tip">Program</span></button>
           <button class="cbtn f" data-act="p-audio" aria-label="Zvuk a titulky"><svg class="ic"><use href="#i-audio"/></svg><span class="tip">Zvuk a titulky</span></button>
+          <button class="cbtn f" data-act="p-mini" aria-label="Malé okienko"><svg class="ic"><use href="#i-pip"/></svg><span class="tip">Malé okienko</span></button>
           <button class="cbtn f" id="cFav" data-act="p-fav" aria-label="Obľúbené"><svg class="ic"><use href="#i-heart"/></svg><span class="tip">Obľúbené</span></button>
           <button class="cbtn f pc-only" id="cMute" data-act="p-mute" aria-label="Stlmiť"><svg class="ic"><use href="#i-vol"/></svg><span class="tip">Stlmiť</span></button>
           <button class="cbtn f pc-only" data-act="p-full" aria-label="Celá obrazovka"><svg class="ic"><use href="#i-full"/></svg><span class="tip">Celá obrazovka</span></button>
@@ -202,6 +206,16 @@
 
 <div id="numEntry" hidden></div>
 <div id="modal" hidden><div class="dialog" id="dialog" role="dialog" aria-modal="true"></div></div>
+  <!-- Mini player controls: above the mini player, reachable by the remote while browsing. -->
+  <div class="mini-bar" id="miniBar" hidden>
+    <button class="mini-hit" data-act="mini-expand" tabindex="-1" aria-label="Zväčšiť"></button>
+    <div class="mini-top"><span id="miniName"></span>
+      <button class="mbtn f" data-act="mini-expand" data-group="mini" aria-label="Zväčšiť na celú obrazovku"><svg class="ic"><use href="#i-expand"/></svg></button>
+      <button class="mbtn f pc-only" id="miniNative" data-act="mini-native" data-group="mini" aria-label="Okno nad ostatnými aplikáciami"><svg class="ic"><use href="#i-pip"/></svg></button>
+      <button class="mbtn f" data-act="mini-close" data-group="mini" aria-label="Zavrieť"><svg class="ic"><use href="#i-x"/></svg></button>
+    </div>
+  </div>
+
 <div id="toast" role="status"></div>
 
 <script type="module" src="/src/app.js"></script>

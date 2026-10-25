@@ -261,7 +261,7 @@ const app = $('#app'), player = $('#player'), osd = $('#osd'), chPanel = $('#chP
 const visible = el => el && el.isConnected && !el.disabled && el.getClientRects().length > 0;
 function activeRoot() {
   if (!modal.hidden) return modal;
-  if (P.open) { if (P.panel) return P.panel === 'list' ? chPanel : sheet; return P.osd ? osd : P.error ? $('#pStatus') : null; }
+  if (P.open && !P.mini) { if (P.panel) return P.panel === 'list' ? chPanel : sheet; return P.osd ? osd : P.error ? $('#pStatus') : null; }
   return app;
 }
 function setFocus(el, opts = {}) {
@@ -312,8 +312,10 @@ function ensureVisible(el) {
 }
 function move(dir) {
   const root = activeRoot(); if (!root) return false;
-  const cur = nav.cur && root.contains(nav.cur) && visible(nav.cur) ? nav.cur : null;
-  const items = $$('.f', root).filter(visible);
+  const extra = root === app && P.mini ? $('#miniBar') : null;
+  const inRoot = el => root.contains(el) || (extra && extra.contains(el));
+  const cur = nav.cur && inRoot(nav.cur) && visible(nav.cur) ? nav.cur : null;
+  const items = [...$$('.f', root), ...(extra ? $$('.f', extra) : [])].filter(visible);
   if (!cur) { setFocus(root === app ? pickDefault() : items[0]); return true; }
   const r = cur.getBoundingClientRect(), cx = r.left + r.width / 2, cy = r.top + r.height / 2;
   let best = null, bs = Infinity;
@@ -340,7 +342,7 @@ function move(dir) {
   const cg = cur.dataset.group, bg = best.dataset.group;
   if (bg && bg !== cg) {
     const m = nav.mem[bg === 'main' ? 'main:' + S.screen : bg];
-    if (m && visible(m) && root.contains(m)) best = m;
+    if (m && visible(m) && inRoot(m)) best = m;
     else if (bg === 'nav') best = $('#topnav .nav-item.active') || best;
   }
   setFocus(best);
@@ -1020,7 +1022,11 @@ const engine = new Engine($('#vid'), {
 });
 const maxOffset = () => { const ch = byId[P.ch]; return ch && ch.catchup ? ch.catchup.days * 86400 : 4 * 3600; };
 const isLive = () => P.offset < 3 && !P.paused && P.mode === 'live';
-function openOrTune(id, offset = 0) { if (!P.open) openPlayer(id, offset); else tune(id, offset); }
+function openOrTune(id, offset = 0) {
+  if (!P.open) return openPlayer(id, offset);
+  if (P.mini) exitMini();
+  tune(id, offset);
+}
 function openPlayer(id, offset = 0) {
   P.appFocus = nav.cur; clearFocus();
   P.open = true; player.hidden = false;
@@ -1029,6 +1035,7 @@ function openPlayer(id, offset = 0) {
   cancelAnimationFrame(vid.raf); vid.last = 0; vid.raf = requestAnimationFrame(frame);
 }
 function closePlayer() {
+  if (P.mini) { P.mini = false; P.appFocus = null; setMiniUI(false); if (nav.cur && $('#miniBar').contains(nav.cur)) clearFocus(); }
   closePanel(true); hideOSD(); hideBanner(); hideStatus();
   engine.close();
   P.open = false; player.hidden = true; cancelAnimationFrame(vid.raf);
@@ -1037,6 +1044,37 @@ function closePlayer() {
   const back = P.appFocus;
   if (S.screen === 'home') renderHome(back);
   if (!nav.cur) { const t = twin(back); setFocus(t && visible(t) ? t : pickDefault()); }
+}
+/* Mini player: the picture shrinks into a corner and keeps playing while the rest of the app is used. */
+function setMiniUI(on) {
+  document.body.classList.toggle('mini', on);
+  player.classList.toggle('mini', on);
+  $('#miniBar').hidden = !on;
+  if (on) $('#miniNative').hidden = !(document.pictureInPictureEnabled && P.real);
+}
+function enterMini() {
+  if (!P.open || P.mini) return;
+  closePanel(true); hideOSD(); hideBanner();
+  if (document.fullscreenElement && !IS_TV) document.exitFullscreen().catch(() => {});
+  P.mini = true;
+  document.body.classList.remove('playing');
+  setMiniUI(true); renderMini();
+  const back = P.appFocus;
+  if (S.screen === 'home') renderHome(back);
+  const t = twin(back); setFocus(t && visible(t) ? t : pickDefault());
+  toast(IS_TV ? 'Malé okienko · späť na celú obrazovku červeným tlačidlom' : 'Malé okienko · späť kliknutím alebo klávesom P');
+}
+function exitMini() {
+  if (!P.mini) return;
+  P.mini = false; setMiniUI(false);
+  P.appFocus = nav.cur; clearFocus();
+  document.body.classList.add('playing');
+  if (document.pictureInPictureElement) document.exitPictureInPicture().catch(() => {});
+  showBanner();
+}
+function renderMini() { if (P.mini && byId[P.ch]) $('#miniName').textContent = byId[P.ch].name; }
+async function nativePip() {
+  try { await engine.v.requestPictureInPicture(); } catch { toast('Prehliadač tu okno nad ostatnými aplikáciami nepovolil'); }
 }
 const srcFor = (ch, extra) => ({ url: ch.url, ua: ch.ua || (LIB && LIB.source.ua) || '', ref: ch.ref || '', ...extra });
 function startLive(ch) {
@@ -1067,8 +1105,8 @@ function tune(id, offset = 0) {
     P.mode = 'live'; P.offset = Math.min(offset, maxOffset());
     vid.noise = performance.now() + 320; vid.frozen = false;
   }
-  renderOSD(); renderSubs(true);
-  if (!P.osd && !P.panel) showBanner();
+  renderOSD(); renderSubs(true); renderMini();
+  if (!P.osd && !P.panel && !P.mini) showBanner();
 }
 function step(d) {
   const o = S.order, i = o.indexOf(P.ch);
@@ -1498,7 +1536,7 @@ function openHelp() {
   openModal(`<h2>Ovládanie</h2>
     <div class="help-grid">
       <div><h4>Menu</h4><dl><dt>Šípky</dt><dd>pohyb</dd><dt>OK / Enter</dt><dd>vybrať</dd><dt>Podržať OK</dt><dd>ponuka kanála (aj pravé tlačidlo myši)</dd><dt>Späť / Esc</dt><dd>späť</dd><dt>0 – 9</dt><dd>prepnúť na číslo kanála</dd></dl></div>
-      <div><h4>Prehrávač</h4><dl><dt>↑ ↓, CH+ CH−</dt><dd>ďalší a predchádzajúci kanál</dd><dt>←</dt><dd>zoznam kanálov</dd><dt>→</dt><dd>program kanála</dd><dt>OK</dt><dd>ovládanie</dd><dt>Medzerník, ⏯</dt><dd>pauza</dd><dt>⏪ ⏩</dt><dd>±30 s</dd><dt>L</dt><dd>posledný kanál</dd><dt>I</dt><dd>info o relácii</dd><dt>M, + −</dt><dd>stlmiť, hlasitosť (PC)</dd><dt>F, dvojklik</dt><dd>celá obrazovka (PC)</dd><dt>D, modré</dt><dd>štatistiky prehrávania</dd></dl></div>
+      <div><h4>Prehrávač</h4><dl><dt>↑ ↓, CH+ CH−</dt><dd>ďalší a predchádzajúci kanál</dd><dt>←</dt><dd>zoznam kanálov</dd><dt>→</dt><dd>program kanála</dd><dt>OK</dt><dd>ovládanie</dd><dt>Medzerník, ⏯</dt><dd>pauza</dd><dt>⏪ ⏩</dt><dd>±30 s</dd><dt>L</dt><dd>posledný kanál</dd><dt>I</dt><dd>info o relácii</dd><dt>M, + −</dt><dd>stlmiť, hlasitosť (PC)</dd><dt>F, dvojklik</dt><dd>celá obrazovka (PC)</dd><dt>D, modré</dt><dd>štatistiky prehrávania</dd><dt>P, červené</dt><dd>malé okienko a späť</dd></dl></div>
       <div><h4>Dotyk a myš</h4><dl><dt>Ťuknutie</dt><dd>ovládanie</dd><dt>Potiahnutie ↑ ↓</dt><dd>zmena kanála</dd><dt>Klik na lištu</dt><dd>pretáčanie</dd></dl></div>
     </div>
     <div class="actions"><button class="btn primary f" data-act="close-modal">Rozumiem</button></div>`);
@@ -1671,6 +1709,10 @@ function activate(el, e) {
 
     /* player */
     case 'p-close': closePlayer(); break;
+    case 'p-mini': enterMini(); break;
+    case 'mini-expand': exitMini(); break;
+    case 'mini-close': closePlayer(); break;
+    case 'mini-native': nativePip(); break;
     case 'p-pause': togglePause(); break;
     case 'p-rew': seek(-30); break;
     case 'p-ff': seek(30); break;
@@ -1729,6 +1771,7 @@ function keyName(e) {
   if (k === '-' || k === '_') return 'voldown';
   if (k === 'f' || k === 'F') return 'full';
   if (k === 'd' || k === 'D' || c === 406) return 'stats';
+  if (k === 'p' || k === 'P' || c === 403) return 'mini';
   if (k === 'ContextMenu' || c === 93) return 'menu';
   return null;
 }
@@ -1745,7 +1788,16 @@ document.addEventListener('keydown', e => {
     if (DIRS[k]) move(k);
     return;
   }
-  if (P.open) return playerKey(k);
+  if (P.mini) {
+    if (k === 'mini') return exitMini();
+    if (k === 'chup') return step(1);
+    if (k === 'chdown') return step(-1);
+    if (k === 'mute') return setMuted(!engine.v.muted);
+    if (k === 'volup') return changeVolume(0.1);
+    if (k === 'voldown') return changeVolume(-0.1);
+    if (k === 'playpause') return togglePause();
+  }
+  if (P.open && !P.mini) return playerKey(k);
   if (GRAB) { grabKey(k); return; }
   if (inInput && k === 'ok') { move('down'); return; }
   if (k === 'menu') { if (nav.cur && nav.cur.dataset.ch) openChannelMenu(nav.cur.dataset.ch); return; }
@@ -1788,6 +1840,7 @@ function playerKey(k) {
   if (k === 'voldown') return changeVolume(-0.1);
   if (k === 'full') return toggleFullscreen();
   if (k === 'stats') return toggleStats();
+  if (k === 'mini') return enterMini();
   if (k === 'chup') return step(1);
   if (k === 'chdown') return step(-1);
   if (k === 'playpause') { togglePause(); if (!P.osd && !P.panel) showOSD(); return; }
@@ -1830,7 +1883,7 @@ document.addEventListener('pointerdown', e => { document.body.classList.toggle('
 document.addEventListener('pointermove', e => {
   if (e.pointerType !== 'mouse') return;
   document.body.classList.remove('touch');
-  if (P.open && !P.panel && modal.hidden) { if (!P.osd) showOSD(); else armHide(); }
+  if (P.open && !P.mini && !P.panel && modal.hidden) { if (!P.osd) showOSD(); else armHide(); }
   const el = e.target.closest && e.target.closest('.f');
   const root = activeRoot();
   if (el && el !== nav.cur && el.tagName !== 'INPUT' && !el.disabled && root && root.contains(el)) setFocus(el, { noScroll: true });

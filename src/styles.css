@@ -724,3 +724,26 @@ body.playing #toast { top: max(26px, env(safe-area-inset-top, 0px)); bottom: aut
 
 /* playback stats (key D) */
 .p-stats { position: absolute; top: 16px; left: 16px; z-index: 6; margin: 0; padding: 10px 14px; border-radius: 10px; background: rgba(0,0,0,.72); color: #d7ffe9; font: 12px/1.5 ui-monospace, Menlo, Consolas, monospace; white-space: pre; pointer-events: none; }
+
+/* mini player */
+#player.mini { inset: auto; right: max(24px, env(safe-area-inset-right, 0px)); bottom: max(24px, env(safe-area-inset-bottom, 0px));
+  width: clamp(260px, 30vw, 520px); aspect-ratio: 16 / 9; height: auto; border-radius: 14px; z-index: 60;
+  box-shadow: 0 18px 50px rgba(0,0,0,.6), 0 0 0 1px rgba(255,255,255,.12); animation: miniIn .22s ease-out; }
+@keyframes miniIn { from { transform: scale(.85); opacity: 0; } }
+#player.mini .osd, #player.mini .banner, #player.mini .panel, #player.mini .dog, #player.mini .subs, #player.mini .pause-ico,
+#player.mini .p-status small, #player.mini #pRetry, #player.mini .demo-tag { display: none !important; }
+#player.mini .p-status b { font-size: 13px; }
+#player.mini .p-stats { transform: scale(.7); transform-origin: top left; top: 8px; left: 8px; }
+.mini-bar { position: fixed; z-index: 61; right: max(24px, env(safe-area-inset-right, 0px)); bottom: max(24px, env(safe-area-inset-bottom, 0px));
+  width: clamp(260px, 30vw, 520px); aspect-ratio: 16 / 9; border-radius: 14px; pointer-events: none; }
+.mini-hit { position: absolute; inset: 0; border: 0; background: transparent; cursor: pointer; pointer-events: auto; border-radius: inherit; }
+.mini-top { position: absolute; left: 0; right: 0; top: 0; display: flex; align-items: center; gap: 6px; padding: 8px 8px 22px 12px;
+  border-radius: 14px 14px 0 0; background: linear-gradient(rgba(0,0,0,.75), transparent); opacity: 0; transition: opacity .2s; pointer-events: none; }
+.mini-top span { flex: 1; min-width: 0; font-weight: 600; font-size: 14px; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mini-bar:hover .mini-top, .mini-bar:focus-within .mini-top, .mini-top:has(.focus) { opacity: 1; pointer-events: auto; }
+.mini-bar:hover .mini-top { pointer-events: auto; }
+.mbtn { width: 34px; height: 34px; flex: none; display: grid; place-items: center; border: 0; border-radius: 9px; color: #fff; background: rgba(255,255,255,.14); cursor: pointer; }
+.mbtn .ic { width: 18px; height: 18px; }
+.mbtn:hover, .mbtn.focus { background: #fff; color: #000; }
+.mini-bar:has(.focus)::after { content: ''; position: absolute; inset: -3px; border-radius: 16px; box-shadow: 0 0 0 3px var(--accent, #fff); pointer-events: none; }
+@media (max-width: 700px) { #player.mini, .mini-bar { width: 52vw; right: 12px; bottom: 12px; } }

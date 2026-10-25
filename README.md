@@ -46,12 +46,18 @@ Kým beží server na PC, otvor na mobile adresu, ktorú server vypíše ako „
 ## Ovládanie
 
 Šípky, Enter (OK), Esc/Backspace (Späť), čísla 0–9 prepnú na kanál. V prehrávači: ↑ ↓ (alebo PageUp/PageDown) kanál,
-← zoznam kanálov, → program kanála, OK ovládanie, medzerník pauza, L posledný kanál. Pomoc: kláves `?`.
+← zoznam kanálov, → program kanála, OK ovládanie, medzerník pauza, L posledný kanál, P malé okienko (na TV červené),
+D štatistiky prehrávania (na TV modré). Pomoc: kláves `?`.
+
+**Malé okienko:** kanál sa zmenší do rohu a hrá ďalej, kým prechádzaš appku. CH+/CH− v ňom prepína kanály, kliknutie
+alebo P ho vráti na celú obrazovku. Na PC ide z okienka spraviť aj okno nad ostatnými aplikáciami.
 
 ## Ako je zabezpečené, aby to nesekalo
 
 - **Prehrávanie:** HLS cez hls.js, MPEG-TS cez mpegts.js (na TV vstavaný hardvérový prehrávač). Buffer 30 s dopredu,
   až 15 minút dozadu pri HLS (pauza a pretáčanie živého vysielania).
+- **Rezerva:** obraz sa pustí až s 2 s načítanými dopredu. Po každom zaseknutí sa rezerva zväčší (až na 8 s).
+  Štatistiky (kláves D) ukazujú rezervu, zaseknutia a zahodené snímky.
 - **Strážca obrazu:** keď sa obraz zastaví, appka najprv preskočí drobné medzery v bufferi, potom sa sama znova pripojí
   (postupne dlhšie pauzy, pri bežiacom kanáli až 8 pokusov). Kanál, ktorý vôbec nenaštartuje, ohlási chybu do pár sekúnd.
 - **Archív:** pretáčanie za hranicu bufferu prepne na archív poskytovateľa, ak ho kanál má (`catchup` v playliste:
