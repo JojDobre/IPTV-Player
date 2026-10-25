@@ -86,9 +86,10 @@ Stiahni ho priamo v telefóne alebo TV boxe a nainštaluj (Android sa raz spýta
 
 - Appka nepotrebuje PC: rovnaký relay ako `npm start` beží priamo v nej (`android/…/Relay.java`).
 - Na TV boxe sa ukáže v zozname aplikácií pre TV; ovládač funguje vrátane Späť, CH+/CH−, ⏯, ⏪ ⏩, červeného a modrého tlačidla.
-- Zatiaľ prehráva webový prehrávač (hls.js / mpegts.js v Android WebView). Kanály so zvukom AC3/MP2 alebo obrazom
-  HEVC/MPEG-2 tu ešte nemusia ísť, nahrávanie tiež nie (to robí ffmpeg na PC).
-  Ďalší krok je natívny prehrávač ExoPlayer (Media3): hardvérové dekódovanie všetkých bežných kodekov, AC3 aj HEVC.
+- Prehráva natívny **ExoPlayer** (Media3): hardvérové dekódovanie H.264, HEVC a na TV boxoch aj MPEG-2,
+  zvuk AC3, E-AC3 a MP2 aj na mobiloch bez Dolby dekodéra (softvérový dekodér FFmpeg). HLS aj MPEG-TS priamo.
+  Obraz sa kreslí pod stránkou, ovládanie appky ostáva rovnaké. Štatistiky (D / modré) ukážu kodeky.
+- Nahrávanie zatiaľ len na PC (ffmpeg).
 
 Ručná stavba (s Android Studio / SDK): `npm run build && npx cap sync android && cd android && ./gradlew assembleDebug`.
 
