@@ -5,6 +5,7 @@ import { extname, join, normalize } from 'node:path';
 import { networkInterfaces } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { handleApi } from './proxy.js';
+import { startRecorder } from './recorder.js';
 
 const root = fileURLToPath(new URL('../dist/', import.meta.url));
 const PORT = +process.env.PORT || 8080;
@@ -15,6 +16,8 @@ if (!existsSync(join(root, 'index.html'))) {
   console.error('Chýba priečinok dist/. Najprv spusti:  npm run build');
   process.exit(1);
 }
+
+startRecorder({ log });
 
 http.createServer(async (req, res) => {
   if (await handleApi(req, res, { log })) return;

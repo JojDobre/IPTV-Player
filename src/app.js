@@ -9,7 +9,7 @@ import '@fontsource/bebas-neue/400.css';
 import '@fontsource/fraunces/600-italic.css';
 import './styles.css';
 import { buildDemo } from './data/demo.js';
-import { detectRelay, imgUrl, useRelay, relayHasFfmpeg, streamInfo } from './data/net.js';
+import { detectRelay, imgUrl, useRelay, relayHasFfmpeg, streamInfo, canRecord, recList, recAdd, recStop, recDelete, recFileUrl } from './data/net.js';
 import { xtreamUrls } from './data/m3u.js';
 import { nameKey } from './data/xmltv.js';
 import { catchupUrl, hasArchive as hasArchiveReal } from './data/catchup.js';
@@ -461,6 +461,7 @@ function go(name, focus = true) {
   if (name === 'search') renderResults();
   if (name === 'settings') renderSettings();
   if (name === 'organize') renderOrganizer();
+  if (name === 'recs') { renderRecs(); refreshRecs(); }
   if (focus) { nav.cur = nav.cur && nav.cur.isConnected ? nav.cur : null; setFocus((prev && twin(prev)) || pickDefault()); }
 }
 
@@ -585,7 +586,7 @@ function guideRowHTML(ch, i) {
     // A channel without a guide gets one block starting where the guide opens, so its label is in view.
     const l = Math.max(p.start, ws, p.none && !gDay ? now - 40 * MIN : 0), r = Math.min(p.end, we);
     const st = p.none ? 'none' : p.end <= now ? 'past' : p.start <= now ? 'now' : 'future';
-    const bell = S.rem.has(ch.id + ':' + p.start) ? I('bell') : '';
+    const bell = recFor(ch.id, p.start) ? `<i class="rec-dot"></i>` : S.rem.has(ch.id + ':' + p.start) ? I('bell') : '';
     const noArch = st === 'past' && !hasArchive(ch, p.start) ? ' no-arch' : '';
     return `<button class="prog f ${st}${noArch}" data-act="prog" data-group="main" data-ch="${ch.id}" data-start="${p.start}" data-end="${p.end}" style="left:${(l - ws) / MIN * ppm + 2}px;width:${Math.max(4, (r - l) / MIN * ppm - 4)}px">`
       + (st === 'now' ? `<i class="pf" style="width:${frac(p, now) * 100}%"></i>` : '')
@@ -772,7 +773,7 @@ function setSetting(k, v, el) {
 }
 
 /* ---------- Playlist & EPG ---------- */
-const mb = b => b > 1e6 ? `${(b / 1e6).toFixed(1)} MB` : `${Math.round(b / 1e3)} kB`;
+const mb = b => b > 1e9 ? `${(b / 1e9).toFixed(1)} GB` : b > 1e6 ? `${(b / 1e6).toFixed(1)} MB` : `${Math.round(b / 1e3)} kB`;
 function ago(t) {
   if (!t) return '–';
   const d = new Date(t), today = new Date(); today.setHours(0, 0, 0, 0);
@@ -1086,6 +1087,7 @@ function openChannelMenu(id) {
       ${arch ? `<button class="mitem f" data-act="m-restart" data-ch="${id}">${I('restart')}Pozerať od začiatku</button>` : ''}
       <button class="mitem f" data-act="m-fav" data-ch="${id}">${I(fav ? 'heart-f' : 'heart')}${fav ? 'Odobrať z obľúbených' : 'Pridať do obľúbených'}</button>
       <button class="mitem f" data-act="m-cats" data-ch="${id}">${I('grid')}Zaradiť do kategórií…</button>
+      ${canRecord() && byId[id].url ? `<button class="mitem f" data-act="m-rec" data-ch="${id}">${I('rec')}${p.none ? 'Nahrávať hodinu' : 'Nahrať reláciu do konca'}</button>` : ''}
       <button class="mitem f" data-act="m-lock" data-ch="${id}">${I(LOCK.chans.includes(id) ? 'unlock' : 'lock')}${LOCK.chans.includes(id) ? 'Odomknúť kanál' : 'Zamknúť kanál (PIN)'}</button>
     </div>
     <div class="actions"><button class="btn f" data-act="close-modal">Zavrieť</button></div>`);
@@ -1123,6 +1125,7 @@ function progAction(id, start) {
     openOrTune(id, (now - p.start) / 1000); toast(`Z archívu: ${p.title}`); return 'play';
   }
   const k = id + ':' + start;
+  if (canRecord() && byId[id].url) { openFutureMenu(id, start); return 'menu'; }
   if (S.rem.has(k)) { S.rem.delete(k); toast('Pripomienka zrušená'); }
   else { S.rem.add(k); toast(`Pripomeniem: ${p.title} o ${hm(p.start)}`); }
   store.set('rem:' + S.libKey, [...S.rem]);
@@ -1201,6 +1204,7 @@ async function nativePip() {
 }
 const srcFor = (ch, extra) => ({ url: ch.url, ua: ch.ua || (LIB && LIB.source.ua) || '', ref: ch.ref || '', ...extra });
 function startLive(ch) {
+  P.rec = null;
   P.mode = 'live'; P.offset = 0; P.base = null; P.paused = false; P.prefApplied = false;
   engine.open(srcFor(ch, { live: true, kind: P.kinds[ch.id] }));
 }
@@ -1208,6 +1212,7 @@ function startArchive(ch, atMs) {
   const now = Date.now();
   const url = catchupUrl(ch, atMs, now, now);
   if (!url) { toast('Pre tento kanál sa archív nedá spustiť.'); return false; }
+  P.rec = null;
   P.mode = 'archive'; P.archStart = atMs; P.offset = (now - atMs) / 1000; P.paused = false; P.prefApplied = false;
   engine.open(srcFor(ch, { url, live: false }));
   return true;
@@ -1260,8 +1265,9 @@ function seekReal(delta) {
     toast(ch.catchup ? 'Ďalej dozadu archív nesiaha.' : 'Tento kanál nemá archív. Dozadu sa dá len v rámci vyrovnávacej pamäte.');
     return;
   }
-  if (target < 10) { startLive(ch); toast('Naživo'); return; }
   const v = engine.v, pos = v.currentTime + delta;
+  if (P.rec) { v.currentTime = Math.max(0, Math.min(pos, engine.playableEnd() - 1)); return; }
+  if (target < 10) { startLive(ch); toast('Naživo'); return; }
   if (pos >= 0 && pos <= engine.playableEnd() - 1) { v.currentTime = pos; return; }
   if (hasArchive(ch, now - target * 1000)) startArchive(ch, now - target * 1000);
 }
@@ -1388,8 +1394,11 @@ function renderOSD() {
   if (p.none) { const span = Math.max(1800, P.offset + 300) * 1000; p = { ...p, start: now - span, end: now + 60e3 }; }
   if (P.tileCh !== ch.id) { $('#oTile').innerHTML = tileStatic(ch, 'mini'); P.tileCh = ch.id; }
   $('#oName').textContent = `${ch.n} · ${ch.name}`;
+  $('#cRec').hidden = !(canRecord() && P.real && !P.rec);
+  $('#cRec').classList.toggle('on', !P.rec && !p.none && !!recFor(ch.id, p.start));
   $('#oStatus').innerHTML = isLive() ? `<span class="badge live"><i class="dot"></i>Živé</span>`
     : P.paused ? `<span class="badge">Pozastavené · −${durTxt(P.offset)}</span>`
+    : P.rec ? `<span class="badge arch">${I('rec')}Nahrávka</span>`
     : P.mode === 'archive' ? `<span class="badge arch">${I('hist')}Archív · −${durTxt(P.offset)}</span>`
     : `<span class="badge arch">${I('hist')}Posun −${durTxt(P.offset)}</span>`;
   $('#oClock').textContent = (SLEEP.at ? `⏾ ${sleepLeft()} · ` : '') + hm(now);
@@ -1514,6 +1523,86 @@ function refreshSheet() {
   const pl = $('.plist', sheet); if (pl) pl.scrollTop = top;
   if (f) { nav.cur = null; setFocus(twin(f) || $('#sheet .f'), { noScroll: true }); }
 }
+/* ---------- Recordings (local server) ---------- */
+let RECS = [], recT = 0;
+const recFor = (ch, start) => RECS.find(r => r.ch === ch && r.start === start && r.status !== 'failed');
+async function refreshRecs() {
+  if (!canRecord()) return;
+  try { RECS = (await recList()).items || []; } catch { return; }
+  clearTimeout(recT);
+  const busy = RECS.some(r => r.status === 'processing' || (r.status === 'recording' && r.end <= Date.now()));
+  if (busy || RECS.some(r => r.status === 'recording' || r.status === 'scheduled')) recT = setTimeout(refreshRecs, busy ? 2500 : 20000);
+  if (S.screen === 'recs' && !P.open) renderRecs(true);
+}
+function afterProgChange(id, start) {
+  if (P.open && P.panel === 'prog') { renderSheet('prog'); setFocus($(`#sheet [data-start="${start}"]`)); }
+  else if (S.screen === 'guide') { renderGuide(true); const el = $(`#gScroll [data-ch="${id}"][data-start="${start}"]`); nav.cur = null; setFocus(el, { noScroll: true }); }
+  else if (S.screen === 'search') { const el = $(`#results [data-act="rprog"][data-ch="${id}"][data-start="${start}"]`); if (el) { el.outerHTML = progRes(byId[id], findProg(id, start), 'later'); setFocus($(`#results [data-act="rprog"][data-ch="${id}"][data-start="${start}"]`), { noScroll: true }); } }
+}
+function openFutureMenu(id, start) {
+  const ch = byId[id], p = findProg(id, start), rem = S.rem.has(id + ':' + start), r = recFor(id, start);
+  openModal(`<div class="cm-head">${tileStatic(ch, 'mini')}<div><h2>${esc(p.title)}</h2><p class="muted">${esc(ch.name)} · ${dayWord(p.start)} ${hm(p.start)} – ${hm(p.end)}</p></div></div>
+    <div class="menu-list">
+      ${rem ? `<button class="mitem f" data-act="f-unrem" data-ch="${id}" data-start="${start}">${I('bell')}Zrušiť pripomienku</button>` : `<button class="mitem f" data-act="f-rem" data-ch="${id}" data-start="${start}">${I('bell')}Pripomenúť</button>`}
+      ${r ? `<button class="mitem f" data-act="f-unrec" data-id="${r.id}">${I('x')}Zrušiť nahrávanie</button>` : canRecord() && ch.url ? `<button class="mitem f" data-act="f-rec" data-ch="${id}" data-start="${start}">${I('rec')}Nahrať</button>` : ''}
+    </div>
+    <div class="actions"><button class="btn f" data-act="close-modal">Zavrieť</button></div>`);
+}
+async function scheduleRec(ch, title, start, end) {
+  try {
+    await recAdd({ ch: ch.id, chName: ch.name, title, url: ch.url, ua: ch.ua || (LIB && LIB.source.ua) || '', ref: ch.ref || '', start, end });
+    toast(start <= Date.now() ? `Nahrávam: ${title}` : `Nahrám: ${title} · ${dayWord(start)} ${hm(start)}`);
+    $('#navRecs').hidden = false;
+    await refreshRecs();
+  } catch (e) { toast('Nahrávanie sa nepodarilo: ' + e.message); }
+}
+function recordNow(id) {
+  const ch = byId[id]; if (!ch || !ch.url) return;
+  const now = Date.now(), p = progAt(id, now);
+  if (!p.none && recFor(id, p.start)) { toast('Táto relácia sa už nahráva'); return; }
+  scheduleRec(ch, p.none ? ch.name : p.title, p.none ? now : p.start, p.none ? now + 3600e3 : p.end);
+}
+async function removeRec(r) {
+  const done = r.status === 'done';
+  try { await recDelete(r.id); toast(done ? 'Nahrávka zmazaná' : r.status === 'recording' ? 'Nahrávanie zrušené a zmazané' : 'Nahrávanie zrušené'); } catch (e) { toast(e.message); }
+  await refreshRecs();
+  if (S.screen === 'guide') renderGuide(true);
+}
+const REC_ST = { recording: 'Nahráva sa', scheduled: 'Naplánované', processing: 'Spracúva sa', done: 'Hotové', failed: 'Nepodarilo sa' };
+function renderRecs(keep) {
+  const box = $('#recList');
+  const focusKey = keep && nav.cur && box.contains(nav.cur) ? [nav.cur.dataset.act, nav.cur.dataset.id] : null;
+  if (!canRecord()) { box.innerHTML = `<p class="empty">Nahrávanie funguje cez lokálny server s ffmpeg (npm start na PC).</p>`; return; }
+  const order = ['recording', 'processing', 'scheduled', 'done', 'failed'];
+  const groups = order.map(st => [st, RECS.filter(r => r.status === st).sort((a, b) => st === 'scheduled' ? a.start - b.start : b.start - a.start)]).filter(g => g[1].length);
+  const used = RECS.filter(r => r.status === 'done').reduce((a, r) => a + r.size, 0);
+  $('#recSub').textContent = RECS.length ? `${RECS.filter(r => r.status === 'done').length} hotových · ${mb(used)}` : '';
+  box.innerHTML = groups.length ? groups.map(([st, list]) => `<h4>${REC_ST[st]}</h4>` + list.map(r => {
+    const ch = byId[r.ch];
+    const when = `${dayWord(r.start)} ${hm(r.start)} – ${hm(r.end)}`;
+    const info = st === 'done' ? `${when} · ${durTxt(r.duration)} · ${mb(r.size)}` : st === 'failed' ? `${when} · ${esc(r.error)}` : st === 'recording' ? `${when} · nahráva sa` : when;
+    const btns = (st === 'done' || st === 'recording' ? `<button class="btn small-btn f ${st === 'done' ? 'primary' : ''}" data-act="r-play" data-id="${r.id}" data-group="main">${I('play')}Prehrať</button>` : '')
+      + (st === 'recording' ? `<button class="btn small-btn f" data-act="r-stop" data-id="${r.id}" data-group="main">${I('stop')}Ukončiť</button>` : '')
+      + `<button class="btn small-btn f" data-act="r-del" data-id="${r.id}" data-group="main">${I(st === 'done' || st === 'failed' ? 'trash' : 'x')}${st === 'done' || st === 'failed' ? 'Zmazať' : 'Zrušiť'}</button>`;
+    return `<div class="rec-row ${st}">${ch ? tileStatic(ch, 'mini') : ''}<div class="rec-i"><b>${st === 'recording' ? '<i class="rec-dot"></i>' : ''}${esc(r.title)}</b><small>${esc(r.chName)} · ${info}</small></div><div class="actions">${btns}</div></div>`;
+  }).join('')).join('') : `<p class="empty">Zatiaľ nič. Nahrávanie spustíš v programe (OK na budúcej relácii → Nahrať), podržaním OK na kanáli alebo tlačidlom ⏺ v prehrávači.</p>`;
+  if (focusKey) { const el = $(`#recList [data-act="${focusKey[0]}"][data-id="${focusKey[1]}"]`) || $('#recList .f'); nav.cur = null; if (el) setFocus(el, { noScroll: true }); }
+}
+function playRec(r) {
+  const ch = byId[r.ch];
+  if (!ch) { toast('Kanál tejto nahrávky už nie je v playliste'); return; }
+  const go2 = () => {
+    if (!P.open) { P.appFocus = nav.cur; clearFocus(); P.open = true; player.hidden = false; document.body.classList.add('playing'); cancelAnimationFrame(vid.raf); vid.last = 0; vid.raf = requestAnimationFrame(frame); }
+    else if (P.mini) exitMini();
+    if (P.ch && P.ch !== ch.id) P.last = P.ch;
+    P.ch = ch.id; P.real = true; player.classList.add('real'); hideStatus(); $('#dog').innerHTML = '';
+    P.rec = r.id; P.mode = 'archive'; P.archStart = r.recStart || r.start; P.offset = (Date.now() - P.archStart) / 1000; P.paused = false; P.prefApplied = false;
+    engine.open({ url: recFileUrl(r.id), live: false, direct: true, kind: r.status === 'done' ? 'file' : 'ts' });
+    renderOSD(); showBanner();
+  };
+  if (isLocked(ch.id)) askPin(() => { UNLOCKED = true; go2(); }); else go2();
+}
+
 /* ---------- Sleep timer ---------- */
 const SLEEP = { at: 0, kind: '', warned: false };
 const SLEEP_OPTS = [['0', 'Vypnutý'], ['15', '15 minút'], ['30', '30 minút'], ['60', '1 hodina'], ['90', '1,5 hodiny'], ['120', '2 hodiny'], ['end', 'Do konca relácie']];
@@ -1857,6 +1946,14 @@ function activate(el, e) {
     case 'm-restart': { const p = progAt(el.dataset.ch, Date.now()); closeModal(true); openOrTune(el.dataset.ch, (Date.now() - p.start) / 1000); break; }
     case 'm-fav': toggleFav(el.dataset.ch); closeModal(); break;
     case 'm-cats': openMemberPicker(el.dataset.ch); break;
+    case 'm-rec': closeModal(true); recordNow(el.dataset.ch); break;
+    case 'p-rec': recordNow(P.ch); break;
+    case 'f-rem': { const ch = el.dataset.ch, st = +el.dataset.start; closeModal(); S.rem.add(ch + ':' + st); store.set('rem:' + S.libKey, [...S.rem]); toast(`Pripomeniem: ${findProg(ch, st).title} o ${hm(st)}`); afterProgChange(ch, st); break; }
+    case 'f-unrem': { const ch = el.dataset.ch, st = +el.dataset.start; closeModal(); S.rem.delete(ch + ':' + st); store.set('rem:' + S.libKey, [...S.rem]); toast('Pripomienka zrušená'); afterProgChange(ch, st); break; }
+    case 'f-rec': { const ch = el.dataset.ch, st = +el.dataset.start; closeModal(); const p = findProg(ch, st); scheduleRec(byId[ch], p.title, p.start, p.end).then(() => afterProgChange(ch, st)); break; }
+    case 'f-unrec': case 'r-del': { const r = RECS.find(x => x.id === el.dataset.id); if (S.screen !== 'recs') closeModal(); if (r) removeRec(r); break; }
+    case 'r-play': { const r = RECS.find(x => x.id === el.dataset.id); if (r) playRec(r); break; }
+    case 'r-stop': { const r = RECS.find(x => x.id === el.dataset.id); if (r) recStop(r.id).then(refreshRecs).catch(e => toast(e.message)); break; }
     case 'm-lock': { const ch = el.dataset.ch; closeModal(true); toggleChannelLock(ch); break; }
     case 'pin-d': pinDigit(el.dataset.v); break;
     case 'pin-del': pinDigit('del'); break;
@@ -2201,6 +2298,7 @@ applyVolume();
 if (IS_TV) document.documentElement.classList.add('tv');
 (async () => {
   await detectRelay();
+  if (canRecord()) { $('#navRecs').hidden = false; refreshRecs(); }
   let L = null, E = null;
   try { L = await library.getLibrary(); if (L) E = await library.getEpg(); } catch (e) { console.warn(e); }
   if (L && L.channels && L.channels.length) useLibrary(L, E); else useDemo();

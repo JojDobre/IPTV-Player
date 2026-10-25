@@ -68,7 +68,8 @@ const isHttp = u => /^https?:\/\//i.test(u || '');
 
 function cors(res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Headers', 'Range');
+  res.setHeader('Access-Control-Allow-Headers', 'Range, Content-Type');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS');
   res.setHeader('Access-Control-Expose-Headers', 'Content-Length, Content-Range, X-Final-Url');
 }
 
@@ -146,7 +147,8 @@ export async function handleApi(req, res, { log = () => {} } = {}) {
   const route = u.pathname.slice(5);
   const q = u.searchParams;
   const target = q.get('url');
-  if (route === 'ping') { res.writeHead(200, { 'content-type': 'application/json' }); res.end(JSON.stringify({ ok: true, ffmpeg: hasFfmpeg() })); return true; }
+  if (route === 'ping') { res.writeHead(200, { 'content-type': 'application/json' }); res.end(JSON.stringify({ ok: true, ffmpeg: hasFfmpeg(), rec: true })); return true; }
+  if (route === 'rec' || route.startsWith('rec/')) { const { handleRec } = await import('./recorder.js'); await handleRec(route, req, res, q); return true; }
   if (!isHttp(target)) { res.writeHead(400, { 'content-type': 'text/plain; charset=utf-8' }); res.end('Chýba alebo je neplatná adresa (url).'); return true; }
   if (route === 'remux') {
     if (!hasFfmpeg()) { res.writeHead(501, { 'content-type': 'text/plain; charset=utf-8' }); res.end('Na tomto PC nie je nainštalovaný ffmpeg.'); return true; }

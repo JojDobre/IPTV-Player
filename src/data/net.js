@@ -1,14 +1,15 @@
 // Where requests go. With the local relay (PC build) everything is routed through /api/*;
 // on the TV the packaged app talks to the provider directly.
 
-let relay = false, ffmpeg = false;
+let relay = false, ffmpeg = false, rec = false;
 export const useRelay = () => relay;
 export const relayHasFfmpeg = () => ffmpeg;
+export const canRecord = () => relay && ffmpeg && rec;
 
 export async function detectRelay() {
   try {
     const r = await fetch('/api/ping', { cache: 'no-store' });
-    if (r.ok) { const j = await r.json(); relay = !!j.ok; ffmpeg = !!j.ffmpeg; }
+    if (r.ok) { const j = await r.json(); relay = !!j.ok; ffmpeg = !!j.ffmpeg; rec = !!j.rec; }
   } catch { relay = false; }
   return relay;
 }
@@ -39,3 +40,16 @@ export function guessKind(url) {
   if (/\.(mp4|m4v|mkv|webm|mov)$/.test(path)) return 'file';
   return '';
 }
+
+// Recordings (local server only).
+export const recFileUrl = id => abs(`/api/rec/file?id=${enc(id)}`);
+async function recCall(path, method = 'GET', body) {
+  const r = await fetch(abs('/api/' + path), { method, headers: body ? { 'content-type': 'application/json' } : {}, body: body ? JSON.stringify(body) : undefined, cache: 'no-store' });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(j.error || `HTTP ${r.status}`);
+  return j;
+}
+export const recList = () => recCall('rec');
+export const recAdd = item => recCall('rec', 'POST', item);
+export const recStop = id => recCall(`rec/stop?id=${enc(id)}`, 'POST');
+export const recDelete = id => recCall(`rec?id=${enc(id)}`, 'DELETE');

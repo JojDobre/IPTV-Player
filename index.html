@@ -53,6 +53,8 @@
     <symbol id="i-moon" viewBox="0 0 24 24"><path d="M19.5 14.5A8 8 0 0 1 9.5 4.5a8 8 0 1 0 10 10z" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round"/></symbol>
     <symbol id="i-lock" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round"><rect x="5" y="10.5" width="14" height="10" rx="2"/><path d="M8.5 10.5V7.5a3.5 3.5 0 0 1 7 0v3"/></g></symbol>
     <symbol id="i-unlock" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round"><rect x="5" y="10.5" width="14" height="10" rx="2"/><path d="M8.5 10.5V7.5a3.5 3.5 0 0 1 6.8-1.2"/></g></symbol>
+    <symbol id="i-rec" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.9"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="4" fill="currentColor" stroke="none"/></g></symbol>
+    <symbol id="i-stop" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" rx="2" fill="currentColor"/></symbol>
     <symbol id="i-full" viewBox="0 0 24 24"><path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
     <symbol id="i-sparkle" viewBox="0 0 24 24"><path d="M12 3.5 13.8 10.2 20.5 12l-6.7 1.8L12 20.5l-1.8-6.7L3.5 12l6.7-1.8z" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round"/></symbol>
   </defs>
@@ -69,6 +71,7 @@
       <button class="nav-item f" data-act="screen" data-screen="home" data-group="nav"><svg class="ic"><use href="#i-home"/></svg><span>Domov</span></button>
       <button class="nav-item f" data-act="screen" data-screen="channels" data-group="nav"><svg class="ic"><use href="#i-grid"/></svg><span>Kanály</span></button>
       <button class="nav-item f" data-act="screen" data-screen="guide" data-group="nav"><svg class="ic"><use href="#i-guide"/></svg><span>Program</span></button>
+      <button class="nav-item f" id="navRecs" data-act="screen" data-screen="recs" data-group="nav" hidden><svg class="ic"><use href="#i-rec"/></svg><span>Nahrávky</span></button>
       <button class="nav-item icon-only f" data-act="screen" data-screen="search" data-group="nav" aria-label="Hľadať"><svg class="ic"><use href="#i-search"/></svg><span>Hľadať</span></button>
       <button class="nav-item icon-only f" data-act="screen" data-screen="settings" data-group="nav" aria-label="Nastavenia"><svg class="ic"><use href="#i-settings"/></svg><span>Nastavenia</span></button>
     </nav>
@@ -112,6 +115,11 @@
       <div class="s-head"><h2 class="s-title">Hľadať</h2></div>
       <label class="search-box"><svg class="ic"><use href="#i-search"/></svg><input id="q" class="f" data-group="main" type="search" placeholder="Kanál alebo relácia" autocomplete="off" aria-label="Hľadať kanál alebo reláciu"></label>
       <div class="results" id="results"></div>
+    </section>
+
+    <section class="screen pad" id="s-recs" data-screen="recs" hidden>
+      <div class="s-head"><h2 class="s-title">Nahrávky</h2><span class="s-sub" id="recSub"></span></div>
+      <div class="recs" id="recList"></div>
     </section>
 
     <section class="screen pad" id="s-settings" data-screen="settings" hidden>
@@ -174,6 +182,7 @@
           <button class="cbtn f" data-act="p-list" aria-label="Zoznam kanálov"><svg class="ic"><use href="#i-list"/></svg><span class="tip">Kanály</span></button>
           <button class="cbtn f" data-act="p-prog" aria-label="Program kanála"><svg class="ic"><use href="#i-guide"/></svg><span class="tip">Program</span></button>
           <button class="cbtn f" data-act="p-audio" aria-label="Zvuk a titulky"><svg class="ic"><use href="#i-audio"/></svg><span class="tip">Zvuk a titulky</span></button>
+          <button class="cbtn f" id="cRec" data-act="p-rec" aria-label="Nahrať" hidden><svg class="ic"><use href="#i-rec"/></svg><span class="tip">Nahrať reláciu</span></button>
           <button class="cbtn f" id="cSleep" data-act="p-sleep" aria-label="Časovač vypnutia"><svg class="ic"><use href="#i-moon"/></svg><span class="tip">Časovač vypnutia</span></button>
           <button class="cbtn f" data-act="p-mini" aria-label="Malé okienko"><svg class="ic"><use href="#i-pip"/></svg><span class="tip">Malé okienko</span></button>
           <button class="cbtn f" id="cFav" data-act="p-fav" aria-label="Obľúbené"><svg class="ic"><use href="#i-heart"/></svg><span class="tip">Obľúbené</span></button>

@@ -86,7 +86,8 @@ export class Engine {
       this.cb.onKind?.(kind);
     }
     this.kind = kind;
-    const url = s.remux ? remuxUrl(s.url, s, s.remux === 'video') : streamUrl(s.url, s);
+    // direct: our own server's file (recordings), no relay in between.
+    const url = s.remux ? remuxUrl(s.url, s, s.remux === 'video') : s.direct ? s.url : streamUrl(s.url, s);
 
     try {
       if (kind === 'hls' && !preferNative) {

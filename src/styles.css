@@ -775,3 +775,17 @@ body.playing #toast { top: max(26px, env(safe-area-inset-top, 0px)); bottom: aut
 .pin-k .ic { width: 22px; height: 22px; }
 .pin-k.focus, .pin-k:hover { background: var(--fg); color: var(--bg); }
 .mitem small { margin-left: auto; color: var(--fg-3); font-size: 13px; }
+
+/* recordings */
+.recs { display: grid; gap: 10px; max-width: 1100px; }
+.recs h4 { margin: 14px 0 2px; font-size: 12px; letter-spacing: .14em; text-transform: uppercase; color: var(--fg-3); }
+.rec-row { display: flex; align-items: center; gap: 16px; padding: 10px 14px 10px 10px; border-radius: 16px; background: var(--bg-2); }
+.rec-row .tile { --tile: 64px; }
+.rec-row .rec-i { flex: 1; min-width: 0; display: grid; gap: 3px; }
+.rec-row .rec-i small { color: var(--fg-3); font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rec-row.failed .rec-i small { color: #ff8a8a; }
+.rec-row .actions { flex: none; margin: 0; }
+.rec-dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; background: #ff3b3b; box-shadow: 0 0 8px #ff3b3b; margin-right: 7px; vertical-align: 1px; animation: recPulse 1.6s infinite; }
+@keyframes recPulse { 50% { opacity: .35; } }
+@media (max-width: 700px) { .rec-row { flex-wrap: wrap; } .rec-row .actions { width: 100%; } }
+#cRec.on { color: #ff3b3b; }
