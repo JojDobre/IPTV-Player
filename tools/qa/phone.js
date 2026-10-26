@@ -84,6 +84,11 @@ const { chromium, devices, sleep, ok, setup, ev, click, addPlaylist, fails } = r
     await sleep(400);
     ok(!(await ev(p, () => vysielac.P.panel)) && Math.abs(mid.m41) < 1, `${act}: closes downward`);
   }
+  // text size must not move the list or the controls off the picture
+  for (const fz of ['0.9', '1.12', '1.25', '1']) {
+    const g = await ev(p, fz => { document.documentElement.style.setProperty('--fz', fz); const q = s => document.querySelector(s).getBoundingClientRect(); const v = q('#vid'); return { port: Math.round(q('#pPort').top - v.bottom), osd: Math.round(q('.osd').top - v.top) + '/' + Math.round(q('.osd').bottom - v.bottom) }; }, fz);
+    ok(g.port === 0 && g.osd === '0/0', `text size ${fz}: list right under the picture, controls over it`, JSON.stringify(g));
+  }
   // more → fav
   await ev(p, () => document.querySelector('#ppActs [data-act=p-more], .osd [data-act=p-more]').click()); await sleep(400);
   const more = await ev(p, () => [...document.querySelectorAll('#sheet .mitem')].map(m => m.textContent.trim()));

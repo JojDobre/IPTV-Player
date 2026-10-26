@@ -858,6 +858,9 @@ html:not(.tv) body.touch .osd-clock { font-size: 18px; }
 /* Upright phone: picture on top (16:9), programme, actions and channels below it */
 @media (orientation: portrait) {
   html:not(.tv):not(.in-pip) body.touch #player:not(.mini) { --vh: 56.25vw; --vt: var(--sa-t); background: var(--bg); }
+  /* These parts are scaled by the text size setting (zoom), which would also scale their distance from the top:
+     with small text the list slid up over the picture. Their copy of the picture's position is divided back. */
+  html:not(.tv):not(.in-pip) body.touch #player:not(.mini) :is(.osd, .p-status, .p-port, .panel) { --vh: calc(56.25vw / var(--fz, 1)); --vt: calc(var(--sa-t) / var(--fz, 1)); }
   html:not(.tv):not(.in-pip) body.touch #player:not(.mini) .stage,
   html:not(.tv):not(.in-pip) body.touch #player:not(.mini) .osd,
   html:not(.tv):not(.in-pip) body.touch #player:not(.mini) .p-status,
