@@ -21,7 +21,8 @@
     "@fontsource/onest": "5.2.5",
     "@fontsource/unbounded": "5.2.5",
     "hls.js": "1.6.15",
-    "mpegts.js": "1.8.0"
+    "mpegts.js": "1.8.0",
+    "qrcode-generator": "2.0.4"
   },
   "devDependencies": {
     "@capacitor/cli": "8.5.3",

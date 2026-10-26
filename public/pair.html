@@ -1,0 +1,79 @@
+<!doctype html>
+<!-- Opened on a phone from the QR code the TV shows. Sends the playlist to the TV over the home network;
+     the TV's app (or the PC server) only accepts it with the one-time code in the address. -->
+<html lang="sk">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Vysielač – pridať playlist</title>
+<style>
+  :root { color-scheme: dark; --bg: #0b0b14; --card: #15152a; --line: #2a2a46; --fg: #ececf6; --muted: #9c9cbb; --acc: #6d6bff; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: radial-gradient(120% 60% at 0% 0%, #241b5e, var(--bg) 60%) fixed; color: var(--fg); font: 16px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  main { max-width: 520px; margin: 0 auto; padding: 28px 18px 48px; }
+  .logo { display: flex; align-items: center; gap: 12px; font-weight: 800; font-size: 22px; margin-bottom: 18px; }
+  .logo b { width: 40px; height: 40px; border-radius: 12px; display: grid; place-items: center; background: linear-gradient(135deg, #7C5CFF, #4F7BFF 52%, #2EC5FF); }
+  h1 { font-size: 22px; margin: 0 0 6px; }
+  p { color: var(--muted); margin: 0 0 18px; }
+  .seg { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; padding: 4px; border-radius: 14px; background: var(--card); margin-bottom: 16px; }
+  .seg button { border: 0; border-radius: 10px; padding: 10px; background: transparent; color: var(--muted); font: inherit; font-weight: 600; }
+  .seg button.on { background: var(--fg); color: #0b0b14; }
+  label { display: block; font-size: 14px; color: var(--muted); margin: 14px 0 6px; }
+  input { width: 100%; padding: 13px 14px; border-radius: 12px; border: 1px solid var(--line); background: var(--card); color: var(--fg); font: inherit; }
+  input:focus { outline: 2px solid var(--acc); border-color: transparent; }
+  .go { width: 100%; margin-top: 22px; padding: 15px; border: 0; border-radius: 14px; background: var(--fg); color: #0b0b14; font: inherit; font-weight: 700; font-size: 17px; }
+  .go:disabled { opacity: .5; }
+  .msg { margin-top: 16px; padding: 14px; border-radius: 12px; background: var(--card); display: none; }
+  .msg.on { display: block; }
+  .msg.err { color: #ff9a9a; }
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<main>
+  <div class="logo"><b>V</b>vysielač</div>
+  <h1 data-t="title">Pridať playlist do TV</h1>
+  <p data-t="lead">Údaje sa pošlú len do tvojho TV v domácej sieti.</p>
+  <div class="seg"><button type="button" class="on" data-v="m3u" data-t="m3u">M3U odkaz</button><button type="button" data-v="xt">Xtream Codes</button></div>
+  <form id="f">
+    <label for="name" data-t="name">Názov</label><input id="name" autocomplete="off" placeholder="Môj IPTV">
+    <div id="m3u">
+      <label for="url" data-t="url">Adresa playlistu (M3U)</label><input id="url" type="url" inputmode="url" autocomplete="off" spellcheck="false" placeholder="http://…">
+    </div>
+    <div id="xt" hidden>
+      <label for="server">Server</label><input id="server" inputmode="url" autocomplete="off" spellcheck="false" placeholder="http://server:8080">
+      <label for="user" data-t="user">Používateľ</label><input id="user" autocomplete="off" spellcheck="false">
+      <label for="pass" data-t="pass">Heslo</label><input id="pass" type="password" autocomplete="off">
+    </div>
+    <label for="epg" data-t="epg">Program EPG (nepovinné)</label><input id="epg" inputmode="url" autocomplete="off" spellcheck="false" placeholder="http://…/epg.xml.gz">
+    <button class="go" id="go" data-t="send">Poslať do TV</button>
+  </form>
+  <div class="msg" id="msg"></div>
+</main>
+<script>
+  const en = !/^(sk|cs)/i.test(navigator.language || '');
+  const T = { title: 'Add a playlist to your TV', lead: 'The details go only to your TV on your home network.', m3u: 'M3U link', name: 'Name', url: 'Playlist address (M3U)', user: 'User name', pass: 'Password', epg: 'Programme guide EPG (optional)', send: 'Send to TV' };
+  if (en) { document.documentElement.lang = 'en'; document.querySelectorAll('[data-t]').forEach(e => { if (T[e.dataset.t]) e.textContent = T[e.dataset.t]; }); }
+  const say = (m, err) => { const e = document.getElementById('msg'); e.textContent = m; e.className = 'msg on' + (err ? ' err' : ''); };
+  let type = 'm3u';
+  document.querySelectorAll('.seg button').forEach(b => b.onclick = () => {
+    type = b.dataset.v;
+    document.querySelectorAll('.seg button').forEach(x => x.classList.toggle('on', x === b));
+    document.getElementById('m3u').hidden = type !== 'm3u'; document.getElementById('xt').hidden = type === 'm3u';
+  });
+  const v = id => document.getElementById(id).value.trim();
+  document.getElementById('f').onsubmit = async e => {
+    e.preventDefault();
+    const data = { name: v('name'), epg: v('epg') };
+    if (type === 'm3u') { data.m3u = v('url'); if (!/^https?:\/\//i.test(data.m3u)) return say(en ? 'The address must start with http:// or https://' : 'Adresa musí začínať http:// alebo https://', true); }
+    else { data.server = v('server'); data.user = v('user'); data.pass = document.getElementById('pass').value; if (!data.server || !data.user || !data.pass) return say(en ? 'Fill in the server, user name and password.' : 'Vyplň server, meno aj heslo.', true); }
+    document.getElementById('go').disabled = true;
+    try {
+      const r = await fetch(location.pathname + location.search, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(data) });
+      if (!r.ok) throw new Error(r.status === 403 ? (en ? 'This code has expired. Open the QR code on the TV again.' : 'Kód už neplatí. Na TV otvor QR kód znova.') : 'HTTP ' + r.status);
+      say(en ? 'Done. The TV is loading the playlist now.' : 'Hotovo. TV práve načítava playlist.');
+    } catch (err) { say(err.message, true); document.getElementById('go').disabled = false; }
+  };
+</script>
+</body>
+</html>

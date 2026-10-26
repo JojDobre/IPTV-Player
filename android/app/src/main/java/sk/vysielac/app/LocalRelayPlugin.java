@@ -1,6 +1,7 @@
 package sk.vysielac.app;
 
 import android.app.UiModeManager;
+import java.io.IOException;
 import android.content.pm.ActivityInfo;
 import android.content.pm.PackageManager;
 import android.os.Build;
@@ -54,6 +55,14 @@ public class LocalRelayPlugin extends Plugin {
     @PluginMethod
     public void info(PluginCall call) {
         try {
+            if (Relay.pairPage == null) Relay.pairPage = () -> {
+                try (java.io.InputStream in = getContext().getAssets().open("public/pair.html")) {
+                    java.io.ByteArrayOutputStream b = new java.io.ByteArrayOutputStream();
+                    byte[] buf = new byte[8192];
+                    for (int k; (k = in.read(buf)) > 0; ) b.write(buf, 0, k);
+                    return b.toByteArray();
+                } catch (IOException e) { return null; }
+            };
             int port = RELAY.start();
             UiModeManager ui = (UiModeManager) getContext().getSystemService(Context.UI_MODE_SERVICE);
             boolean tv = ui != null && ui.getCurrentModeType() == Configuration.UI_MODE_TYPE_TELEVISION;

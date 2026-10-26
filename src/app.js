@@ -9,7 +9,7 @@ import '@fontsource/bebas-neue/400.css';
 import '@fontsource/fraunces/600-italic.css';
 import './styles.css';
 import { buildDemo } from './data/demo.js';
-import { detectRelay, Native, nativeInfo, imgUrl, useRelay, relayHasFfmpeg, streamInfo, canRecord, recList, recAdd, recStop, recDelete, recFileUrl } from './data/net.js';
+import { detectRelay, Native, nativeInfo, imgUrl, useRelay, relayHasFfmpeg, streamInfo, canRecord, recList, recAdd, recStop, recDelete, recFileUrl, pairStart, pairPoll } from './data/net.js';
 import { xtreamUrls } from './data/m3u.js';
 import { nameKey } from './data/xmltv.js';
 import { catchupUrl, hasArchive as hasArchiveReal } from './data/catchup.js';
@@ -298,6 +298,40 @@ function useLibrary(lib, epg) {
   S.libKey = 'pl';
   reconcile();
 }
+/* Several playlists behave as one: channels follow each other playlist by playlist, groups with the same name
+   become one category, and one programme guide covers them all. */
+const newSrcId = () => 's' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5);
+function migrateLib(L) {
+  if (!L || L.sources) return L;
+  const id = 's1';
+  return { v: 2, sources: [{ id, ...L.source }], parts: { [id]: { header: L.header, channels: L.channels || [], vodCount: L.vodCount || 0, updated: L.updated } },
+    updated: L.updated, epgUpdated: L.epgUpdated || 0, epgMatched: L.epgMatched || 0 };
+}
+function mergeLib(L) {
+  const out = [], seen = new Set();
+  for (const src of L.sources) {
+    const part = L.parts[src.id]; if (!part) continue;
+    for (const c of part.channels) {
+      // The same channel in two playlists stays twice (a second source), with its own id.
+      const id = seen.has(c.id) ? `${c.id}~${src.id}` : c.id;
+      seen.add(id);
+      out.push({ ...c, id, ua: c.ua || src.ua || '', src: src.id });
+    }
+  }
+  L.channels = out;
+  L.updated = Math.max(0, ...L.sources.map(s => (L.parts[s.id] || {}).updated || 0));
+  return L;
+}
+async function saveLib(L) { const { channels, ...rest } = L; await library.setLibrary(rest); }
+/** No playlist yet: an empty app that leads to the first one (no made-up channels). */
+function useEmpty() {
+  LIB = null;
+  CH = []; GROUPS = []; catName = {}; byId = {};
+  EPG = {}; EPG_RAW = null; epgCache.clear();
+  DEFAULTS = { fav: [], recent: [], quick: [] };
+  S.libKey = 'pl';
+  reconcile();
+}
 function useDemo() {
   const d = buildDemo();
   LIB = null;
@@ -519,6 +553,11 @@ function secHTML(s, limit) {
 const hkey = sc => sc.id || (sc.closest('.sec') || {}).dataset?.secid;
 function renderHome(prefer) {
   const ref = prefer || nav.cur;
+  if (!CH.length) {
+    $('#heroHead').innerHTML = ''; $('#hero').innerHTML = ''; $('#pills').innerHTML = '';
+    $('#sections').innerHTML = welcomeHTML();
+    return;
+  }
   const keepX = {};
   $$('#s-home .hscroll').forEach(sc => { keepX[hkey(sc)] = sc.scrollLeft; });
   const now = Date.now();
@@ -741,7 +780,7 @@ function renderSettings() {
       ${playlistRows()}
     </div>
     <div class="set-group"><h3>Kanály</h3>
-      <div class="preview">${['Tatra 1', 'Šport Live 1', 'Kino Max', 'Vltava 1'].map(n => cardStatic(byId[idOf(n)])).join('')}</div>
+      ${CH.length ? `<div class="preview">${(S.order.slice(0, 4).map(id => byId[id]).filter(Boolean)).map(c => cardStatic(c)).join('')}</div>` : ''}
       ${setRow('Veľkosť kanálov', '', seg('tile', [['s', 'Malé'], ['m', 'Stredné'], ['l', 'Veľké']]))}
       ${setRow('Zaoblenie rohov', '', seg('round', [['soft', 'Jemné'], ['med', 'Stredné'], ['strong', 'Výrazné']]))}
       ${setRow('Pozadie kanálov', 'Skutočné logá z playlistu bývajú priehľadné PNG', seg('tilebg', [['tint', 'Farba kanála'], ['dark', 'Tmavé'], ['light', 'Svetlé']]))}
@@ -761,8 +800,9 @@ function renderSettings() {
     </div>
     <div class="set-group"><h3>Rodičovský zámok</h3><div id="lockRows">${lockRows()}</div></div>
     <div class="set-group"><h3>Ostatné</h3>
-      ${setRow('Ovládanie', 'Klávesy, diaľkový ovládač a gestá', `<button class="btn small-btn f" data-act="help" data-group="main">Zobraziť</button>`)}
-      ${setRow('Obnoviť ukážku', 'Vráti nastavenia, sekcie, obľúbené a históriu do pôvodného stavu', `<button class="btn small-btn f" data-act="reset" data-group="main">Obnoviť</button>`)}
+      ${setRow('Sprievodca appkou', 'Prehliadka všetkých funkcií', `<button class="btn small-btn f" data-act="tour" data-group="main">Spustiť</button>`)}
+    ${setRow('Ovládanie', 'Klávesy, diaľkový ovládač a gestá', `<button class="btn small-btn f" data-act="help" data-group="main">Zobraziť</button>`)}
+      ${setRow('Obnoviť pôvodný stav', 'Vráti nastavenia, sekcie, obľúbené a históriu do pôvodného stavu. Playlisty ostanú.', `<button class="btn small-btn f" data-act="reset" data-group="main">Obnoviť</button>`)}
     </div>`;
 }
 const toggleBtn = (k, label) => `<button class="toggle f ${S.set[k] === 'on' ? 'on' : ''}" data-act="set" data-k="${k}" data-v="toggle" data-group="main" aria-label="${label}"></button>`;
@@ -788,17 +828,23 @@ function ago(t) {
   return `${day} ${hm(t)}`;
 }
 const plCard = (title, sub) => `<span class="pl-card"><span class="pl-icon">${I('link')}</span><span class="lbl"><b>${esc(title)}</b><small>${sub}</small></span></span>`;
-const epgUrls = () => (LIB ? (LIB.source.epg ? [LIB.source.epg] : LIB.header?.tvgUrls || []) : []);
+const epgUrls = () => (LIB ? [...new Set(LIB.sources.flatMap(s => s.epg ? [s.epg] : (LIB.parts[s.id]?.header?.tvgUrls || [])))] : []);
 function playlistRows() {
   const status = `<div class="lib-status ${S.libErr ? 'err' : ''} ${S.libBusy ? 'busy' : ''}" id="libStatus" ${S.libStatus ? '' : 'hidden'}><span class="spin"></span><span id="libStatusTxt">${esc(S.libStatus)}</span></div>`;
   const relayNote = useRelay() ? '' : setRow('Beží bez lokálneho servera', 'V prehliadači na PC väčšina IPTV serverov bez neho nefunguje. Spusti appku príkazom npm start (pozri README).', '');
   if (!LIB) return relayNote + setRow(plCard('Ukážkové kanály', 'Vymyslené kanály bez vysielania. Keď pridáš svoj playlist, nahradí ich.'), '',
-    `<button class="btn small-btn primary f" data-act="playlist" data-new="1" data-group="main">${I('plus')}Pridať playlist</button>`) + status;
+    `<div class="actions"><button class="btn small-btn primary f" data-act="playlist" data-new="1" data-group="main">${I('plus')}Pridať playlist</button>${canPair() ? `<button class="btn small-btn f" data-act="pair" data-group="main">${I('link')}Z mobilu (QR)</button>` : ''}</div>`) + status;
   const L = LIB;
   const epgTxt = L.epgUpdated ? `Program (EPG) pre ${L.epgMatched || 0} z ${countTxt(CH.length)} · ${ago(L.epgUpdated)}` : epgUrls().length ? 'Program (EPG) sa ešte nenačítal' : 'Bez programu (EPG)';
-  const arch = CH.filter(c => c.catchup).length;
-  return relayNote + setRow(plCard(L.source.name || 'Môj IPTV', `${countTxt(CH.length)}${arch ? ` · archív na ${arch}` : ''} · aktualizované ${ago(L.updated)}<br>${epgTxt}`), '',
-    `<div class="actions"><button class="btn small-btn f" data-act="pl-refresh" data-group="main">${I('hist')}Obnoviť</button><button class="btn small-btn f" data-act="playlist" data-group="main">${I('pencil')}Upraviť</button><button class="btn small-btn f" data-act="pl-remove" data-group="main">${I('trash')}Odstrániť</button></div>`) + status;
+  const rows = L.sources.map(s => {
+    const part = L.parts[s.id] || { channels: [] }, n = part.channels.length, arch = part.channels.filter(c => c.catchup).length;
+    return setRow(plCard(s.name || 'Môj IPTV', `${countTxt(n)}${arch ? ` · archív na ${arch}` : ''} · aktualizované ${ago(part.updated)}`), '',
+      `<div class="actions"><button class="btn small-btn f" data-act="pl-refresh" data-src="${s.id}" data-group="main">${I('hist')}Obnoviť</button><button class="btn small-btn f" data-act="playlist" data-src="${s.id}" data-group="main">${I('pencil')}Upraviť</button><button class="btn small-btn f" data-act="pl-remove" data-src="${s.id}" data-group="main">${I('trash')}Odstrániť</button></div>`);
+  }).join('');
+  const all = L.sources.length > 1 ? `Spolu ${countTxt(CH.length)} z ${L.sources.length} playlistov, kategórie s rovnakým názvom sú spojené. ` : '';
+  return relayNote + rows
+    + setRow('Program (EPG)', all + epgTxt, `<div class="actions"><button class="btn small-btn f" data-act="pl-refresh" data-group="main">${I('hist')}Obnoviť všetko</button><button class="btn small-btn primary f" data-act="playlist" data-new="1" data-group="main">${I('plus')}Pridať ďalší playlist</button>${canPair() ? `<button class="btn small-btn f" data-act="pair" data-group="main">${I('link')}Z mobilu (QR)</button>` : ''}</div>`)
+    + status;
 }
 function setLibStatus(text, busy = false, err = false) {
   S.libStatus = text; S.libBusy = busy; S.libErr = err;
@@ -812,29 +858,58 @@ function rerender() {
   if (!modal.hidden) return;
   go(S.screen);
 }
-let importing = false;
+let importing = false, editSrc = null;
+/** Add or refresh one playlist (src.id set = an existing one). opts.noEpg: the caller refreshes the guide itself. */
 async function importPlaylist(src, opts = {}) {
-  if (importing) return;
+  if (importing) return false;
   importing = true;
-  setLibStatus('Sťahujem playlist…', true);
+  src = { ...src, id: src.id || newSrcId() };
+  const label = LIB && LIB.sources.length > 1 || (LIB && !LIB.sources.some(s => s.id === src.id)) ? ` „${src.name}“` : '';
+  setLibStatus(`Sťahujem playlist${label}…`, true);
+  let ok = false;
   try {
-    const res = await library.loadPlaylist(src, pr => setLibStatus(`Sťahujem playlist… ${mb(pr.bytes)}${pr.total ? ' z ' + mb(pr.total) : ''}`, true));
+    const res = await library.loadPlaylist(src, pr => setLibStatus(`Sťahujem playlist${label}… ${mb(pr.bytes)}${pr.total ? ' z ' + mb(pr.total) : ''}`, true));
     if (!res.channels.length) throw new Error(res.vodCount ? 'Playlist obsahuje len filmy a seriály (VOD), žiadne živé kanály.' : 'V playliste nie sú žiadne kanály.');
-    const same = LIB && LIB.source.m3u === src.m3u && LIB.source.epg === src.epg;
-    const L = { source: src, header: res.header, channels: res.channels, vodCount: res.vodCount, updated: Date.now(), epgUpdated: same ? LIB.epgUpdated : 0, epgMatched: same ? LIB.epgMatched : 0 };
-    await library.setLibrary(L);
-    useLibrary(L, same ? EPG_RAW : null);
+    const L = LIB ? { ...LIB } : { v: 2, sources: [], parts: {}, epgUpdated: 0, epgMatched: 0 };
+    const old = L.sources.find(s => s.id === src.id);
+    const guideChanged = !old || old.m3u !== src.m3u || old.epg !== src.epg;
+    L.sources = old ? L.sources.map(s => (s.id === src.id ? src : s)) : [...L.sources, src];
+    L.parts = { ...L.parts, [src.id]: { header: res.header, channels: res.channels, vodCount: res.vodCount, updated: Date.now() } };
+    if (guideChanged) { L.epgUpdated = 0; L.epgMatched = 0; }
+    mergeLib(L);
+    await saveLib(L);
+    useLibrary(L, guideChanged ? null : EPG_RAW);
     nav.mem = {};
     setLibStatus(`Načítaných ${countTxt(CH.length)}${res.vodCount ? `. ${res.vodCount} filmov a seriálov (VOD) zatiaľ preskakujem` : ''}.`);
     rerender();
-    if (!opts.silent) toast(`Playlist načítaný: ${countTxt(CH.length)}`);
-    importing = false;
-    await refreshEpg();
+    if (!opts.silent) toast(old ? `Playlist obnovený: ${countTxt(res.channels.length)}` : `Playlist pridaný: ${countTxt(res.channels.length)}`);
+    ok = true;
   } catch (e) {
-    setLibStatus('Playlist sa nepodarilo načítať: ' + e.message, false, true);
+    setLibStatus(`Playlist${label} sa nepodarilo načítať: ` + e.message, false, true);
     if (!opts.silent) toast(e.message);
   }
   importing = false;
+  if (ok && !opts.noEpg) await refreshEpg();
+  return ok;
+}
+/** Every playlist, then one guide for all. */
+async function refreshAll(opts = {}) {
+  if (!LIB) return;
+  for (const s of [...LIB.sources]) await importPlaylist(s, { ...opts, noEpg: true, silent: true });
+  await refreshEpg();
+  if (!opts.silent) toast('Playlisty a program obnovené');
+}
+async function removeSource(id) {
+  if (!LIB) return;
+  const L = { ...LIB, sources: LIB.sources.filter(s => s.id !== id), parts: { ...LIB.parts } };
+  delete L.parts[id];
+  if (!L.sources.length) { await library.clearLibrary(); useEmpty(); setLibStatus(''); nav.mem = {}; go('settings'); toast('Playlist odstránený'); return; }
+  mergeLib(L);
+  await saveLib(L);
+  useLibrary(L, EPG_RAW);
+  nav.mem = {};
+  go('settings');
+  toast('Playlist odstránený');
 }
 async function refreshEpg() {
   const urls = epgUrls();
@@ -843,11 +918,11 @@ async function refreshEpg() {
   setLibStatus('Sťahujem program (EPG)…', true);
   try {
     const days = Math.max(1, ...CH.map(c => (c.catchup ? c.catchup.days : 0)));
-    const r = await library.loadEpg(urls, CH, { ua: LIB.source.ua, pastDays: Math.min(8, days + 1) },
+    const r = await library.loadEpg(urls, CH, { ua: LIB.sources[0].ua, pastDays: Math.min(8, days + 1) },
       pr => setLibStatus(`Spracúvam program (EPG)… ${mb(pr.bytes)}${pr.total ? ' z ' + mb(pr.total) : ''} · ${(pr.programmes || 0).toLocaleString('sk-SK')} relácií`, true));
     EPG_RAW = r.epg; epgCache.clear();
     LIB.epgUpdated = Date.now(); LIB.epgMatched = r.matched;
-    await library.setLibrary(LIB);
+    await saveLib(LIB);
     setLibStatus(r.matched ? `Program načítaný pre ${r.matched} z ${countTxt(CH.length)}.` : 'EPG sa stiahlo, ale nesedí na žiadny kanál (skontroluj, či patrí k tomuto playlistu).', false, !r.matched);
     rerender();
   } catch (e) {
@@ -1224,7 +1299,7 @@ function renderMini() { if (P.mini && byId[P.ch]) $('#miniName').textContent = b
 async function nativePip() {
   try { await engine.v.requestPictureInPicture(); } catch { toast('Prehliadač tu okno nad ostatnými aplikáciami nepovolil'); }
 }
-const srcFor = (ch, extra) => ({ url: ch.url, ua: ch.ua || (LIB && LIB.source.ua) || '', ref: ch.ref || '', ...extra });
+const srcFor = (ch, extra) => ({ url: ch.url, ua: ch.ua || '', ref: ch.ref || '', ...extra });
 function startLive(ch) {
   P.rec = null;
   P.mode = 'live'; P.offset = 0; P.base = null; P.paused = false; P.prefApplied = false;
@@ -1580,7 +1655,7 @@ function openFutureMenu(id, start) {
 }
 async function scheduleRec(ch, title, start, end) {
   try {
-    await recAdd({ ch: ch.id, chName: ch.name, title, url: ch.url, ua: ch.ua || (LIB && LIB.source.ua) || '', ref: ch.ref || '', start, end });
+    await recAdd({ ch: ch.id, chName: ch.name, title, url: ch.url, ua: ch.ua || '', ref: ch.ref || '', start, end });
     toast(start <= Date.now() ? `Nahrávam: ${title}` : `Nahrám: ${title} · ${dayWord(start)} ${hm(start)}`);
     $('#navRecs').hidden = false;
     await refreshRecs();
@@ -1723,6 +1798,94 @@ $('#gScroll').addEventListener('wheel', e => {
   e.preventDefault();
   zoomGuide(gZoom * (e.deltaY < 0 ? 1.15 : 1 / 1.15), e.clientX); store.set('gzoom', gZoom);
 }, { passive: false });
+
+/* ---------- Adding a playlist from a phone (QR code) ---------- */
+const canPair = () => useRelay();
+let pairT = 0;
+async function openPair() {
+  let info;
+  try { info = await pairStart(); } catch (e) { toast('Párovanie sa nedá spustiť: ' + e.message); return; }
+  const url = (info.urls || [])[0];
+  if (!url) { openModal(`<h2>Zadať z mobilu</h2><p class="muted">Toto zariadenie nie je pripojené do domácej siete (Wi-Fi alebo kábel). Pripoj ho a skús znova.</p><div class="actions"><button class="btn primary f" data-act="close-modal">Zavrieť</button></div>`); return; }
+  const { default: qrcode } = await import('qrcode-generator');
+  const qr = qrcode(0, 'M'); qr.addData(url); qr.make();
+  openModal(`<div class="pair">
+    <div class="pair-qr">${qr.createSvgTag({ cellSize: 6, margin: 3, scalable: true })}</div>
+    <div class="pair-txt"><h2>Zadať playlist z mobilu</h2>
+      <ol><li>Mobil musí byť v rovnakej Wi-Fi sieti ako toto zariadenie.</li><li>Nasmeruj fotoaparát mobilu na QR kód a otvor odkaz.</li><li>Vyplň adresu playlistu (alebo Xtream) a ťukni na <b>Poslať do TV</b>.</li></ol>
+      <p class="muted">Alebo otvor v prehliadači mobilu:<br><b class="pair-url">${esc(url)}</b></p>
+      <p class="pair-wait"><span class="spin"></span>Čakám na údaje z mobilu…</p>
+      <div class="actions"><button class="btn f" data-act="close-modal">Zrušiť</button></div></div>
+  </div>`);
+  clearTimeout(pairT);
+  const poll = async () => {
+    if (!$('#dialog .pair')) return;   // the dialog was closed
+    const r = await pairPoll(info.token).catch(() => ({}));
+    if (r.expired) { $('.pair-wait').textContent = 'Kód vypršal, otvor ho znova.'; return; }
+    if (!r.data) { pairT = setTimeout(poll, 2000); return; }
+    const d = r.data, s = v => String(v || '').trim();
+    let m3u = s(d.m3u), epg = s(d.epg);
+    if (!m3u && d.server) { const x = xtreamUrls(/^https?:\/\//i.test(s(d.server)) ? s(d.server) : 'http://' + s(d.server), s(d.user), String(d.pass || '')); m3u = x.m3u; epg = epg || x.epg; }
+    closeModal();
+    if (!/^https?:\/\//i.test(m3u)) { toast('Z mobilu neprišla platná adresa playlistu'); return; }
+    toast('Údaje z mobilu prijaté');
+    if (S.screen !== 'settings') go('settings');
+    importPlaylist({ name: s(d.name) || (LIB ? `Playlist ${LIB.sources.length + 1}` : 'Môj IPTV'), m3u, epg, ua: '' });
+  };
+  pairT = setTimeout(poll, 2000);
+}
+
+/* ---------- First start: the empty home and a guided tour of everything the app does ---------- */
+function welcomeHTML() {
+  return `<div class="welcome">
+    <span class="w-mark">V</span>
+    <h2>Vitaj vo Vysielači</h2>
+    <p>Vysielač je prehrávač IPTV. Neobsahuje žiadne kanály: pridaj playlist od svojho poskytovateľa a appka z neho spraví prehľadnú televíziu s programom.</p>
+    <div class="actions">
+      <button class="btn primary f" data-act="playlist" data-new="1" data-group="main">${I('plus')}Pridať playlist</button>
+      ${canPair() ? `<button class="btn f" data-act="pair" data-group="main">${I('link')}Zadať z mobilu (QR)</button>` : ''}
+      <button class="btn f" data-act="tour" data-group="main">${I('sparkle')}Ako appka funguje</button>
+    </div>
+  </div>`;
+}
+const TOUR = () => {
+  const ctrl = IS_TV
+    ? [['Šípky a OK', 'pohyb a výber; v prehrávači ↑ ↓ prepína kanály, ← zoznam, → program'], ['Čísla', 'priamo na kanál (napríklad 1 2 = kanál 12)'], ['Podržané OK', 'menu kanála s náhľadom programu'], ['⏯ ⏪ ⏩', 'pauza a pretáčanie o 30 s'], ['Červené / modré', 'malé okienko / technické info'], ['Späť', 'zatvorí panel, prehrávač, potom appku']]
+    : isPhone()
+      ? [['Ťuknutie', 'ovládanie prehrávača'], ['Dvojité ťuknutie vľavo / vpravo', '30 s dozadu / dopredu'], ['Potiahnutie hore / dole', 'ďalší kanál (dá sa vypnúť)'], ['Podržanie kanála', 'menu s náhľadom programu'], ['Otočenie telefónu', 'celá obrazovka; ⟲ prepne aj bez otočenia'], ['Dva prsty v programe', 'priblíženie času']]
+      : [['Šípky, Enter, Esc', 'pohyb, výber, späť'], ['↑ ↓ / PageUp PageDown', 'kanál v prehrávači'], ['Medzerník, ← →', 'pauza; v ovládaní pretáčanie'], ['F, M, + −', 'celá obrazovka, zvuk, hlasitosť'], ['P, D, L', 'malé okienko, technické info, posledný kanál'], ['Pravý klik na kanál', 'menu s náhľadom programu']];
+  return [
+    { ic: 'sparkle', t: 'Vitaj vo Vysielači', p: 'Moderný prehrávač pre tvoje IPTV. Toto je krátka prehliadka všetkého, čo vie.',
+      li: [['Vlastný playlist', 'odkaz M3U alebo prihlásenie Xtream Codes od poskytovateľa'], ['Viac playlistov', 'spoja sa do jedného, rovnaké kategórie sa zlúčia'], ['Program (EPG)', 'sa načíta a obnovuje sám'], ['Súkromie', 'všetko ostáva len v tomto zariadení']] },
+    { ic: 'home', t: 'Domov a kanály', p: 'Kanály ako karty s logom a tým, čo práve beží.',
+      li: [['Veľké karty', 'tvoje obľúbené kanály (alebo čo beží teraz)'], ['Kategórie', 'tlačidlá navrchu a sekcie nižšie, aj vlastné'], ['Naposledy pozerané', 'vždy po ruke'], ['Usporiadanie', 'Nastavenia → Sekcie: poradie kanálov, vlastné kategórie, presúvanie']] },
+    { ic: 'guide', t: 'TV program', p: 'Celý program po dňoch, aj so spätným archívom.',
+      li: [['Dni', 'včera, dnes, zajtra… podľa toho, čo poskytovateľ ponúka'], ['Relácia v minulosti', 'pozeranie z archívu alebo od začiatku'], ['Budúca relácia', 'pripomienka' + (canRecord() ? ' alebo nahrávanie' : '')], ['Hľadanie', 'relácie v celom programe, nielen kanály'], ['Náhľad', 'podržaním kanála uvidíš popis a čo ide ďalej']] },
+    { ic: 'play', t: 'Prehrávač', p: 'Živé vysielanie sa dá zastaviť a pretočiť.',
+      li: [['Pauza a pretáčanie', 'aj živého vysielania; Naživo ťa vráti späť'], ['Zvuk, titulky, kvalita', 'jazyk si appka pamätá, pomer strán pre každý kanál zvlášť'], ['Časovač vypnutia', 'po 15 minútach až 2 hodinách alebo na konci relácie'], ['Dva obrazy', 'dva kanály vedľa seba'], ['Malé okienko', 'kanál hrá v rohu, kým prechádzaš appku' + (Native && nativeInfo && nativeInfo.pip ? ', a aj nad inými aplikáciami' : '')]] },
+    { ic: IS_TV ? 'list' : 'hist', t: 'Ovládanie', p: IS_TV ? 'Celá appka sa ovláda diaľkovým ovládačom.' : isPhone() ? 'Gestá na mobile a tablete.' : 'Myš, klávesnica aj dotyk.', li: ctrl },
+    { ic: 'settings', t: 'Prispôsob si to', p: 'Všetko v Nastaveniach.',
+      li: [['Písmo a ikony', 'väčšie písmo, tlačidlá len s ikonami'], ['Jazyk', 'slovenčina alebo angličtina'], ['Vzhľad', 'veľkosť a tvar kariet, farba zvýraznenia, štýl'], ['Rodičovský zámok', 'PIN na kategórie aj jednotlivé kanály'], ['Po spustení', 'pokračovať naposledy pozeraným kanálom']] },
+    { ic: 'plus', t: 'Poďme na to', p: LIB ? 'Playlist už máš. Ďalší pridáš v Nastaveniach → Playlist.' : 'Pridaj svoj prvý playlist. Adresu ti dal poskytovateľ IPTV (M3U odkaz alebo server, meno a heslo).', last: true },
+  ];
+};
+let tourI = 0;
+function openTour(i = 0) {
+  const steps = TOUR(), s = steps[tourI = Math.max(0, Math.min(steps.length - 1, i))];
+  openModal(`<div class="tour">
+    <div class="tour-ic">${I(s.ic)}</div>
+    <div class="tour-step">${tourI + 1} / ${steps.length}</div>
+    <h2>${s.t}</h2><p class="muted">${s.p}</p>
+    ${s.li ? `<dl class="tour-li">${s.li.map(([a, b]) => `<dt>${a}</dt><dd>${b}</dd>`).join('')}</dl>` : ''}
+    <div class="tour-dots">${steps.map((_, k) => `<i class="${k === tourI ? 'on' : ''}"></i>`).join('')}</div>
+    <div class="actions">${s.last
+      ? (LIB ? `<button class="btn primary f" data-act="close-modal">Hotovo</button>` : `<button class="btn primary f" data-act="tour-pl">${I('plus')}Pridať playlist</button>${canPair() ? `<button class="btn f" data-act="tour-pair">${I('link')}Z mobilu (QR)</button>` : ''}`)
+      : `<button class="btn primary f" data-act="tour-go" data-v="${tourI + 1}">Ďalej</button>`}
+      ${tourI ? `<button class="btn f" data-act="tour-go" data-v="${tourI - 1}">Späť</button>` : ''}
+      ${s.last ? '' : `<button class="btn f tour-skip" data-act="close-modal">Preskočiť</button>`}</div>
+  </div>`);
+  store.set('tour', 1);
+}
 
 /* ---------- Phones ---------- */
 const isPhone = () => document.body.classList.contains('touch') && !IS_TV;
@@ -2019,8 +2182,9 @@ function openHelp() {
     </div>
     <div class="actions"><button class="btn primary f" data-act="close-modal">Rozumiem</button></div>`);
 }
-function openPlaylist(isNew) {
-  const src = !isNew && LIB ? LIB.source : { name: '', m3u: '', epg: '', ua: '' };
+function openPlaylist(isNew, srcId) {
+  const src = !isNew && LIB ? LIB.sources.find(s => s.id === srcId) || LIB.sources[0] : { name: '', m3u: '', epg: '', ua: '' };
+  editSrc = isNew ? null : src.id;
   openModal(`<h2>${isNew ? 'Pridať playlist' : 'Upraviť playlist'}</h2>
     <p class="muted">Adresy sa uložia len v tomto zariadení. Playlist a program (EPG) sa potom obnovujú samy.</p>
     <div class="seg" id="plType"><button class="f on" data-act="pltype" data-v="m3u">M3U odkaz</button><button class="f" data-act="pltype" data-v="xt">Xtream Codes</button></div>
@@ -2057,13 +2221,13 @@ function activate(el, e) {
     case 'rprog': { const st = +el.dataset.start, r = progAction(id, st); if (r === 'rem') { const p = findProg(id, st); el.outerHTML = progRes(byId[id], p, 'later'); setFocus($(`#results [data-act="rprog"][data-ch="${id}"][data-start="${st}"]`), { noScroll: true }); } break; }
     case 'gday': gDay = +el.dataset.v; renderGuide(); nav.cur = null; setFocus($(`[data-act="gday"][data-v="${gDay}"]`), { noScroll: true }); break;
     case 'set': setSetting(el.dataset.k, el.dataset.v, el); break;
-    case 'playlist': openPlaylist(!!el.dataset.new); break;
+    case 'playlist': openPlaylist(!!el.dataset.new, el.dataset.src); break;
     case 'help': openHelp(); break;
     case 'reset':
       S.set = Object.assign({}, DEFAULT_SET); S.sections = defaultSections(); S.quick = DEFAULTS.quick.slice(); S.recent = DEFAULTS.recent.slice(); S.rem = new Set();
       S.order = CH.map(c => c.id); renumber();
       save(); store.set('recent:' + S.libKey, S.recent); store.set('rem:' + S.libKey, []);
-      applySettings(); renderSettings(); setFocus($('[data-act="reset"]'), { noScroll: true }); toast('Ukážka obnovená');
+      applySettings(); renderSettings(); setFocus($('[data-act="reset"]'), { noScroll: true }); toast('Pôvodný stav obnovený');
       break;
     case 'close-modal': closeModal(); break;
     case 'save-playlist': {
@@ -2075,16 +2239,16 @@ function activate(el, e) {
         m3u = x.m3u; epg = epg || x.epg;
       }
       if (!/^https?:\/\//i.test(m3u)) { toast('Adresa playlistu musí začínať http:// alebo https://'); setFocus($('#plUrl')); break; }
-      const src = { name: $('#plName').value.trim() || 'Môj IPTV', m3u, epg, ua: $('#plUa').value.trim() };
+      const src = { id: editSrc || undefined, name: $('#plName').value.trim() || (LIB ? `Playlist ${LIB.sources.length + (editSrc ? 0 : 1)}` : 'Môj IPTV'), m3u, epg, ua: $('#plUa').value.trim() };
       closeModal();
       if (S.screen !== 'settings') go('settings');
       importPlaylist(src);
       break;
     }
-    case 'pl-refresh': if (LIB) importPlaylist(LIB.source); break;
+    case 'pl-refresh': if (LIB) { const s = LIB.sources.find(x => x.id === el.dataset.src); if (s) importPlaylist(s); else refreshAll(); } break;
     case 'pl-remove': {
       if (!el.classList.contains('armed')) { el.classList.add('armed'); toast('Stlač ešte raz a playlist sa odstráni z tohto zariadenia'); setTimeout(() => el.classList.remove('armed'), 3000); break; }
-      library.clearLibrary().then(() => { useDemo(); setLibStatus(''); nav.mem = {}; go('settings'); toast('Playlist odstránený, zobrazujú sa ukážkové kanály'); });
+      removeSource(el.dataset.src);
       break;
     }
     case 'pltype':
@@ -2231,6 +2395,11 @@ function activate(el, e) {
     case 'p-down': step(-1); break;
     case 'p-list': openPanel('list'); break;
     case 'p-more': openPanel('more'); break;
+    case 'tour': openTour(0); break;
+    case 'tour-go': openTour(+el.dataset.v); break;
+    case 'tour-pl': closeModal(true); openPlaylist(true); break;
+    case 'tour-pair': closeModal(true); openPair(); break;
+    case 'pair': openPair(); break;
     case 'p-stats': toggleStats(); break;
     case 'p-rotate': toggleRotate(); break;
     case 'p-float': floatWindow(); break;
@@ -2543,12 +2712,16 @@ if (IS_TV) document.documentElement.classList.add('tv');
   if (Native) document.documentElement.classList.add('native');
   if (canRecord()) { $('#navRecs').hidden = false; refreshRecs(); }
   let L = null, E = null;
-  try { L = await library.getLibrary(); if (L) E = await library.getEpg(); } catch (e) { console.warn(e); }
-  if (L && L.channels && L.channels.length) useLibrary(L, E); else useDemo();
+  try { L = migrateLib(await library.getLibrary()); if (L) E = await library.getEpg(); } catch (e) { console.warn(e); }
+  if (L && L.sources && L.sources.length) { mergeLib(L); if (!L.channels.length) L = null; }
+  // ?demo shows made-up channels (store screenshots); a real start is empty and leads to the first playlist.
+  if (new URLSearchParams(location.search).has('demo')) { L = null; useDemo(); }
+  else if (L) useLibrary(L, E); else useEmpty();
   go('home');
+  if (!L && !store.get('tour', 0) && !new URLSearchParams(location.search).has('demo')) openTour(0);
   if (L && S.set.resume === 'on' && S.recent[0] && byId[S.recent[0]]) openPlayer(S.recent[0]);
   if (L) {
-    if (Date.now() - (L.updated || 0) > 12 * 3600e3) importPlaylist(L.source, { silent: true });
+    if (Date.now() - (L.updated || 0) > 12 * 3600e3) refreshAll({ silent: true });
     else if (!L.epgUpdated || Date.now() - L.epgUpdated > 8 * 3600e3) refreshEpg();
   }
 })();

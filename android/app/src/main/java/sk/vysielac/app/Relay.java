@@ -6,14 +6,20 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.HttpURLConnection;
+import java.net.Inet4Address;
 import java.net.InetAddress;
+import java.net.NetworkInterface;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.URL;
 import java.net.URLDecoder;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
+import java.security.SecureRandom;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
@@ -27,6 +33,8 @@ import java.util.zip.GZIPInputStream;
  * The web player cannot read most IPTV servers directly (no CORS headers, odd user agents), so it asks this one:
  *   /api/ping, /api/fetch?url=, /api/stream?url= (HLS playlists rewritten), /api/img?url=, /api/probe?url=
  * Optional on every route: ua (User-Agent), ref (Referer).
+ * Pairing (a phone sends the playlist to this TV): /api/pair-start, /api/pair-poll, and /pair?t= — the only thing
+ * reachable from the home network; everything else answers the app on this device only.
  */
 public class Relay {
     static final String DEFAULT_UA = "VLC/3.0.20 LibVLC/3.0.20";
@@ -34,11 +42,16 @@ public class Relay {
     private static final Pattern URI_ATTR = Pattern.compile("URI=\"([^\"]+)\"");
 
     private ServerSocket server;
+    /** Reads pair.html from the app's bundled web files (set by the plugin; null in plain-Java tests). */
+    static java.util.function.Supplier<byte[]> pairPage = null;
+    private static final Map<String, String[]> codes = new HashMap<>();   // token -> { expiry ms, data JSON or null }
+    private static final long CODE_TTL = 15 * 60_000L;
     private final ExecutorService pool = Executors.newCachedThreadPool();
 
     public synchronized int start() throws IOException {
         if (server != null) return server.getLocalPort();
-        server = new ServerSocket(0, 64, InetAddress.getByName("127.0.0.1"));
+        // All interfaces, so a phone can open the pairing page; route() keeps the relay itself local.
+        server = new ServerSocket(0, 64);
         Thread t = new Thread(() -> {
             while (!server.isClosed()) {
                 try {
@@ -57,7 +70,8 @@ public class Relay {
     // ---- request handling ----
 
     private static class Req {
-        String method, path;
+        String method, path, body = "";
+        boolean local;
         Map<String, String> q = new HashMap<>();
         Map<String, String> headers = new HashMap<>();
     }
@@ -69,6 +83,15 @@ public class Relay {
             OutputStream out = sock.getOutputStream();
             Req r = readRequest(in);
             if (r == null) return;
+            r.local = sock.getInetAddress().isLoopbackAddress();
+            String len = r.headers.get("content-length");
+            if (len != null && "POST".equals(r.method)) {
+                int n = Math.min(20000, Integer.parseInt(len.trim()));
+                byte[] b = new byte[n];
+                int got = 0;
+                while (got < n) { int k = in.read(b, got, n - got); if (k < 0) break; got += k; }
+                r.body = new String(b, 0, got, StandardCharsets.UTF_8);
+            }
             sock.setSoTimeout(0);
             route(r, out);
         } catch (IOException ignored) {
@@ -111,8 +134,12 @@ public class Relay {
     }
 
     private void route(Req r, OutputStream out) throws IOException {
+        if ("/pair".equals(r.path)) { pair(r, out); return; }
+        if (!r.local) { text(out, 403, "Forbidden"); return; }
         if ("OPTIONS".equals(r.method)) { head(out, 204, "No Content", new HashMap<>()); return; }
         String route = r.path.startsWith("/api/") ? r.path.substring(5) : "";
+        if ("pair-start".equals(route)) { pairStart(out); return; }
+        if ("pair-poll".equals(route)) { pairPoll(r.q.get("t"), out); return; }
         if ("ping".equals(route)) { json(out, 200, "{\"ok\":true,\"ffmpeg\":false,\"rec\":false,\"native\":true}"); return; }
         String target = r.q.get("url");
         if (target == null || !target.matches("(?i)^https?://.*")) { text(out, 400, "Chýba alebo je neplatná adresa (url)."); return; }
@@ -167,6 +194,75 @@ public class Relay {
         } finally {
             up.disconnect();
         }
+    }
+
+    // ---- pairing ----
+
+    private void pairStart(OutputStream out) throws IOException {
+        byte[] raw = new byte[12];
+        new SecureRandom().nextBytes(raw);
+        StringBuilder t = new StringBuilder();
+        for (byte b : raw) t.append(String.format(Locale.ROOT, "%02x", b));
+        String token = t.toString();
+        synchronized (codes) {
+            codes.entrySet().removeIf(e -> Long.parseLong(e.getValue()[0]) < System.currentTimeMillis());
+            codes.put(token, new String[] { String.valueOf(System.currentTimeMillis() + CODE_TTL), null });
+        }
+        StringBuilder urls = new StringBuilder();
+        for (String ip : lanAddresses()) urls.append(urls.length() > 0 ? "," : "").append(quote("http://" + ip + ":" + server.getLocalPort() + "/pair?t=" + token));
+        json(out, 200, "{\"token\":" + quote(token) + ",\"urls\":[" + urls + "]}");
+    }
+
+    private void pairPoll(String token, OutputStream out) throws IOException {
+        String[] c = alive(token);
+        if (c == null) { json(out, 404, "{\"error\":\"expired\"}"); return; }
+        if (c[1] == null) { json(out, 200, "{\"wait\":true}"); return; }
+        synchronized (codes) { codes.remove(token); }
+        json(out, 200, "{\"data\":" + c[1] + "}");
+    }
+
+    private void pair(Req r, OutputStream out) throws IOException {
+        String[] c = alive(r.q.get("t"));
+        if (c == null) { text(out, 403, "Kód neplatí. Na TV otvor QR kód znova. / This code has expired."); return; }
+        if ("POST".equals(r.method)) {
+            String b = r.body.trim();
+            // The form sends a small JSON object; the app reads only its known fields.
+            if (!b.startsWith("{") || !b.endsWith("}") || b.length() > 20000) { json(out, 400, "{\"error\":\"bad request\"}"); return; }
+            synchronized (codes) { c[1] = b; }
+            json(out, 200, "{\"ok\":true}");
+            return;
+        }
+        byte[] page = pairPage != null ? pairPage.get() : null;
+        if (page == null) { text(out, 404, "Not found"); return; }
+        Map<String, String> h = new HashMap<>();
+        h.put("Content-Type", "text/html; charset=utf-8");
+        h.put("Cache-Control", "no-store");
+        h.put("Content-Length", String.valueOf(page.length));
+        head(out, 200, "OK", h);
+        out.write(page);
+        out.flush();
+    }
+
+    private static String[] alive(String token) {
+        if (token == null) return null;
+        synchronized (codes) {
+            String[] c = codes.get(token);
+            if (c == null) return null;
+            if (Long.parseLong(c[0]) < System.currentTimeMillis()) { codes.remove(token); return null; }
+            return c;
+        }
+    }
+
+    static List<String> lanAddresses() {
+        List<String> out = new ArrayList<>();
+        try {
+            for (NetworkInterface ni : Collections.list(NetworkInterface.getNetworkInterfaces())) {
+                if (!ni.isUp() || ni.isLoopback() || ni.isVirtual()) continue;
+                for (InetAddress a : Collections.list(ni.getInetAddresses()))
+                    if (a instanceof Inet4Address && a.isSiteLocalAddress()) out.add(a.getHostAddress());
+            }
+        } catch (Exception ignored) { }
+        return out;
     }
 
     // ---- upstream ----

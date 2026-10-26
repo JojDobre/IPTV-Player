@@ -6,6 +6,7 @@ import { networkInterfaces } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { handleApi } from './proxy.js';
 import { startRecorder } from './recorder.js';
+import { pairPage } from './pair.js';
 
 const root = fileURLToPath(new URL('../dist/', import.meta.url));
 const PORT = +process.env.PORT || 8080;
@@ -21,6 +22,7 @@ startRecorder({ log });
 
 http.createServer(async (req, res) => {
   if (await handleApi(req, res, { log })) return;
+  if (pairPage(req, res, root)) return;
   let path = normalize(decodeURIComponent(new URL(req.url, 'http://x').pathname)).replace(/^([/\\])+/, '');
   let file = join(root, path);
   if (!file.startsWith(root) || !existsSync(file) || statSync(file).isDirectory()) file = join(root, 'index.html');

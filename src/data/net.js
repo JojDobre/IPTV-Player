@@ -64,3 +64,7 @@ export const recList = () => recCall('rec');
 export const recAdd = item => recCall('rec', 'POST', item);
 export const recStop = id => recCall(`rec/stop?id=${enc(id)}`, 'POST');
 export const recDelete = id => recCall(`rec?id=${enc(id)}`, 'DELETE');
+
+// Pairing: a phone sends the playlist to this device (see server/pair.js and Relay.java).
+export async function pairStart() { const r = await fetch(abs('/api/pair-start'), { cache: 'no-store' }); if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); }
+export async function pairPoll(t) { const r = await fetch(abs(`/api/pair-poll?t=${enc(t)}`), { cache: 'no-store' }); return r.ok ? r.json() : { expired: true }; }
