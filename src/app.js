@@ -134,7 +134,7 @@ const catIcon = s => s.icon === 'auto' ? `<span class="txt-ic">${esc(initials(s.
 const ACCENTS = { white: ['#FFFFFF', '#0A0A17'], amber: ['#F2B84B', '#1B1406'], coral: ['#FF7A59', '#1E0B05'], mint: ['#4FD1A5', '#04170F'], violet: ['#A08CFF', '#0F0A24'], ice: ['#7CC4FF', '#03121F'] };
 const PALETTE = ['#2F6BFF', '#E5394B', '#8B5CF6', '#16A34A', '#F59E0B', '#EC4899', '#0EA5A4', '#F97316'];
 const ICONS = ['auto', 'film', 'ball', 'news', 'kids', 'globe', 'note', 'cup', 'heart', 'sparkle'];
-const DEFAULT_SET = { look: 'classic', secRows: '2', tile: 'm', round: 'med', tilebg: 'tint', nums: 'off', caps: 'on', accent: 'white', hide: '5', lang: 'sk', subs: 'off', resume: 'off', backMini: 'off', pipAuto: 'on', afr: 'on', swipe: 'on' };
+const DEFAULT_SET = { look: 'classic', secRows: '2', tile: 'm', round: 'med', tilebg: 'tint', nums: 'off', caps: 'on', accent: 'white', hide: '5', lang: 'sk', subs: 'off', resume: 'off', backMini: 'off', pipAuto: 'on', afr: 'on', swipe: 'on', haptic: 'on', fsize: 'm' };
 function defaultSections() {
   return [
     { id: 'recent', type: 'recent', name: 'Naposledy pozerané', color: '#94A3B8', icon: 'hist', show: true },
@@ -359,6 +359,7 @@ function applySettings() {
   const r = document.documentElement, s = S.set;
   if (s.round === 'circle') s.round = 'strong';
   if (!ACCENTS[s.accent]) s.accent = 'white';
+  r.style.setProperty('--fz', { s: .9, m: 1, l: 1.12, xl: 1.25 }[s.fsize] || 1);
   r.dataset.look = s.look; r.dataset.caps = s.caps; r.dataset.tile = s.tile; r.dataset.round = s.round; r.dataset.tilebg = s.tilebg; r.dataset.nums = s.nums;
   const [a, ai] = ACCENTS[s.accent] || ACCENTS.amber;
   r.style.setProperty('--accent', a); r.style.setProperty('--accent-ink', ai);
@@ -784,6 +785,7 @@ function renderSettings() {
       ${setRow('Veľkosť kanálov', '', seg('tile', [['s', 'Malé'], ['m', 'Stredné'], ['l', 'Veľké']]))}
       ${setRow('Zaoblenie rohov', '', seg('round', [['soft', 'Jemné'], ['med', 'Stredné'], ['strong', 'Výrazné']]))}
       ${setRow('Pozadie kanálov', 'Skutočné logá z playlistu bývajú priehľadné PNG', seg('tilebg', [['tint', 'Farba kanála'], ['dark', 'Tmavé'], ['light', 'Svetlé']]))}
+      ${setRow('Veľkosť písma', 'Celá appka vrátane ovládania prehrávača', seg('fsize', [['s', 'Menšie'], ['m', 'Normálne'], ['l', 'Väčšie'], ['xl', 'Najväčšie']]))}
       ${setRow('Farba zvýraznenia', 'Rámik okolo vybranej položky', `<div class="swatches">${sw}</div>`)}
       ${setRow('Relácia pod kanálom', 'Názov a priebeh toho, čo práve beží', `<button class="toggle f ${S.set.caps === 'on' ? 'on' : ''}" data-act="set" data-k="caps" data-v="toggle" data-group="main" aria-label="Relácia pod kanálom"></button>`)}
       ${setRow('Čísla kanálov v rohu', '', `<button class="toggle f ${S.set.nums === 'on' ? 'on' : ''}" data-act="set" data-k="nums" data-v="toggle" data-group="main" aria-label="Čísla kanálov"></button>`)}
@@ -795,6 +797,7 @@ function renderSettings() {
       ${setRow('Po spustení pokračovať', 'Appka hneď pustí naposledy pozeraný kanál, ako set-top box', toggleBtn('resume', 'Po spustení pokračovať'))}
       ${Native && nativeInfo && nativeInfo.pip ? setRow('Okno nad aplikáciami', 'Keď počas pozerania odídeš z appky (tlačidlo Domov), kanál hrá ďalej v malom okne nad ostatnými aplikáciami', `<button class="toggle f ${S.set.pipAuto !== 'off' ? 'on' : ''}" data-act="set" data-k="pipAuto" data-v="toggle" data-group="main" aria-label="Okno nad aplikáciami"></button>`) : ''}
       ${Native && IS_TV ? setRow('Obnovovacia frekvencia podľa vysielania', 'TV sa prepne na 50 Hz pri európskom vysielaní, aby sa obraz pri pohybe netrhal (ako v Kodi). Ak TV pri prepnutí na chvíľu zčernie, je to normálne.', `<button class="toggle f ${S.set.afr !== 'off' ? 'on' : ''}" data-act="set" data-k="afr" data-v="toggle" data-group="main" aria-label="Obnovovacia frekvencia"></button>`) : ''}
+      ${!IS_TV && (Native || matchMedia('(pointer: coarse)').matches) ? setRow('Vibrácia pri dotyku', 'Jemná odozva pri dvojitom ťuknutí, prepnutí kanála a podržaní', `<button class="toggle f ${S.set.haptic !== 'off' ? 'on' : ''}" data-act="set" data-k="haptic" data-v="toggle" data-group="main" aria-label="Vibrácia"></button>`) : ''}
       ${setRow('Prepínanie kanálov potiahnutím', 'Na dotykovej obrazovke potiahnutie prstom hore alebo dole po obraze prepne na ďalší alebo predchádzajúci kanál', `<button class="toggle f ${S.set.swipe !== 'off' ? 'on' : ''}" data-act="set" data-k="swipe" data-v="toggle" data-group="main" aria-label="Prepínanie kanálov potiahnutím"></button>`)}
       ${setRow('Späť zmenší do okienka', 'Tlačidlo Späť v prehrávači kanál nezavrie, ale nechá ho hrať v malom okienku. Zavrieš ho tlačidlom Stop alebo opakovaným Späť.', toggleBtn('backMini', 'Späť zmenší do okienka'))}
     </div>
@@ -1163,7 +1166,16 @@ function openChannelMenu(id) {
   const ch = byId[id]; if (!ch) return;
   const now = Date.now(), p = progAt(id, now), fav = isFav(id);
   const arch = !p.none && hasArchive(ch, p.start);
-  openModal(`<div class="cm-head">${tileStatic(ch, 'mini')}<div><h2>${esc(ch.name)}</h2><p class="muted">${p.none ? esc(catName[ch.cat] || '') : `Teraz: ${esc(p.title)} · ${hm(p.start)} – ${hm(p.end)}`}</p></div></div>
+  haptic('long');
+  // Preview: what is on (with its description) and what follows, without starting the channel.
+  const later = [];
+  for (let x = p; later.length < 3;) { x = progNext(id, x); if (!x || x.none) break; later.push(x); }
+  const preview = p.none ? '' : `<div class="cm-prev"><div class="cm-now"><span class="badge live"><i class="dot"></i>Teraz · ${remain(p, now)}</span><b>${esc(p.title)}</b>
+      <span class="cm-time">${hm(p.start)} – ${hm(p.end)}${p.genre ? ' · ' + esc(p.genre) : ''}</span><span class="bar"><i style="width:${frac(p, now) * 100}%"></i></span>
+      ${p.desc ? `<p>${esc(p.desc)}</p>` : ''}</div>
+      ${later.length ? `<ul class="cm-next">${later.map(x => `<li><time>${hm(x.start)}</time><span>${esc(x.title)}</span></li>`).join('')}</ul>` : ''}</div>`;
+  openModal(`<div class="cm-head">${tileStatic(ch, 'mini')}<div><h2>${esc(ch.name)}</h2><p class="muted">${ch.n} · ${esc(catName[ch.cat] || '')}</p></div></div>
+    ${preview}
     <div class="menu-list">
       <button class="mitem f" data-act="m-play" data-ch="${id}">${I('play')}Pozerať naživo</button>
       ${arch ? `<button class="mitem f" data-act="m-restart" data-ch="${id}">${I('restart')}Pozerať od začiatku</button>` : ''}
@@ -1319,6 +1331,8 @@ function tune(id, offset = 0) {
   if (P.ch && P.ch !== id) P.last = P.ch;
   const ch = byId[id];
   P.ch = id; P.paused = false; P.real = !!ch.url;
+  const asp = store.get('aspect:' + S.libKey, {})[id] || 'fit';
+  if (asp !== P.aspect) setOpt('aspect', asp, true);
   player.classList.toggle('real', P.real);
   pushRecent(id);
   hideStatus();
@@ -1887,6 +1901,13 @@ function openTour(i = 0) {
   store.set('tour', 1);
 }
 
+/** A short vibration on phones (the Android app uses the system's haptic feedback). */
+function haptic(kind = 'tap') {
+  if (IS_TV || S.set.haptic === 'off' || !document.body.classList.contains('touch')) return;
+  if (Native) Native.haptic({ kind }).catch(() => {});
+  else if (navigator.vibrate) navigator.vibrate(kind === 'long' ? 25 : 10);
+}
+
 /* ---------- Phones ---------- */
 const isPhone = () => document.body.classList.contains('touch') && !IS_TV;
 const isPortraitPhone = () => isPhone() && innerHeight > innerWidth && !P.mini;
@@ -1973,6 +1994,7 @@ function doubleTap(e) {
   // The first tap of the pair toggled the controls; put them back as they were.
   if (prev.osd !== P.osd) { if (prev.osd) showOSD(); else hideOSD(); }
   seek(side * 30);
+  haptic('tap');
   const rp = $('#tapRipple');
   rp.className = 'tap-ripple ' + (side < 0 ? 'left' : 'right'); rp.textContent = side < 0 ? '−30 s' : '+30 s';
   void rp.offsetWidth; rp.classList.add('on');
@@ -2046,8 +2068,10 @@ function renderSheet(name) {
     }).join('') + `</div>`;
   }
 }
-function setOpt(k, v) {
+function setOpt(k, v, quiet) {
   P[k] = v;
+  // A channel remembers only a picture shape different from the default.
+  if (k === 'aspect' && !quiet && P.ch) { const a = store.get('aspect:' + S.libKey, {}); if (v === 'fit') delete a[P.ch]; else a[P.ch] = v; store.set('aspect:' + S.libKey, a); }
   $$(`#sheet .opt[data-k="${k}"]`).forEach(b => b.classList.toggle('on', b.dataset.v === v));
   if (k === 'aspect') { $('#video').className = v === 'fit' ? '' : 'ar-' + v; for (const e of [E1, E2]) { e.v.classList.remove('ar-fill', 'ar-zoom', 'ar-43'); if (v !== 'fit') e.v.classList.add('ar-' + v); } }
   if (k === 'subs') renderSubs(true);
@@ -2526,8 +2550,24 @@ document.addEventListener('contextmenu', e => {
   const c = e.target.closest && e.target.closest('[data-act="play"][data-ch]');
   if (!c || P.open) return;
   e.preventDefault();
+  if (longPress && longPress.fired) return;
   openChannelMenu(c.dataset.ch);
 });
+// Holding a finger on a channel opens its menu with the programme preview (not every web view sends contextmenu).
+let longPress = null;
+document.addEventListener('pointerdown', e => {
+  if (e.pointerType !== 'touch' || P.open) return;
+  const c = e.target.closest && e.target.closest('[data-act="play"][data-ch]');
+  if (!c) return;
+  const lp = { x: e.clientX, y: e.clientY, fired: false };
+  lp.t = setTimeout(() => { lp.fired = true; openChannelMenu(c.dataset.ch); }, 520);
+  longPress = lp;
+});
+const lpCancel = e => { if (longPress && (e.type !== 'pointermove' || Math.hypot(e.clientX - longPress.x, e.clientY - longPress.y) > 12)) clearTimeout(longPress.t); };
+document.addEventListener('pointermove', lpCancel, { passive: true });
+document.addEventListener('pointerup', lpCancel);
+document.addEventListener('pointercancel', lpCancel);
+document.addEventListener('click', e => { if (longPress && longPress.fired) { e.stopPropagation(); e.preventDefault(); longPress = null; } }, true);
 function playerKey(k) {
   if (/^\d$/.test(k)) return numKey(k);
   if (k === 'stop') return closePlayer();
@@ -2646,6 +2686,7 @@ player.addEventListener('pointerup', e => {
   const dx = e.clientX - swipe.x, dy = e.clientY - swipe.y; swipe = null;
   if (S.set.swipe !== 'off' && Math.abs(dy) > 70 && Math.abs(dx) < 90 && !e.target.closest('.panel, .p-port')) {
     step(dy < 0 ? 1 : -1);
+    haptic('tap');
     suppressClick = true; setTimeout(() => { suppressClick = false; }, 60);
   }
 });

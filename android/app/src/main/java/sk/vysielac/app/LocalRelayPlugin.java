@@ -120,6 +120,15 @@ public class LocalRelayPlugin extends Plugin {
         });
     }
 
+    /** Short haptic feedback: tap (double tap, channel change) or long (menu on hold). No permission needed. */
+    @PluginMethod
+    public void haptic(PluginCall call) {
+        String k = call.getString("kind", "tap");
+        getActivity().runOnUiThread(() -> getBridge().getWebView().performHapticFeedback(
+            "long".equals(k) ? android.view.HapticFeedbackConstants.LONG_PRESS : android.view.HapticFeedbackConstants.KEYBOARD_TAP));
+        call.resolve();
+    }
+
     /** Back on the home screen with nothing left to close: leave the app like any other. */
     @PluginMethod
     public void exit(PluginCall call) {

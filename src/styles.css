@@ -942,3 +942,20 @@ html.native .pv { visibility: hidden !important; }
 .pair-wait .spin { width: 18px; height: 18px; border-width: 2px; }
 @media (max-width: 640px) { .pair { grid-template-columns: 1fr; } .pair-qr { max-width: 240px; } }
 .dialog:has(.pair) { width: min(820px, 100%); }
+
+/* Font size setting: the app's own parts scale; the picture itself never does */
+#app, #modal .dialog, .panel, .p-port, .osd, .banner, .mini-bar, #toast, .p-status, .p-stats { zoom: var(--fz, 1); }
+
+/* channel menu: programme preview */
+.cm-prev { display: grid; gap: 12px; padding: 14px 16px; border-radius: 16px; background: var(--surface); }
+.cm-now { display: grid; gap: 6px; }
+.cm-now .badge { justify-self: start; }
+.cm-now b { font-size: 19px; line-height: 1.25; }
+.cm-time { color: var(--fg-3); font-size: 14px; font-variant-numeric: tabular-nums; }
+.cm-now .bar { height: 4px; border-radius: 2px; background: rgba(255,255,255,.12); overflow: hidden; }
+.cm-now .bar i { display: block; height: 100%; background: var(--fg); }
+.cm-now p { margin: 4px 0 0; color: var(--fg-2); font-size: 14.5px; line-height: 1.45; display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; }
+.cm-next { list-style: none; margin: 0; padding: 10px 0 0; border-top: 1px solid var(--line); display: grid; gap: 6px; }
+.cm-next li { display: flex; gap: 12px; font-size: 14.5px; min-width: 0; }
+.cm-next time { color: var(--fg-3); font-variant-numeric: tabular-nums; flex: none; }
+.cm-next span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
