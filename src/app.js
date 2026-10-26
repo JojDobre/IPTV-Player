@@ -407,6 +407,19 @@ function twin(el) {
 const relTop = (el, sc) => el.getBoundingClientRect().top - sc.getBoundingClientRect().top + sc.scrollTop;
 function ensureVisible(el) {
   const behavior = reduceMotion ? 'auto' : 'smooth';
+  // The guide has a sticky channel column and time ruler, which scrollIntoView knows nothing about.
+  const gs = el.closest('#gScroll');
+  if (gs) {
+    const r = el.getBoundingClientRect(), b = gs.getBoundingClientRect(), pad = 24;
+    const L = b.left + G.chw, R = b.right, view = R - L - 2 * pad;
+    let dl = 0, dt = 0;
+    if (Math.min(r.right, R) - Math.max(r.left, L) < Math.min(r.width, 160)) dl = (r.width <= view ? r.left : Math.max(r.left, r.right - view)) - L - pad;
+    if (r.top < b.top + HEAD_H + 8) dt = r.top - (b.top + HEAD_H + 8);
+    else if (r.bottom > b.bottom - 8) dt = r.bottom - (b.bottom - 8);
+    if (dl || dt) gs.scrollBy({ left: dl, top: dt, behavior: Math.abs(dl) > 1200 ? 'auto' : behavior });
+    if (S.screen === 'guide' && el.closest('#s-guide')) { const sec = $('#s-guide'); if (sec.scrollHeight > sec.clientHeight) gs.scrollIntoView({ block: 'nearest' }); }
+    return;
+  }
   const sc = el.closest('.hscroll');
   if (sc) {
     const pad = 60, x = el.offsetLeft, w = el.offsetWidth;
@@ -465,7 +478,13 @@ function move(dir) {
   setFocus(best);
   return true;
 }
+// Never leaves the remote without a target: an empty screen (no playlist yet) falls back to its first
+// button, then to the top menu.
 function pickDefault() {
+  const el = pickDefault0();
+  return el && visible(el) ? el : [...$$('.f', $('#s-' + S.screen) || app)].find(visible) || $('#topnav .nav-item.active');
+}
+function pickDefault0() {
   const m = nav.mem['main:' + S.screen];
   if (m && visible(m)) return m;
   if (S.screen === 'home') return $('#hero .bcard') || $('#sections .card');
@@ -623,7 +642,8 @@ function guideDays() {
   const fwd = end ? Math.max(0, Math.min(7, dayIdx(end - 1))) : 0;
   const out = []; for (let i = -back; i <= fwd; i++) out.push(i); return out;
 }
-const ROW_H = 72, HEAD_H = 40;
+let ROW_H = 72;
+const HEAD_H = 40;
 function guideRowHTML(ch, i) {
   const { ws, we, ppm } = G, now = Date.now();
   const cells = progsIn(ch.id, ws, we).map(p => {
@@ -657,7 +677,10 @@ function renderGuide(keep) {
   const sc = $('#gScroll');
   const prevL = sc.scrollLeft, prevT = sc.scrollTop;
   const now = Date.now(), wide = isWide();
-  const ppm = (wide ? 4.4 : 3) * gZoom, chw = wide ? 230 : 62;
+  // Zoom makes the programme cards wider (time) and taller, with bigger text; the rest of the page stays as it is.
+  const ppm = (wide ? 4.4 : 3) * gZoom, chw = wide ? 230 : 62, rz = Math.min(1.45, Math.max(0.8, Math.sqrt(gZoom)));
+  ROW_H = Math.round(72 * rz);
+  sc.style.setProperty('--rh', ROW_H - 6 + 'px'); sc.style.setProperty('--gz', rz);
   const days = guideDays();
   if (!days.includes(gDay)) gDay = 0;
   const d0 = sod(now + gDay * 864e5 + (gDay ? 12 * 3600e3 : 0));
@@ -802,7 +825,7 @@ function renderSettings() {
       ${Native && nativeInfo && nativeInfo.pip ? setRow('Okno nad aplikáciami', 'Keď počas pozerania odídeš z appky (tlačidlo Domov), kanál hrá ďalej v malom okne nad ostatnými aplikáciami', `<button class="toggle f ${S.set.pipAuto !== 'off' ? 'on' : ''}" data-act="set" data-k="pipAuto" data-v="toggle" data-group="main" aria-label="Okno nad aplikáciami"></button>`) : ''}
       ${Native && IS_TV ? setRow('Obnovovacia frekvencia podľa vysielania', 'TV sa prepne na 50 Hz pri európskom vysielaní, aby sa obraz pri pohybe netrhal (ako v Kodi). Ak TV pri prepnutí na chvíľu zčernie, je to normálne.', `<button class="toggle f ${S.set.afr !== 'off' ? 'on' : ''}" data-act="set" data-k="afr" data-v="toggle" data-group="main" aria-label="Obnovovacia frekvencia"></button>`) : ''}
       ${!IS_TV && (Native || matchMedia('(pointer: coarse)').matches) ? setRow('Vibrácia pri dotyku', 'Jemná odozva pri dvojitom ťuknutí, prepnutí kanála a podržaní', `<button class="toggle f ${S.set.haptic !== 'off' ? 'on' : ''}" data-act="set" data-k="haptic" data-v="toggle" data-group="main" aria-label="Vibrácia"></button>`) : ''}
-      ${setRow('Prepínanie kanálov potiahnutím', 'Na dotykovej obrazovke potiahnutie prstom hore alebo dole po obraze prepne na ďalší alebo predchádzajúci kanál', `<button class="toggle f ${S.set.swipe !== 'off' ? 'on' : ''}" data-act="set" data-k="swipe" data-v="toggle" data-group="main" aria-label="Prepínanie kanálov potiahnutím"></button>`)}
+      ${IS_TV ? '' : setRow('Prepínanie kanálov potiahnutím', 'Na dotykovej obrazovke potiahnutie prstom hore alebo dole po obraze prepne na ďalší alebo predchádzajúci kanál', `<button class="toggle f ${S.set.swipe !== 'off' ? 'on' : ''}" data-act="set" data-k="swipe" data-v="toggle" data-group="main" aria-label="Prepínanie kanálov potiahnutím"></button>`)}
       ${setRow('Späť zmenší do okienka', 'Tlačidlo Späť v prehrávači kanál nezavrie, ale nechá ho hrať v malom okienku. Zavrieš ho tlačidlom Stop alebo opakovaným Späť.', toggleBtn('backMini', 'Späť zmenší do okienka'))}
     </div>
     <div class="set-group"><h3>Rodičovský zámok</h3><div id="lockRows">${lockRows()}</div></div>
@@ -1581,6 +1604,16 @@ function showBanner() {
 }
 function hideBanner() { $('#banner').classList.remove('on'); $('#pHint').classList.remove('on'); clearTimeout(P.bannerT); }
 
+// Center an item inside its own scrolling list only. scrollIntoView would also shift the player and the page
+// while the panel slides in, which made the screen jump.
+function centerIn(el) {
+  if (!el) return;
+  let sc = el.parentElement;
+  while (sc && sc !== document.body && !(sc.scrollHeight > sc.clientHeight + 1 && /auto|scroll/.test(getComputedStyle(sc).overflowY))) sc = sc.parentElement;
+  if (!sc || sc === document.body) return;
+  const r = el.getBoundingClientRect(), b = sc.getBoundingClientRect();
+  sc.scrollTop += r.top - b.top - (sc.clientHeight - r.height) / 2;
+}
 function openPanel(name) {
   P.panelFrom = P.osd ? nav.cur : null;
   hideOSD(); hideBanner();
@@ -1588,10 +1621,10 @@ function openPanel(name) {
   addPanelX();
   if (name === 'list') {
     renderList(); sheet.classList.remove('on'); chPanel.classList.add('on');
-    const cur = $(`#chPanel [data-ch="${P.ch}"]`); setFocus(cur, { noScroll: true }); cur.scrollIntoView({ block: 'center' });
+    const cur = $(`#chPanel [data-ch="${P.ch}"]`); setFocus(cur, { noScroll: true }); centerIn(cur);
   } else {
     renderSheet(name); chPanel.classList.remove('on'); sheet.classList.add('on');
-    const f = $('#sheet .opt.on') || $('#sheet .pr.now') || $('#sheet .f'); setFocus(f, { noScroll: true }); if (f) f.scrollIntoView({ block: 'center' });
+    const f = $('#sheet .opt.on') || $('#sheet .pr.now') || $('#sheet .f'); setFocus(f, { noScroll: true }); centerIn(f);
   }
 }
 // Touch screens get a close button in every panel (there is no Back key to press).
@@ -1822,21 +1855,36 @@ function zoomGuide(z, cx) {
   if (Math.abs(z - gZoom) < 0.01) return;
   const sc = $('#gScroll'), x = cx - sc.getBoundingClientRect().left;
   const t = G.ws + (sc.scrollLeft + x - G.chw) / G.ppm * MIN;
+  const top = sc.scrollTop / ROW_H;
   gZoom = z;
   renderGuide(true);
+  sc.scrollTop = top * ROW_H;
   sc.scrollLeft = Math.max(0, (t - G.ws) / MIN * G.ppm - x + G.chw);
   fillGuideRows();
 }
 let pinch = null, pinchRaf = 0;
 const tdist = t => Math.hypot(t[0].clientX - t[1].clientX, t[0].clientY - t[1].clientY);
-$('#gScroll').addEventListener('touchstart', e => { if (e.touches.length === 2) pinch = { d: tdist(e.touches), z: gZoom }; }, { passive: true });
-$('#gScroll').addEventListener('touchmove', e => {
+// Two fingers belong to the guide: the browser must not zoom the whole page (touch-action in CSS, preventDefault here).
+// The guide redraws while zooming, so the element under the fingers leaves the page; its touch events then no longer
+// bubble anywhere. They still reach the element itself, so move/end are listened to on the touched elements.
+const pinchMove = e => {
   if (!pinch || e.touches.length !== 2) return;
   e.preventDefault();
   const z = pinch.z * tdist(e.touches) / pinch.d, cx = (e.touches[0].clientX + e.touches[1].clientX) / 2;
   cancelAnimationFrame(pinchRaf); pinchRaf = requestAnimationFrame(() => zoomGuide(z, cx));
+};
+const pinchEnd = e => {
+  if (!pinch || e.touches.length >= 2) return;
+  for (const t of pinch.els) { t.removeEventListener('touchmove', pinchMove); t.removeEventListener('touchend', pinchEnd); t.removeEventListener('touchcancel', pinchEnd); }
+  pinch = null; store.set('gzoom', gZoom);
+};
+$('#gScroll').addEventListener('touchstart', e => {
+  if (e.touches.length !== 2) return;
+  e.preventDefault();
+  const els = new Set([...e.touches].map(t => t.target));
+  for (const t of els) { t.addEventListener('touchmove', pinchMove, { passive: false }); t.addEventListener('touchend', pinchEnd); t.addEventListener('touchcancel', pinchEnd); }
+  pinch = { d: tdist(e.touches), z: gZoom, els };
 }, { passive: false });
-$('#gScroll').addEventListener('touchend', e => { if (pinch && e.touches.length < 2) { pinch = null; store.set('gzoom', gZoom); } });
 $('#gScroll').addEventListener('wheel', e => {
   if (!e.ctrlKey) return;
   e.preventDefault();
@@ -2225,7 +2273,11 @@ function openModal(html) {
 function closeModal(noRestore) {
   modal.hidden = true; clearFocus(); PINE = null;
   const back = modalBack; modalBack = null;
-  if (!noRestore) { const t = twin(back); if (t && visible(t)) setFocus(t, { noScroll: true }); }
+  if (!noRestore) {
+    const t = twin(back);
+    if (t && visible(t)) setFocus(t, { noScroll: true });
+    else if (!document.body.classList.contains('touch') && !P.open) setFocus(pickDefault(), { noScroll: true });
+  }
 }
 function openHelp() {
   openModal(`<h2>Ovládanie</h2>
