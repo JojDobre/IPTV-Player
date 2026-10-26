@@ -134,7 +134,7 @@ const catIcon = s => s.icon === 'auto' ? `<span class="txt-ic">${esc(initials(s.
 const ACCENTS = { white: ['#FFFFFF', '#0A0A17'], amber: ['#F2B84B', '#1B1406'], coral: ['#FF7A59', '#1E0B05'], mint: ['#4FD1A5', '#04170F'], violet: ['#A08CFF', '#0F0A24'], ice: ['#7CC4FF', '#03121F'] };
 const PALETTE = ['#2F6BFF', '#E5394B', '#8B5CF6', '#16A34A', '#F59E0B', '#EC4899', '#0EA5A4', '#F97316'];
 const ICONS = ['auto', 'film', 'ball', 'news', 'kids', 'globe', 'note', 'cup', 'heart', 'sparkle'];
-const DEFAULT_SET = { look: 'classic', secRows: '2', tile: 'm', round: 'med', tilebg: 'tint', nums: 'off', caps: 'on', accent: 'white', hide: '5', lang: 'sk', subs: 'off', resume: 'off', backMini: 'off', pipAuto: 'on', afr: 'on' };
+const DEFAULT_SET = { look: 'classic', secRows: '2', tile: 'm', round: 'med', tilebg: 'tint', nums: 'off', caps: 'on', accent: 'white', hide: '5', lang: 'sk', subs: 'off', resume: 'off', backMini: 'off', pipAuto: 'on', afr: 'on', swipe: 'on' };
 function defaultSections() {
   return [
     { id: 'recent', type: 'recent', name: 'Naposledy pozerané', color: '#94A3B8', icon: 'hist', show: true },
@@ -564,6 +564,7 @@ function renderChannels() {
 
 /* Guide */
 let G = { rows: new Map(), list: [] };
+let gZoom = Math.min(3, Math.max(0.5, +store.get('gzoom', 1) || 1));
 let gDay = 0, epgEndC = { raw: undefined, t: 0 };
 /** Where the guide data ends, sampled from a few channels (cheap, cached until the EPG changes). */
 function epgEnd() {
@@ -614,7 +615,7 @@ function renderGuide(keep) {
   const sc = $('#gScroll');
   const prevL = sc.scrollLeft, prevT = sc.scrollTop;
   const now = Date.now(), wide = isWide();
-  const ppm = wide ? 4.4 : 3, chw = wide ? 230 : 62;
+  const ppm = (wide ? 4.4 : 3) * gZoom, chw = wide ? 230 : 62;
   const days = guideDays();
   if (!days.includes(gDay)) gDay = 0;
   const d0 = sod(now + gDay * 864e5 + (gDay ? 12 * 3600e3 : 0));
@@ -755,6 +756,7 @@ function renderSettings() {
       ${setRow('Po spustení pokračovať', 'Appka hneď pustí naposledy pozeraný kanál, ako set-top box', toggleBtn('resume', 'Po spustení pokračovať'))}
       ${Native && nativeInfo && nativeInfo.pip ? setRow('Okno nad aplikáciami', 'Keď počas pozerania odídeš z appky (tlačidlo Domov), kanál hrá ďalej v malom okne nad ostatnými aplikáciami', `<button class="toggle f ${S.set.pipAuto !== 'off' ? 'on' : ''}" data-act="set" data-k="pipAuto" data-v="toggle" data-group="main" aria-label="Okno nad aplikáciami"></button>`) : ''}
       ${Native && IS_TV ? setRow('Obnovovacia frekvencia podľa vysielania', 'TV sa prepne na 50 Hz pri európskom vysielaní, aby sa obraz pri pohybe netrhal (ako v Kodi). Ak TV pri prepnutí na chvíľu zčernie, je to normálne.', `<button class="toggle f ${S.set.afr !== 'off' ? 'on' : ''}" data-act="set" data-k="afr" data-v="toggle" data-group="main" aria-label="Obnovovacia frekvencia"></button>`) : ''}
+      ${setRow('Prepínanie kanálov potiahnutím', 'Na dotykovej obrazovke potiahnutie prstom hore alebo dole po obraze prepne na ďalší alebo predchádzajúci kanál', `<button class="toggle f ${S.set.swipe !== 'off' ? 'on' : ''}" data-act="set" data-k="swipe" data-v="toggle" data-group="main" aria-label="Prepínanie kanálov potiahnutím"></button>`)}
       ${setRow('Späť zmenší do okienka', 'Tlačidlo Späť v prehrávači kanál nezavrie, ale nechá ho hrať v malom okienku. Zavrieš ho tlačidlom Stop alebo opakovaným Späť.', toggleBtn('backMini', 'Späť zmenší do okienka'))}
     </div>
     <div class="set-group"><h3>Rodičovský zámok</h3><div id="lockRows">${lockRows()}</div></div>
@@ -1695,6 +1697,33 @@ function endMulti() {
   player.classList.toggle('solo2', engine === E2);
 }
 
+/* Guide zoom: two fingers on a phone, Ctrl + wheel on a PC. The time under the fingers stays in place. */
+function zoomGuide(z, cx) {
+  z = Math.min(3, Math.max(0.5, z));
+  if (Math.abs(z - gZoom) < 0.01) return;
+  const sc = $('#gScroll'), x = cx - sc.getBoundingClientRect().left;
+  const t = G.ws + (sc.scrollLeft + x - G.chw) / G.ppm * MIN;
+  gZoom = z;
+  renderGuide(true);
+  sc.scrollLeft = Math.max(0, (t - G.ws) / MIN * G.ppm - x + G.chw);
+  fillGuideRows();
+}
+let pinch = null, pinchRaf = 0;
+const tdist = t => Math.hypot(t[0].clientX - t[1].clientX, t[0].clientY - t[1].clientY);
+$('#gScroll').addEventListener('touchstart', e => { if (e.touches.length === 2) pinch = { d: tdist(e.touches), z: gZoom }; }, { passive: true });
+$('#gScroll').addEventListener('touchmove', e => {
+  if (!pinch || e.touches.length !== 2) return;
+  e.preventDefault();
+  const z = pinch.z * tdist(e.touches) / pinch.d, cx = (e.touches[0].clientX + e.touches[1].clientX) / 2;
+  cancelAnimationFrame(pinchRaf); pinchRaf = requestAnimationFrame(() => zoomGuide(z, cx));
+}, { passive: false });
+$('#gScroll').addEventListener('touchend', e => { if (pinch && e.touches.length < 2) { pinch = null; store.set('gzoom', gZoom); } });
+$('#gScroll').addEventListener('wheel', e => {
+  if (!e.ctrlKey) return;
+  e.preventDefault();
+  zoomGuide(gZoom * (e.deltaY < 0 ? 1.15 : 1 / 1.15), e.clientX); store.set('gzoom', gZoom);
+}, { passive: false });
+
 /* ---------- Phones ---------- */
 const isPhone = () => document.body.classList.contains('touch') && !IS_TV;
 const isPortraitPhone = () => isPhone() && innerHeight > innerWidth && !P.mini;
@@ -2446,7 +2475,7 @@ player.addEventListener('pointerdown', e => { if (e.pointerType !== 'mouse') swi
 player.addEventListener('pointerup', e => {
   if (!swipe) return;
   const dx = e.clientX - swipe.x, dy = e.clientY - swipe.y; swipe = null;
-  if (Math.abs(dy) > 70 && Math.abs(dx) < 90 && !e.target.closest('.panel, .p-port')) {
+  if (S.set.swipe !== 'off' && Math.abs(dy) > 70 && Math.abs(dx) < 90 && !e.target.closest('.panel, .p-port')) {
     step(dy < 0 ? 1 : -1);
     suppressClick = true; setTimeout(() => { suppressClick = false; }, 60);
   }
@@ -2507,6 +2536,8 @@ applyVolume();
 if (IS_TV) document.documentElement.classList.add('tv');
 (async () => {
   await detectRelay();
+  // Status/navigation bar sizes measured by the app (the page loads after Android reported them once).
+  if (Native && nativeInfo && nativeInfo.insets) for (const k of ['t', 'r', 'b', 'l']) document.documentElement.style.setProperty('--sa-' + k, (+nativeInfo.insets[k] || 0) + 'px');
   if (Native && nativeInfo && nativeInfo.tv && !IS_TV) { IS_TV = true; document.documentElement.classList.add('tv'); }
   nativeOpts.afr = !!(Native && IS_TV && S.set.afr !== 'off');
   if (Native) document.documentElement.classList.add('native');

@@ -1,22 +1,28 @@
-# Builds the Android app (phones, tablets, Android TV) on every push and publishes it as the
-# "android-test" pre-release, so the APK can be downloaded straight to the device.
+# Builds the Android app (phones, tablets, Android TV) on every push.
+# - Always: the test APK, published as the "android-test" pre-release (download straight to the device).
+# - With the release key in the repository secrets (ANDROID_KEYSTORE_B64, ANDROID_KEYSTORE_PASSWORD,
+#   ANDROID_KEY_ALIAS, optionally ANDROID_KEY_PASSWORD): also the signed release, an .aab for Google Play and an
+#   .apk, kept as the "vysielac-release" build artifact. A tag like v1.0.0 additionally publishes them as a release.
 name: Android APK
 
 on:
   push:
     branches: [main]
+    tags: ['v*']
   workflow_dispatch:
 
 permissions:
   contents: write
 
 concurrency:
-  group: android
+  group: android-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
   build:
     runs-on: ubuntu-latest
+    env:
+      HAS_KEY: ${{ secrets.ANDROID_KEYSTORE_B64 != '' }}
     steps:
       - uses: actions/checkout@v4
 
@@ -37,22 +43,48 @@ jobs:
           npm run build
           npx cap sync android
 
-      - name: APK
+      - name: Version
+        run: |
+          echo "VERSION_CODE=$((1000 + GITHUB_RUN_NUMBER))" >> "$GITHUB_ENV"
+          echo "VERSION_NAME=$(node -p "require('./package.json').version")" >> "$GITHUB_ENV"
+
+      - name: Test APK
+        working-directory: android
+        run: |
+          chmod +x gradlew
+          VERSION_NAME="$VERSION_NAME-test.${GITHUB_SHA::7}" ./gradlew --no-daemon assembleDebug
+          cp app/build/outputs/apk/debug/app-debug.apk ../vysielac.apk
+
+      - name: Release AAB + APK (signed)
+        if: env.HAS_KEY == 'true'
         working-directory: android
         env:
-          VERSION_CODE: ${{ github.run_number }}
+          KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_B64 }}
+          RELEASE_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          RELEASE_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          RELEASE_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: |
-          export VERSION_NAME="$(node -p "require('../package.json').version")-${GITHUB_SHA::7}"
-          chmod +x gradlew
-          ./gradlew --no-daemon assembleDebug
-          cp app/build/outputs/apk/debug/app-debug.apk ../vysielac.apk
+          export RELEASE_KEYSTORE="$RUNNER_TEMP/release.jks"
+          echo "$KEYSTORE_B64" | base64 -d > "$RELEASE_KEYSTORE"
+          ./gradlew --no-daemon bundleRelease assembleRelease
+          mkdir -p ../release
+          cp app/build/outputs/bundle/release/app-release.aab "../release/vysielac-$VERSION_NAME.aab"
+          cp app/build/outputs/apk/release/app-release.apk "../release/vysielac-$VERSION_NAME.apk"
+          rm -f "$RELEASE_KEYSTORE"
 
       - uses: actions/upload-artifact@v4
         with:
           name: vysielac-apk
           path: vysielac.apk
 
+      - uses: actions/upload-artifact@v4
+        if: env.HAS_KEY == 'true'
+        with:
+          name: vysielac-release
+          path: release/
+
       - name: Publish test release
+        if: github.ref == 'refs/heads/main'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -60,3 +92,9 @@ jobs:
           gh release create android-test vysielac.apk --prerelease --target "$GITHUB_SHA" \
             --title "Android – testovacia verzia" \
             --notes "Automaticky zostavené z ${GITHUB_SHA::7}. Stiahni vysielac.apk do telefónu alebo TV boxu a nainštaluj (treba povoliť inštaláciu z neznámych zdrojov)."
+
+      - name: Publish version release
+        if: startsWith(github.ref, 'refs/tags/v') && env.HAS_KEY == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" release/* --title "Vysielač $GITHUB_REF_NAME" --generate-notes

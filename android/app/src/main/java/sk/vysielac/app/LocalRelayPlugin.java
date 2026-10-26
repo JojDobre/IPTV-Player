@@ -6,7 +6,11 @@ import android.content.pm.PackageManager;
 import android.os.Build;
 import android.content.Context;
 import android.content.res.Configuration;
+import android.view.View;
+import android.view.ViewGroup;
 import android.view.WindowManager;
+import androidx.core.graphics.Insets;
+import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowCompat;
 import androidx.core.view.WindowInsetsCompat;
 import androidx.core.view.WindowInsetsControllerCompat;
@@ -20,6 +24,32 @@ import com.getcapacitor.annotation.CapacitorPlugin;
 @CapacitorPlugin(name = "LocalRelay")
 public class LocalRelayPlugin extends Plugin {
     private static final Relay RELAY = new Relay();
+    private float[] insets = new float[4];
+
+    /**
+     * Status bar, navigation bar and notch sizes for the page (CSS px), as --sa-t/--sa-r/--sa-b/--sa-l.
+     * Android's web view does not fill env(safe-area-inset-*), so the header would sit under the status bar.
+     */
+    @Override
+    public void load() {
+        getActivity().runOnUiThread(() -> {
+            View probe = new View(getContext());
+            ((ViewGroup) getBridge().getWebView().getParent()).addView(probe, new ViewGroup.LayoutParams(0, 0));
+            ViewCompat.setOnApplyWindowInsetsListener(probe, (v, wi) -> {
+                Insets i = wi.getInsets(WindowInsetsCompat.Type.systemBars() | WindowInsetsCompat.Type.displayCutout());
+                float d = getContext().getResources().getDisplayMetrics().density;
+                insets = new float[] { i.top / d, i.right / d, i.bottom / d, i.left / d };
+                getBridge().getWebView().evaluateJavascript(insetsJs(), null);
+                return wi;
+            });
+            ViewCompat.requestApplyInsets(probe);
+        });
+    }
+
+    private String insetsJs() {
+        return "(function(s){s.setProperty('--sa-t','" + insets[0] + "px');s.setProperty('--sa-r','" + insets[1] + "px');"
+            + "s.setProperty('--sa-b','" + insets[2] + "px');s.setProperty('--sa-l','" + insets[3] + "px')})(document.documentElement.style)";
+    }
 
     @PluginMethod
     public void info(PluginCall call) {
@@ -31,6 +61,9 @@ public class LocalRelayPlugin extends Plugin {
             r.put("port", port);
             r.put("tv", tv);
             r.put("sdk", Build.VERSION.SDK_INT);
+            JSObject sa = new JSObject();
+            sa.put("t", insets[0]); sa.put("r", insets[1]); sa.put("b", insets[2]); sa.put("l", insets[3]);
+            r.put("insets", sa);
             r.put("pip", !tv && Build.VERSION.SDK_INT >= Build.VERSION_CODES.O
                 && getContext().getPackageManager().hasSystemFeature(PackageManager.FEATURE_PICTURE_IN_PICTURE));
             call.resolve(r);

@@ -9,7 +9,7 @@ android {
         targetSdkVersion rootProject.ext.targetSdkVersion
         // CI passes the build number, so every new APK installs over the previous one.
         versionCode Integer.parseInt(System.getenv('VERSION_CODE') ?: '1')
-        versionName System.getenv('VERSION_NAME') ?: '0.5.0'
+        versionName System.getenv('VERSION_NAME') ?: '1.0.0'
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
@@ -25,12 +25,22 @@ android {
             keyAlias 'androiddebugkey'
             keyPassword 'android'
         }
+        // The real key never lives in the repository: CI decodes it from GitHub secrets into a temporary file.
+        if (System.getenv('RELEASE_KEYSTORE')) {
+            release {
+                storeFile file(System.getenv('RELEASE_KEYSTORE'))
+                storePassword System.getenv('RELEASE_KEYSTORE_PASSWORD')
+                keyAlias System.getenv('RELEASE_KEY_ALIAS')
+                keyPassword System.getenv('RELEASE_KEY_PASSWORD') ?: System.getenv('RELEASE_KEYSTORE_PASSWORD')
+            }
+        }
     }
     buildTypes {
         debug {
             signingConfig signingConfigs.debug
         }
         release {
+            if (System.getenv('RELEASE_KEYSTORE')) signingConfig signingConfigs.release
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }
