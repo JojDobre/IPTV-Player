@@ -887,7 +887,10 @@ html:not(.tv) body.touch .osd-clock { font-size: 18px; }
   html:not(.tv):not(.in-pip) body.touch #player:not(.mini) .osd-bottom { gap: 4px; padding-bottom: 8px; }
   html:not(.tv):not(.in-pip) body.touch #player:not(.mini) .seek-labels { font-size: 12px; }
   html:not(.tv):not(.in-pip) body.touch #player:not(.mini) .osd::before { background: linear-gradient(180deg, rgba(0,0,0,.6), transparent 35%, transparent 55%, rgba(0,0,0,.75)); }
-  html:not(.tv):not(.in-pip) body.touch #player:not(.mini) .p-port { display: block; position: absolute; left: 0; right: 0; bottom: 0; top: calc(var(--vt) + var(--vh)); overflow-y: auto; overscroll-behavior: contain; padding: 14px 16px max(16px, var(--sa-b)); }
+  html:not(.tv):not(.in-pip) body.touch #player:not(.mini) .p-port { display: flex; flex-direction: column; position: absolute; left: 0; right: 0; bottom: 0; top: calc(var(--vt) + var(--vh)); overflow: hidden; padding: 14px 16px 0; }
+  /* programme, actions and chips stay in place; only the channel list scrolls */
+  html:not(.tv):not(.in-pip) body.touch #player:not(.mini) .p-port > :not(.pp-list) { flex: none; }
+  html:not(.tv):not(.in-pip) body.touch #player:not(.mini) .pp-list { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; align-content: start; margin: 0 -16px; padding: 2px 16px max(16px, var(--sa-b)); }
   html:not(.tv):not(.in-pip) body.touch #player:not(.mini) .panel { width: 100%; max-width: none; top: calc(var(--vt) + var(--vh)); height: auto; bottom: 0; border-radius: 18px 18px 0 0;
     left: 0; right: 0; transform: translateY(105%); padding-left: max(16px, var(--sa-l)); padding-right: max(16px, var(--sa-r)); box-shadow: 0 -20px 60px rgba(0,0,0,.45);
     transition: transform .32s cubic-bezier(.2,.8,.2,1), visibility 0s linear .32s; visibility: hidden; will-change: transform; contain: layout paint; }
@@ -1025,3 +1028,8 @@ html, body { touch-action: manipulation; }
   html.kb main > .screen { padding-bottom: 24px; }
 }
 @media (max-width: 760px) { html:not(.tv) body:not(.playing) #toast { bottom: calc(var(--navh, 66px) + 16px); } }
+/* A short phone would leave the list only a sliver under the fixed header: there everything scrolls together. */
+@media (orientation: portrait) and (max-height: 699px) {
+  html:not(.tv):not(.in-pip) body.touch #player:not(.mini) .p-port { display: block; overflow-y: auto; overscroll-behavior: contain; padding-bottom: max(16px, var(--sa-b)); }
+  html:not(.tv):not(.in-pip) body.touch #player:not(.mini) .pp-list { overflow: visible; padding-bottom: 0; }
+}

@@ -89,6 +89,13 @@ const { chromium, devices, sleep, ok, setup, ev, click, addPlaylist, fails } = r
     const g = await ev(p, fz => { document.documentElement.style.setProperty('--fz', fz); const q = s => document.querySelector(s).getBoundingClientRect(); const v = q('#vid'); return { port: Math.round(q('#pPort').top - v.bottom), osd: Math.round(q('.osd').top - v.top) + '/' + Math.round(q('.osd').bottom - v.bottom) }; }, fz);
     ok(g.port === 0 && g.osd === '0/0', `text size ${fz}: list right under the picture, controls over it`, JSON.stringify(g));
   }
+  // only the channel list scrolls; programme, actions and chips stay put
+  { const r = await ev(p, async () => { const h0 = document.querySelector('#ppHead').getBoundingClientRect().top, c0 = document.querySelector('#ppChips').getBoundingClientRect().top, l = document.querySelector('#ppList');
+      const n0 = l.children.length; l.scrollTop = l.scrollHeight; await new Promise(r => setTimeout(r, 400)); l.scrollTop = l.scrollHeight; await new Promise(r => setTimeout(r, 200));
+      return { head: document.querySelector('#ppHead').getBoundingClientRect().top - h0, chips: document.querySelector('#ppChips').getBoundingClientRect().top - c0, scrolled: l.scrollTop, more: l.children.length - n0, port: document.querySelector('#pPort').scrollTop }; });
+    ok(r.head === 0 && r.chips === 0 && r.port === 0 && r.scrolled > 300, 'portrait: header stays, only the list scrolls', JSON.stringify(r));
+    ok(r.more > 0, 'more channels load while scrolling the list', r.more);
+    await p.screenshot({ path: 'ph-port-scrolled.png' }); await ev(p, () => document.querySelector('#ppList').scrollTop = 0); }
   // more → fav
   await ev(p, () => document.querySelector('#ppActs [data-act=p-more], .osd [data-act=p-more]').click()); await sleep(400);
   const more = await ev(p, () => [...document.querySelectorAll('#sheet .mitem')].map(m => m.textContent.trim()));

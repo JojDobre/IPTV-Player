@@ -2031,6 +2031,7 @@ function renderPortList() {
   const box = $('#ppList'); box.dataset.ch = P.ch;
   lazyFill(box, filterCh(cur), listItem, 80);
 }
+$('#ppList').addEventListener('scroll', e => lazyNear(e.target, e.target), { passive: true });
 $('#pPort').addEventListener('scroll', e => lazyNear(e.target, $('#ppList')), { passive: true });
 
 /** Upright phone: go landscape and full screen; and back. */
@@ -2515,7 +2516,7 @@ function activate(el, e) {
     case 'p-float': floatWindow(); break;
     case 'panel-close': closePanel(); break;
     case 'more-do': { const a = el.dataset.v; closePanel(true); activate({ dataset: { act: a } }); break; }
-    case 'pp-chip': S.chipPort = el.dataset.v; renderPortList(); break;
+    case 'pp-chip': S.chipPort = el.dataset.v; renderPortList(); $('#ppList').scrollTop = 0; break;
     case 'p-prog': openPanel('prog'); break;
     case 'p-audio': openPanel('audio'); break;
     case 'p-fav': toggleFav(P.ch); break;
