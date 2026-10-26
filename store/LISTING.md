@@ -5,9 +5,10 @@ Grafika v tomto priečinku (vytvára ju `node tools/store-shots.cjs` z ukážkov
 | Súbor | Kam v Play Console |
 |---|---|
 | `icon-512.png` | Ikona aplikácie (512 × 512) |
-| `feature-1024x500.png` | Hlavný obrázok (feature graphic) |
-| `phone-1…7.png` | Snímky obrazovky – telefón (1080 × 1920, posledná 1920 × 1080) |
-| `tv-1…4.png` | Snímky obrazovky – Android TV (1920 × 1080), aj 7" a 10" tablet |
+| `sk/`, `en/` | Sady pre slovenský a anglický záznam v obchode |
+| `*/feature-1024x500.png` | Hlavný obrázok (feature graphic) |
+| `*/phone-1…7.png` | Snímky obrazovky – telefón (1080 × 1920, posledná 1920 × 1080) |
+| `*/tv-1…4.png` | Snímky obrazovky – Android TV (1920 × 1080), aj 7" a 10" tablet |
 
 Zásady ochrany súkromia: `https://jojdobre.github.io/IPTV-Player/privacy.html` (súbor `docs/privacy.html`).
 

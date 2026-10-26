@@ -1,14 +1,15 @@
 // Google Play graphics from the demo mode (made-up channels, no real broadcasters):
 //   npm run build && npm start   (in another terminal)   then   node tools/store-shots.cjs
-// Writes store/phone-*.png (1080×1920), store/tv-*.png (1920×1080) and store/feature-1024x500.png.
+// Writes store/<sk|en>/phone-*.png (1080×1920), tv-*.png (1920×1080) and feature-1024x500.png.
 // The demo channels have no video, so a drawn landscape stands in for the picture.
 const { chromium } = require('playwright');
 const fs = require('fs');
 const path = require('path');
 
-const out = path.join(__dirname, '..', 'store');
+const root = path.join(__dirname, '..', 'store');
+let out = root;
+let lang = 'sk';
 const URL = process.env.APP_URL || 'http://localhost:8080/?demo';
-fs.mkdirSync(out, { recursive: true });
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
 const scene = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 900" preserveAspectRatio="xMidYMid slice">
@@ -31,6 +32,7 @@ async function setMode(p) {
 }
 async function open(ctx) {
   const p = await ctx.newPage();
+  await p.addInitScript(l => localStorage.setItem('vysielac2:settings3', JSON.stringify({ ui: l })), lang);
   await p.goto(URL); await sleep(1800);
   await setMode(p);
   await p.addStyleTag({ content: css });
@@ -48,6 +50,10 @@ async function play(p, name) {
 
 (async () => {
   const b = await chromium.launch();
+  for (lang of ['sk', 'en']) {
+  out = path.join(root, lang);
+  fs.mkdirSync(out, { recursive: true });
+  mode.touch = false; mode.tv = false;
 
   mode.touch = true;
   // Phone, upright: 412×732 CSS px at 2.625 → 1081×1921
@@ -108,9 +114,11 @@ async function play(p, name) {
     .logo{display:flex;align-items:center;gap:16px;font-family:U;font-weight:800;font-size:44px;letter-spacing:-.02em}
     .m{width:64px;height:64px;border-radius:18px;display:grid;place-items:center;background:linear-gradient(135deg,#7C5CFF,#4F7BFF 52%,#2EC5FF);font-size:30px}
     p{font-size:24px;line-height:1.35;color:#c9c9e6;margin:22px 0 0}</style>
-    <img class="shot" src="data:image/png;base64,${shot}"><div class="t"><div class="logo"><span class="m">V</span>vysielač</div><p>Tvoj IPTV playlist ako moderná televízia. Na mobile, tablete aj TV.</p></div>`);
+    <img class="shot" src="data:image/png;base64,${shot}"><div class="t"><div class="logo"><span class="m">V</span>vysielač</div><p>${lang === 'sk' ? 'Tvoj IPTV playlist ako moderná televízia. Na mobile, tablete aj TV.' : 'Your IPTV playlist as a modern TV. On phones, tablets and TV.'}</p></div>`);
   await sleep(400);
   await p.screenshot({ path: `${out}/feature-1024x500.png` });
+  await fg.close(); await phone.close(); await land.close(); await tv.close();
+  }
   await b.close();
-  console.log('store graphics in', out);
+  console.log('store graphics in', root);
 })();
