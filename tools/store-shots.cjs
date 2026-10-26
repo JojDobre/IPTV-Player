@@ -7,7 +7,7 @@ const fs = require('fs');
 const path = require('path');
 
 const out = path.join(__dirname, '..', 'store');
-const URL = process.env.APP_URL || 'http://localhost:8080/';
+const URL = process.env.APP_URL || 'http://localhost:8080/?demo';
 fs.mkdirSync(out, { recursive: true });
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 

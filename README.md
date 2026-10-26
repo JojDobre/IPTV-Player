@@ -61,6 +61,11 @@ alebo P ho vráti na celú obrazovku. Na PC ide z okienka spraviť aj okno nad o
 - **Časovač vypnutia:** 15 min až 2 h alebo do konca relácie, minútu pred koncom sa dá predĺžiť.
 - **Rodičovský zámok:** Nastavenia → Rodičovský zámok. PIN na celé kategórie alebo jednotlivé kanály (podržať OK na kanáli).
 - **Program po dňoch** (včera, dnes, zajtra…) a **hľadanie v celom programe** s pripomienkou alebo nahrávaním.
+- **Viac playlistov** sa spojí do jedného (kategórie s rovnakým názvom sa zlúčia). Playlist sa dá pridať aj **z mobilu cez QR kód**
+  (TV ukáže kód, mobil v tej istej Wi-Fi otvorí formulár).
+- **Prvé spustenie** je prázdne, so sprievodcom všetkými funkciami (Nastavenia → Sprievodca appkou). Ukážkové kanály: adresa `?demo`.
+- **Slovensky aj anglicky** (Nastavenia → Jazyk appky), veľkosť písma, tlačidlá len s ikonami, vibrácia pri dotyku.
+- **Náhľad programu:** podržanie kanála ukáže, čo beží (s popisom) a čo nasleduje. Pomer strán si appka pamätá pre kanál.
 - **Nastavenia prehrávača:** po spustení pokračovať naposledy pozeraným kanálom, Späť zmenší kanál do okienka.
 
 ## Ako je zabezpečené, aby to nesekalo

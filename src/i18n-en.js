@@ -172,7 +172,7 @@ export const EN = {
   'stlmiť, hlasitosť (PC)': 'mute, volume (PC)', 'celá obrazovka (PC)': 'full screen (PC)', 'D, modré': 'D, blue', 'štatistiky prehrávania': 'playback stats', 'P, červené': 'P, red', 'malé okienko a späť': 'mini player and back',
   'Podržať OK': 'Hold OK', 'ponuka kanála (aj pravé tlačidlo myši)': 'channel menu (or right mouse button)', 'Späť / Esc': 'Back / Esc', 'späť': 'back', 'prepnúť na číslo kanála': 'go to channel number',
   // review prompt
-  'Páči sa ti Vysielač?': 'Enjoying Vysielač?', 'Ohodnoť appku v Google Play. Pomôže to ďalším ľuďom ju nájsť.': 'Rate the app on Google Play. It helps others find it.', 'Ohodnotiť': 'Rate', 'Neskôr': 'Later', 'Už nepýtať': "Don't ask again",
+  'Ohodnotiť appku': 'Rate the app', 'V Google Play. Pomôže to ďalším ľuďom appku nájsť.': 'On Google Play. It helps others find the app.', 'Páči sa ti Vysielač?': 'Enjoying Vysielač?', 'Ohodnoť appku v Google Play. Pomôže to ďalším ľuďom ju nájsť.': 'Rate the app on Google Play. It helps others find it.', 'Ohodnotiť': 'Rate', 'Neskôr': 'Later', 'Už nepýtať': "Don't ask again",
   'Vysielač': 'Vysielač', 'vysielač': 'vysielač',
 };
 

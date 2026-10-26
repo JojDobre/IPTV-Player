@@ -959,3 +959,35 @@ html.native .pv { visibility: hidden !important; }
 .cm-next li { display: flex; gap: 12px; font-size: 14.5px; min-width: 0; }
 .cm-next time { color: var(--fg-3); font-variant-numeric: tabular-nums; flex: none; }
 .cm-next span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* Setting "Button labels" off: icons only. The words stay for screen readers (font-size 0, not removed). */
+:root[data-labels="off"] .b-play { font-size: 0; gap: 0; padding: 0 7px; }
+:root[data-labels="off"] .btn:has(> .ic) { font-size: 0; gap: 0; padding-inline: 12px; min-width: 44px; justify-content: center; }
+:root[data-labels="off"] .btn:has(> .ic) .ic { margin: 0; }
+:root[data-labels="off"] .pp-act { width: 54px; padding: 12px 4px; }
+:root[data-labels="off"] .pp-act span { display: none; }
+@media (max-width: 760px) {
+  :root[data-labels="off"] .nav-item span, :root[data-labels="off"] .nav-item.icon-only span { display: none; }
+  :root[data-labels="off"] .nav-item { padding: 12px 4px; }
+}
+/* the smallest phones: six menu items must fit */
+@media (max-width: 380px) {
+  .nav-item, .nav-item.icon-only { flex: 1 1 0; min-width: 0; padding: 6px 2px; font-size: 10px; }
+  .nav-item span { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+}
+/* small phones: two channels per row, and the big cards keep the logo above the text */
+@media (max-width: 760px) {
+  :root { --card: min(160px, calc((100vw - var(--gl) - var(--gr) - var(--gap)) / 2 - 1px)); }
+}
+@media (max-width: 480px) {
+  .b-art { align-items: flex-start; padding: 18px 18px 0 0; }
+  .b-art .lg, .b-art .lg-img, .bcard.img .b-art .lg-img { max-width: 30%; max-height: 32%; }
+  .b-art .lg { font-size: 18px; }
+  .bcard .b-meta { white-space: normal; }
+}
+/* tablets upright and small laptops: the top menu shows the label only on the current screen */
+@media (min-width: 761px) and (max-width: 1100px) {
+  .nav-item:not(.active) span { display: none; }
+  .nav-item:not(.active) { padding-inline: 12px; }
+}
+@media (min-width: 481px) { .bcard .b-txt { max-width: 60%; } }

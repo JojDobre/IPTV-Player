@@ -135,7 +135,7 @@ const catIcon = s => s.icon === 'auto' ? `<span class="txt-ic">${esc(initials(s.
 const ACCENTS = { white: ['#FFFFFF', '#0A0A17'], amber: ['#F2B84B', '#1B1406'], coral: ['#FF7A59', '#1E0B05'], mint: ['#4FD1A5', '#04170F'], violet: ['#A08CFF', '#0F0A24'], ice: ['#7CC4FF', '#03121F'] };
 const PALETTE = ['#2F6BFF', '#E5394B', '#8B5CF6', '#16A34A', '#F59E0B', '#EC4899', '#0EA5A4', '#F97316'];
 const ICONS = ['auto', 'film', 'ball', 'news', 'kids', 'globe', 'note', 'cup', 'heart', 'sparkle'];
-const DEFAULT_SET = { look: 'classic', secRows: '2', tile: 'm', round: 'med', tilebg: 'tint', nums: 'off', caps: 'on', accent: 'white', hide: '5', lang: 'sk', subs: 'off', resume: 'off', backMini: 'off', pipAuto: 'on', afr: 'on', swipe: 'on', haptic: 'on', fsize: 'm', ui: isEn ? 'en' : 'sk' };
+const DEFAULT_SET = { look: 'classic', secRows: '2', tile: 'm', round: 'med', tilebg: 'tint', nums: 'off', caps: 'on', accent: 'white', hide: '5', lang: 'sk', subs: 'off', resume: 'off', backMini: 'off', pipAuto: 'on', afr: 'on', swipe: 'on', haptic: 'on', fsize: 'm', ui: isEn ? 'en' : 'sk', labels: 'on' };
 function defaultSections() {
   return [
     { id: 'recent', type: 'recent', name: 'Naposledy pozerané', color: '#94A3B8', icon: 'hist', show: true },
@@ -361,6 +361,7 @@ function applySettings() {
   if (s.round === 'circle') s.round = 'strong';
   if (!ACCENTS[s.accent]) s.accent = 'white';
   r.style.setProperty('--fz', { s: .9, m: 1, l: 1.12, xl: 1.25 }[s.fsize] || 1);
+  r.dataset.labels = s.labels || 'on';
   r.dataset.look = s.look; r.dataset.caps = s.caps; r.dataset.tile = s.tile; r.dataset.round = s.round; r.dataset.tilebg = s.tilebg; r.dataset.nums = s.nums;
   const [a, ai] = ACCENTS[s.accent] || ACCENTS.amber;
   r.style.setProperty('--accent', a); r.style.setProperty('--accent-ink', ai);
@@ -788,6 +789,7 @@ function renderSettings() {
       ${setRow('Pozadie kanálov', 'Skutočné logá z playlistu bývajú priehľadné PNG', seg('tilebg', [['tint', 'Farba kanála'], ['dark', 'Tmavé'], ['light', 'Svetlé']]))}
       ${setRow('Jazyk appky', 'Language', seg('ui', [['sk', 'Slovenčina'], ['en', 'English']]))}
       ${setRow('Veľkosť písma', 'Celá appka vrátane ovládania prehrávača', seg('fsize', [['s', 'Menšie'], ['m', 'Normálne'], ['l', 'Väčšie'], ['xl', 'Najväčšie']]))}
+      ${setRow('Popisy tlačidiel', 'Vypnuté: tlačidlá len s ikonami (Pozerať, Upraviť, akcie v prehrávači, spodné menu na mobile)', toggleBtn('labels', 'Popisy tlačidiel'))}
       ${setRow('Farba zvýraznenia', 'Rámik okolo vybranej položky', `<div class="swatches">${sw}</div>`)}
       ${setRow('Relácia pod kanálom', 'Názov a priebeh toho, čo práve beží', `<button class="toggle f ${S.set.caps === 'on' ? 'on' : ''}" data-act="set" data-k="caps" data-v="toggle" data-group="main" aria-label="Relácia pod kanálom"></button>`)}
       ${setRow('Čísla kanálov v rohu', '', `<button class="toggle f ${S.set.nums === 'on' ? 'on' : ''}" data-act="set" data-k="nums" data-v="toggle" data-group="main" aria-label="Čísla kanálov"></button>`)}
@@ -805,7 +807,8 @@ function renderSettings() {
     </div>
     <div class="set-group"><h3>Rodičovský zámok</h3><div id="lockRows">${lockRows()}</div></div>
     <div class="set-group"><h3>Ostatné</h3>
-      ${setRow('Sprievodca appkou', 'Prehliadka všetkých funkcií', `<button class="btn small-btn f" data-act="tour" data-group="main">Spustiť</button>`)}
+      ${Native && !IS_TV ? setRow('Ohodnotiť appku', 'V Google Play. Pomôže to ďalším ľuďom appku nájsť.', `<button class="btn small-btn f" data-act="rate" data-group="main">Ohodnotiť</button>`) : ''}
+    ${setRow('Sprievodca appkou', 'Prehliadka všetkých funkcií', `<button class="btn small-btn f" data-act="tour" data-group="main">Spustiť</button>`)}
     ${setRow('Ovládanie', 'Klávesy, diaľkový ovládač a gestá', `<button class="btn small-btn f" data-act="help" data-group="main">Zobraziť</button>`)}
       ${setRow('Obnoviť pôvodný stav', 'Vráti nastavenia, sekcie, obľúbené a históriu do pôvodného stavu. Playlisty ostanú.', `<button class="btn small-btn f" data-act="reset" data-group="main">Obnoviť</button>`)}
     </div>`;
@@ -1265,7 +1268,19 @@ function openPlayer(id, offset = 0) {
   tune(id, offset);
   cancelAnimationFrame(vid.raf); vid.last = 0; vid.raf = requestAnimationFrame(frame);
 }
+/**
+ * Asking for a rating: Google Play's own window, after real use (a few days, several sessions), at a calm moment
+ * (leaving the player), at most every 4 months. Google's rules forbid asking "do you like it?" first, so it does not.
+ */
+function maybeAskReview() {
+  if (!Native || IS_TV) return;
+  const r = store.get('review', { first: Date.now(), plays: 0, asked: 0 });
+  r.plays++;
+  if (r.plays >= 8 && Date.now() - r.first > 4 * 864e5 && Date.now() - r.asked > 120 * 864e5) { r.asked = Date.now(); setTimeout(() => Native.review().catch(() => {}), 800); }
+  store.set('review', r);
+}
 function closePlayer() {
+  maybeAskReview();
   if (M.on) endMulti();
   if (engine === E2) { engine.close(); E2.v.classList.remove('active'); engine = E1; E1.v.classList.add('active'); player.classList.remove('solo2'); applyVolume(); }
   if (P.mini) { P.mini = false; P.appFocus = null; setMiniUI(false); if (nav.cur && $('#miniBar').contains(nav.cur)) clearFocus(); }
@@ -2435,6 +2450,7 @@ function activate(el, e) {
     case 'p-list': openPanel('list'); break;
     case 'p-more': openPanel('more'); break;
     case 'tour': openTour(0); break;
+    case 'rate': Native.openStore().catch(() => {}); break;
     case 'tour-go': openTour(+el.dataset.v); break;
     case 'tour-pl': closeModal(true); openPlaylist(true); break;
     case 'tour-pair': closeModal(true); openPair(); break;

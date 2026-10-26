@@ -129,6 +129,32 @@ public class LocalRelayPlugin extends Plugin {
         call.resolve();
     }
 
+    /**
+     * Google Play's rating window. Google decides whether it actually appears (quota, installs not from Play);
+     * the app gets no answer about what the user chose, by design.
+     */
+    @PluginMethod
+    public void review(PluginCall call) {
+        com.google.android.play.core.review.ReviewManager m = com.google.android.play.core.review.ReviewManagerFactory.create(getContext());
+        m.requestReviewFlow().addOnCompleteListener(t -> {
+            if (!t.isSuccessful()) { call.reject("review unavailable"); return; }
+            m.launchReviewFlow(getActivity(), t.getResult()).addOnCompleteListener(x -> call.resolve());
+        });
+    }
+
+    /** The app's page in Google Play (from Settings → Rate the app). */
+    @PluginMethod
+    public void openStore(PluginCall call) {
+        String id = getContext().getPackageName();
+        android.content.Intent i = new android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse("market://details?id=" + id));
+        i.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK);
+        try { getContext().startActivity(i); }
+        catch (Exception e) {
+            getContext().startActivity(new android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse("https://play.google.com/store/apps/details?id=" + id)).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK));
+        }
+        call.resolve();
+    }
+
     /** Back on the home screen with nothing left to close: leave the app like any other. */
     @PluginMethod
     public void exit(PluginCall call) {
