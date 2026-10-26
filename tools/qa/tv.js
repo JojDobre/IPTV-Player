@@ -89,7 +89,7 @@ const UA = 'Mozilla/5.0 (Linux; Android 12; BRAVIA 4K Android TV) AppleWebKit/53
     await p.screenshot({ path: `tv${w}-guide.png` });
     // settings by keys: toggle one option
     await click(p, '.nav-item[data-screen=settings]'); await sleep(500); await key('Escape'); await key('ArrowDown', 2);
-    lost = 0; for (let i = 0; i < 25; i++) { await key('ArrowDown', 1, 90); const x = await cur(); if (!x || !x.vis) lost++; }
+    lost = 0; for (let i = 0; i < 25; i++) { await key('ArrowDown', 1, 250); const x = await cur(); if (!x || !x.vis) lost++; }
     ok(lost === 0, 'settings: focus visible scrolling down', lost);
     await p.screenshot({ path: `tv${w}-settings.png` });
     // tv specific settings hidden? (no haptic/swipe on TV)

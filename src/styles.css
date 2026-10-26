@@ -178,7 +178,7 @@ main { position: relative; min-width: 0; height: 100%; }
 .small-btn { height: 40px; padding: 0 16px; font-size: 14px; }
 .actions { display: flex; gap: 12px; flex-wrap: wrap; }
 .chips { display: flex; gap: 10px; flex-wrap: wrap; }
-.chip { height: 38px; padding: 0 16px; border-radius: 999px; background: var(--surface); color: var(--fg-2); font-weight: 600; font-size: 14px; white-space: nowrap; transition: background .15s, box-shadow .15s; }
+.chip { display: inline-flex; align-items: center; justify-content: center; line-height: 1; flex: none; height: 38px; padding: 0 16px; border-radius: 999px; background: var(--surface); color: var(--fg-2); font-weight: 600; font-size: 14px; white-space: nowrap; transition: background .15s, box-shadow .15s; }
 .chip.on { background: var(--fg); color: var(--bg); }
 .chip.focus { box-shadow: 0 0 0 3px var(--accent); }
 .eyebrow { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; font-size: 14px; font-weight: 600; color: var(--fg-2); }
@@ -1005,3 +1005,20 @@ html, body { touch-action: manipulation; }
    whatever the zoom and scroll (overflow: clip keeps .prog from becoming the sticky container). */
 .prog.none { overflow: clip; align-items: flex-start; }
 .prog.none > span { position: sticky; left: calc(var(--chw) + 16px); }
+
+/* Phone: the content runs to the very bottom and scrolls under the see-through bottom bar, which is as tall as it
+   really is (--navh is measured, with or without labels and system buttons). No empty strip above the bar. */
+@media (max-width: 760px) {
+  html:not(.tv) main { padding-bottom: 0; }
+  html:not(.tv) main > .screen { padding-bottom: calc(var(--navh, 66px) + 24px); scroll-padding-bottom: calc(var(--navh, 66px) + 16px); }
+  html:not(.tv) main > #s-guide { padding-bottom: var(--navh, 66px); }
+  html:not(.tv) #s-guide .g-scroll { margin-bottom: 0; }
+  /* simpler, smaller chips */
+  .chip { height: 34px; padding: 0 14px; font-size: 14px; }
+  .g-days .chip { min-width: 0; }
+  .guide .g-days { margin-bottom: 8px; }
+  /* the keyboard is open: the bottom bar would ride up on top of it */
+  html.kb .topnav { display: none; }
+  html.kb main > .screen { padding-bottom: 24px; }
+}
+@media (max-width: 760px) { html:not(.tv) body:not(.playing) #toast { bottom: calc(var(--navh, 66px) + 16px); } }

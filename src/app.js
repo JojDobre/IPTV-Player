@@ -692,9 +692,12 @@ function renderGuide(keep) {
   $('#gDate').textContent = dateTxt(d0 + 12 * 3600e3);
   $('#gDays').innerHTML = days.map(i => `<button class="chip f ${i === gDay ? 'on' : ''}" data-act="gday" data-v="${i}" data-group="main">${dayLabel(i)}</button>`).join('');
   $('#gChips').innerHTML = chipsHTML('guide', S.chipGuide);
+  // The day row starts a week back; show the chosen day (usually today) instead of the oldest one.
+  { const dd = $('#gDays'), on = $('.chip.on', dd); if (on) dd.scrollLeft = on.offsetLeft - dd.clientWidth / 2 + on.offsetWidth / 2; }
   let times = '';
-  for (let t = ws; t < we; t += 30 * MIN) times += `<span style="left:${(t - ws) / MIN * ppm}px">${hm(t)}</span>`;
   const nowX = (now - ws) / MIN * ppm;
+  // The time under the "now" tag would peek out from behind it, so it is left out.
+  for (let t = ws; t < we; t += 30 * MIN) { const x = (t - ws) / MIN * ppm; if (gDay || Math.abs(x + 20 - nowX) > 52) times += `<span style="left:${x}px">${hm(t)}</span>`; }
   sc.style.setProperty('--chw', chw + 'px');
   sc.innerHTML = `<div class="g-inner" style="--chw:${chw}px;--gw:${gw}px;height:${HEAD_H + G.list.length * ROW_H + 30}px">`
     + `<div class="g-ruler"><div class="g-corner"></div><div class="g-times">${times}${gDay ? '' : `<em class="g-nowtag" style="left:${nowX}px">teraz</em>`}</div></div>`
@@ -2828,6 +2831,16 @@ $('#s-cat').addEventListener('scroll', e => lazyNear(e.target, $('#catGrid')), {
 $('#gScroll').addEventListener('scroll', () => { if (!G.raf) G.raf = requestAnimationFrame(() => { G.raf = 0; fillGuideRows(); }); }, { passive: true });
 applyVolume();
 if (IS_TV) document.documentElement.classList.add('tv');
+// Real height of the bottom bar on phones (labels on/off, system buttons), for the space under the content.
+{
+  const tn = $('#topnav'), setH = () => document.documentElement.style.setProperty('--navh', (getComputedStyle(tn).position === 'fixed' ? tn.offsetHeight : 0) + 'px');
+  if (window.ResizeObserver) new ResizeObserver(setH).observe(tn);
+  addEventListener('resize', setH); setH();
+}
+// While typing on a phone the keyboard is up: hide the bottom bar so it does not sit on top of the keyboard.
+const isText = el => el && (el.tagName === 'TEXTAREA' || (el.tagName === 'INPUT' && !/^(checkbox|radio|range|button)$/.test(el.type)));
+document.addEventListener('focusin', e => { if (!IS_TV && isText(e.target) && matchMedia('(pointer: coarse)').matches) document.documentElement.classList.add('kb'); });
+document.addEventListener('focusout', () => setTimeout(() => { if (!isText(document.activeElement)) document.documentElement.classList.remove('kb'); }, 50));
 (async () => {
   await detectRelay();
   // Status/navigation bar sizes measured by the app (the page loads after Android reported them once).
