@@ -8,6 +8,7 @@ import '@fontsource/unbounded/800.css';
 import '@fontsource/bebas-neue/400.css';
 import '@fontsource/fraunces/600-italic.css';
 import './styles.css';
+import { installTranslator, isEn } from './i18n.js';
 import { buildDemo } from './data/demo.js';
 import { detectRelay, Native, nativeInfo, imgUrl, useRelay, relayHasFfmpeg, streamInfo, canRecord, recList, recAdd, recStop, recDelete, recFileUrl, pairStart, pairPoll } from './data/net.js';
 import { xtreamUrls } from './data/m3u.js';
@@ -87,14 +88,14 @@ const hms = t => { const d = new Date(t); return hm(t) + ':' + pad2(d.getSeconds
 const frac = (p, t) => Math.min(1, Math.max(0, (t - p.start) / (p.end - p.start)));
 const durTxt = s => { s = Math.round(s); const h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60), x = s % 60; return h ? `${h}:${pad2(m)}:${pad2(x)}` : `${m}:${pad2(x)}`; };
 const remain = (p, now) => now < p.start ? `o ${Math.round((p.start - now) / MIN)} min` : `zostáva ${Math.max(1, Math.round((p.end - now) / MIN))} min`;
-const DAYS = ['nedeľa', 'pondelok', 'utorok', 'streda', 'štvrtok', 'piatok', 'sobota'];
-const MONTHS = ['januára', 'februára', 'marca', 'apríla', 'mája', 'júna', 'júla', 'augusta', 'septembra', 'októbra', 'novembra', 'decembra'];
-const dateTxt = t => { const d = new Date(t); return `${DAYS[d.getDay()]} ${d.getDate()}. ${MONTHS[d.getMonth()]}`; };
+const DAYS = isEn ? ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'] : ['nedeľa', 'pondelok', 'utorok', 'streda', 'štvrtok', 'piatok', 'sobota'];
+const MONTHS = isEn ? ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'] : ['januára', 'februára', 'marca', 'apríla', 'mája', 'júna', 'júla', 'augusta', 'septembra', 'októbra', 'novembra', 'decembra'];
+const dateTxt = t => { const d = new Date(t); return isEn ? `${DAYS[d.getDay()]} ${d.getDate()} ${MONTHS[d.getMonth()]}` : `${DAYS[d.getDay()]} ${d.getDate()}. ${MONTHS[d.getMonth()]}`; };
 const greeting = t => { const h = new Date(t).getHours(); return h < 5 ? 'Dobrú noc' : h < 10 ? 'Dobré ráno' : h < 18 ? 'Dobrý deň' : h < 22 ? 'Dobrý večer' : 'Dobrú noc'; };
 const sod = t => { const d = new Date(t); d.setHours(0, 0, 0, 0); return d.getTime(); };
 const dayIdx = t => Math.round((sod(t) - sod(Date.now())) / 864e5);
-const DAY_SHORT = ['Ne', 'Po', 'Ut', 'St', 'Št', 'Pi', 'So'];
-const dayLabel = i => i === 0 ? 'Dnes' : i === -1 ? 'Včera' : i === 1 ? 'Zajtra' : (d => `${DAY_SHORT[d.getDay()]} ${d.getDate()}. ${d.getMonth() + 1}.`)(new Date(sod(Date.now()) + i * 864e5 + 12 * 3600e3));
+const DAY_SHORT = isEn ? ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] : ['Ne', 'Po', 'Ut', 'St', 'Št', 'Pi', 'So'];
+const dayLabel = i => i === 0 ? 'Dnes' : i === -1 ? 'Včera' : i === 1 ? 'Zajtra' : (d => isEn ? `${DAY_SHORT[d.getDay()]} ${d.getDate()}/${d.getMonth() + 1}` : `${DAY_SHORT[d.getDay()]} ${d.getDate()}. ${d.getMonth() + 1}.`)(new Date(sod(Date.now()) + i * 864e5 + 12 * 3600e3));
 const dayWord = t => dayLabel(dayIdx(t));
 const plural = (n, one, few, many) => n === 1 ? one : n >= 2 && n <= 4 ? few : many;
 const countTxt = n => `${n} ${plural(n, 'kanál', 'kanály', 'kanálov')}`;
@@ -134,7 +135,7 @@ const catIcon = s => s.icon === 'auto' ? `<span class="txt-ic">${esc(initials(s.
 const ACCENTS = { white: ['#FFFFFF', '#0A0A17'], amber: ['#F2B84B', '#1B1406'], coral: ['#FF7A59', '#1E0B05'], mint: ['#4FD1A5', '#04170F'], violet: ['#A08CFF', '#0F0A24'], ice: ['#7CC4FF', '#03121F'] };
 const PALETTE = ['#2F6BFF', '#E5394B', '#8B5CF6', '#16A34A', '#F59E0B', '#EC4899', '#0EA5A4', '#F97316'];
 const ICONS = ['auto', 'film', 'ball', 'news', 'kids', 'globe', 'note', 'cup', 'heart', 'sparkle'];
-const DEFAULT_SET = { look: 'classic', secRows: '2', tile: 'm', round: 'med', tilebg: 'tint', nums: 'off', caps: 'on', accent: 'white', hide: '5', lang: 'sk', subs: 'off', resume: 'off', backMini: 'off', pipAuto: 'on', afr: 'on', swipe: 'on', haptic: 'on', fsize: 'm' };
+const DEFAULT_SET = { look: 'classic', secRows: '2', tile: 'm', round: 'med', tilebg: 'tint', nums: 'off', caps: 'on', accent: 'white', hide: '5', lang: 'sk', subs: 'off', resume: 'off', backMini: 'off', pipAuto: 'on', afr: 'on', swipe: 'on', haptic: 'on', fsize: 'm', ui: isEn ? 'en' : 'sk' };
 function defaultSections() {
   return [
     { id: 'recent', type: 'recent', name: 'Naposledy pozerané', color: '#94A3B8', icon: 'hist', show: true },
@@ -785,6 +786,7 @@ function renderSettings() {
       ${setRow('Veľkosť kanálov', '', seg('tile', [['s', 'Malé'], ['m', 'Stredné'], ['l', 'Veľké']]))}
       ${setRow('Zaoblenie rohov', '', seg('round', [['soft', 'Jemné'], ['med', 'Stredné'], ['strong', 'Výrazné']]))}
       ${setRow('Pozadie kanálov', 'Skutočné logá z playlistu bývajú priehľadné PNG', seg('tilebg', [['tint', 'Farba kanála'], ['dark', 'Tmavé'], ['light', 'Svetlé']]))}
+      ${setRow('Jazyk appky', 'Language', seg('ui', [['sk', 'Slovenčina'], ['en', 'English']]))}
       ${setRow('Veľkosť písma', 'Celá appka vrátane ovládania prehrávača', seg('fsize', [['s', 'Menšie'], ['m', 'Normálne'], ['l', 'Väčšie'], ['xl', 'Najväčšie']]))}
       ${setRow('Farba zvýraznenia', 'Rámik okolo vybranej položky', `<div class="swatches">${sw}</div>`)}
       ${setRow('Relácia pod kanálom', 'Názov a priebeh toho, čo práve beží', `<button class="toggle f ${S.set.caps === 'on' ? 'on' : ''}" data-act="set" data-k="caps" data-v="toggle" data-group="main" aria-label="Relácia pod kanálom"></button>`)}
@@ -818,6 +820,7 @@ function setSetting(k, v, el) {
   applySettings();
   if (k === 'secRows' && S.screen === 'home') renderHome();
   if (k === 'pipAuto') syncAutoPip();
+  if (k === 'ui') { store.set('settings3', S.set); location.reload(); return; }
   if (k === 'afr') nativeOpts.afr = !!(Native && IS_TV && v !== 'off');
   if (k === 'look') toast(v === 'glass' ? 'Liquid glass zapnutý' : 'Klasický vzhľad');
 }
@@ -827,7 +830,7 @@ const mb = b => b > 1e9 ? `${(b / 1e9).toFixed(1)} GB` : b > 1e6 ? `${(b / 1e6).
 function ago(t) {
   if (!t) return '–';
   const d = new Date(t), today = new Date(); today.setHours(0, 0, 0, 0);
-  const day = t >= today.getTime() ? 'dnes' : t >= today.getTime() - 864e5 ? 'včera' : `${d.getDate()}. ${d.getMonth() + 1}.`;
+  const day = t >= today.getTime() ? 'dnes' : t >= today.getTime() - 864e5 ? 'včera' : isEn ? `${d.getDate()}/${d.getMonth() + 1}` : `${d.getDate()}. ${d.getMonth() + 1}.`;
   return `${day} ${hm(t)}`;
 }
 const plCard = (title, sub) => `<span class="pl-card"><span class="pl-icon">${I('link')}</span><span class="lbl"><b>${esc(title)}</b><small>${sub}</small></span></span>`;
@@ -1623,6 +1626,18 @@ function toggleStats(on = $('#pStats').hidden) {
   const draw = () => {
     if (!P.open) return toggleStats(false);
     const i = engine.tracks().info, s = engine.stats(), v = engine.v;
+    if (isEn) {
+      el.textContent = [
+        `player      ${i.via || '–'} · ${i.kind || '–'}${i.remux ? ` · ffmpeg ${i.remux === 'video' ? 'picture+sound' : 'sound'}` : ''}`,
+        `picture     ${v.videoWidth ? `${v.videoWidth}×${v.videoHeight}` : '–'}`,
+        ...(s.codecs ? [`codecs      ${s.codecs}${s.soft ? " · sound via the app's decoder" : ''}`] : []),
+        `buffer      ${s.ahead.toFixed(1)} s  (target ${s.goal.toFixed(1)} s)`,
+        `stalls      ${s.stalls}`,
+        `frames      ${s.dropped} dropped of ${s.frames}`,
+        `state       ${engine.state}${engine.holding ? ' · filling the buffer' : ''}${s.native ? ` · player ${s.native}` : ''}`,
+      ].join('\n');
+      return;
+    }
     el.textContent = [
       `prehrávač   ${i.via || '–'} · ${KIND_NAME[i.kind] || i.kind || '–'}${i.remux ? ` · ffmpeg ${i.remux === 'video' ? 'obraz+zvuk' : 'zvuk'}` : ''}`,
       `obraz       ${v.videoWidth ? `${v.videoWidth}×${v.videoHeight}` : '–'}`,
@@ -2735,6 +2750,7 @@ function checkReminders() {
 setInterval(checkReminders, 15000);
 
 /* ---------- Boot ---------- */
+installTranslator();
 if (matchMedia('(pointer: coarse)').matches) document.body.classList.add('touch');
 applySettings();
 $('#hClock').textContent = hm(Date.now());
