@@ -4,12 +4,13 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <meta name="theme-color" content="#0A0A17">
-<title>Vysielač</title>
+<title>OnAir</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 64 64%22%3E%3Cdefs%3E%3ClinearGradient id=%22g%22 x2=%221%22 y2=%221%22%3E%3Cstop stop-color=%22%237C5CFF%22/%3E%3Cstop offset=%221%22 stop-color=%22%232EC5FF%22/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width=%2264%22 height=%2264%22 rx=%2216%22 fill=%22url(%23g)%22/%3E%3Cpath d=%22M17 18h8l7 20 7-20h8L36 47h-8z%22 fill=%22white%22/%3E%3C/svg%3E">
 </head>
 <body>
 <svg width="0" height="0" style="position:absolute" aria-hidden="true">
   <defs>
+    <symbol id="i-onair" viewBox="0 0 100 100"><g fill="none" stroke="currentColor" stroke-width="8" stroke-linecap="round"><path d="M66.97 33.03a24 24 0 0 1 0 33.94M33.03 66.97a24 24 0 0 1 0-33.94M76.87 23.13a38 38 0 0 1 0 53.74M23.13 76.87a38 38 0 0 1 0-53.74"/></g><circle cx="50" cy="50" r="10" fill="currentColor"/></symbol>
     <symbol id="i-home" viewBox="0 0 24 24"><path d="M3.5 10.2 12 3.5l8.5 6.7V19a1.5 1.5 0 0 1-1.5 1.5h-4.2v-6h-5.6v6H5A1.5 1.5 0 0 1 3.5 19z" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round"/></symbol>
     <symbol id="i-grid" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.9"><rect x="3.5" y="3.5" width="7" height="7" rx="2.2"/><rect x="13.5" y="3.5" width="7" height="7" rx="2.2"/><rect x="3.5" y="13.5" width="7" height="7" rx="2.2"/><rect x="13.5" y="13.5" width="7" height="7" rx="2.2"/></g></symbol>
     <symbol id="i-guide" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><rect x="3" y="4.5" width="18" height="16" rx="3"/><path d="M3 9.5h18M8 2.8v3.4M16 2.8v3.4M7 13.5h4M13 13.5h4M7 17h7"/></g></symbol>
@@ -70,7 +71,7 @@
 
 <div id="app">
   <header class="topbar">
-    <div class="brand"><span class="brand-mark">V</span><span class="brand-word">vysielač</span></div>
+    <div class="brand"><span class="brand-mark"><svg class="ic" aria-hidden="true"><use href="#i-onair"/></svg></span><span class="brand-word">OnAir</span></div>
     <nav class="topnav" id="topnav" aria-label="Hlavné menu">
       <button class="nav-item f" data-act="screen" data-screen="home" data-group="nav"><svg class="ic"><use href="#i-home"/></svg><span>Domov</span></button>
       <button class="nav-item f" data-act="screen" data-screen="channels" data-group="nav"><svg class="ic"><use href="#i-grid"/></svg><span>Kanály</span></button>

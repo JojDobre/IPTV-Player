@@ -19,16 +19,16 @@ odkazy na playlisty. Appka nič nevysiela, len prehráva playlist používateľa
 
 ## Slovensky (predvolený jazyk)
 
-**Názov (max 30):** Vysielač – IPTV prehrávač
+**Názov (max 30):** OnAir – IPTV prehrávač
 
 **Krátky popis (max 80):** Tvoj IPTV playlist ako moderná televízia. TV program, archív, mobil aj Android TV.
 
 **Úplný popis (max 4000):**
 
-Vysielač je moderný prehrávač IPTV pre mobil, tablet a Android TV. Pridáš svoj playlist (M3U) a program (XMLTV)
+OnAir je moderný prehrávač IPTV pre mobil, tablet a Android TV. Pridáš svoj playlist (M3U) a program (XMLTV)
 a dostaneš prehľadnú televíziu s veľkými kartami kanálov, TV programom a plynulým prehrávaním.
 
-DÔLEŽITÉ: Vysielač neobsahuje ani neposkytuje žiadne kanály. Potrebuješ vlastný playlist od svojho poskytovateľa IPTV.
+DÔLEŽITÉ: OnAir neobsahuje ani neposkytuje žiadne kanály. Potrebuješ vlastný playlist od svojho poskytovateľa IPTV.
 
 ★ Plynulé prehrávanie
 • Natívny prehrávač s hardvérovým dekódovaním: H.264, HEVC, MPEG-2, zvuk AAC, AC3, E-AC3, MP2
@@ -62,16 +62,16 @@ Bez registrácie, bez reklám a bez sledovania. Playlist a nastavenia ostávajú
 
 ## English
 
-**Title:** Vysielač – IPTV Player
+**Title:** OnAir – IPTV Player
 
 **Short description:** Your IPTV playlist as a modern TV. Programme guide, catch-up, phone and Android TV.
 
 **Full description:**
 
-Vysielač is a modern IPTV player for phones, tablets and Android TV. Add your own playlist (M3U) and guide (XMLTV)
+OnAir is a modern IPTV player for phones, tablets and Android TV. Add your own playlist (M3U) and guide (XMLTV)
 and get a clean TV experience with large channel cards, a programme guide and smooth playback.
 
-IMPORTANT: Vysielač does not include or provide any channels. You need your own playlist from your IPTV provider.
+IMPORTANT: OnAir does not include or provide any channels. You need your own playlist from your IPTV provider.
 
 • Native player with hardware decoding: H.264, HEVC, MPEG-2; AAC, AC3, E-AC3, MP2 audio; HLS and MPEG-TS
 • Programme guide by day with pinch zoom, catch-up and restart (when your provider supports it)

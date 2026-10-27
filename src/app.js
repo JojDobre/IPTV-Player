@@ -1,4 +1,4 @@
-// Vysielač – IPTV player UI. Screens, spatial navigation for TV remotes, and the player.
+// OnAir – IPTV player UI. Screens, spatial navigation for TV remotes, and the player.
 import '@fontsource/onest/400.css';
 import '@fontsource/onest/500.css';
 import '@fontsource/onest/600.css';
@@ -1933,9 +1933,9 @@ async function openPair() {
 /* ---------- First start: the empty home and a guided tour of everything the app does ---------- */
 function welcomeHTML() {
   return `<div class="welcome">
-    <span class="w-mark">V</span>
-    <h2>Vitaj vo Vysielači</h2>
-    <p>Vysielač je prehrávač IPTV. Neobsahuje žiadne kanály: pridaj playlist od svojho poskytovateľa a appka z neho spraví prehľadnú televíziu s programom.</p>
+    <span class="w-mark"><svg class="ic" aria-hidden="true"><use href="#i-onair"/></svg></span>
+    <h2>Vitaj v OnAir</h2>
+    <p>OnAir je prehrávač IPTV. Neobsahuje žiadne kanály: pridaj playlist od svojho poskytovateľa a appka z neho spraví prehľadnú televíziu s programom.</p>
     <div class="actions">
       <button class="btn primary f" data-act="playlist" data-new="1" data-group="main">${I('plus')}Pridať playlist</button>
       ${canPair() ? `<button class="btn f" data-act="pair" data-group="main">${I('link')}Zadať z mobilu (QR)</button>` : ''}
@@ -1950,7 +1950,7 @@ const TOUR = () => {
       ? [['Ťuknutie', 'ovládanie prehrávača'], ['Dvojité ťuknutie vľavo / vpravo', '30 s dozadu / dopredu'], ['Potiahnutie hore / dole', 'ďalší kanál (dá sa vypnúť)'], ['Podržanie kanála', 'menu s náhľadom programu'], ['Otočenie telefónu', 'celá obrazovka; ⟲ prepne aj bez otočenia'], ['Dva prsty v programe', 'priblíženie času']]
       : [['Šípky, Enter, Esc', 'pohyb, výber, späť'], ['↑ ↓ / PageUp PageDown', 'kanál v prehrávači'], ['Medzerník, ← →', 'pauza; v ovládaní pretáčanie'], ['F, M, + −', 'celá obrazovka, zvuk, hlasitosť'], ['P, D, L', 'malé okienko, technické info, posledný kanál'], ['Pravý klik na kanál', 'menu s náhľadom programu']];
   return [
-    { ic: 'sparkle', t: 'Vitaj vo Vysielači', p: 'Moderný prehrávač pre tvoje IPTV. Toto je krátka prehliadka všetkého, čo vie.',
+    { ic: 'sparkle', t: 'Vitaj v OnAir', p: 'Moderný prehrávač pre tvoje IPTV. Toto je krátka prehliadka všetkého, čo vie.',
       li: [['Vlastný playlist', 'odkaz M3U alebo prihlásenie Xtream Codes od poskytovateľa'], ['Viac playlistov', 'spoja sa do jedného, rovnaké kategórie sa zlúčia'], ['Program (EPG)', 'sa načíta a obnovuje sám'], ['Súkromie', 'všetko ostáva len v tomto zariadení']] },
     { ic: 'home', t: 'Domov a kanály', p: 'Kanály ako karty s logom a tým, čo práve beží.',
       li: [['Veľké karty', 'tvoje obľúbené kanály (alebo čo beží teraz)'], ['Kategórie', 'tlačidlá navrchu a sekcie nižšie, aj vlastné'], ['Naposledy pozerané', 'vždy po ruke'], ['Usporiadanie', 'Nastavenia → Sekcie: poradie kanálov, vlastné kategórie, presúvanie']] },

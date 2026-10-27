@@ -13,8 +13,8 @@ export const EN = {
   'Rozumiem': 'Got it', 'Skúsiť znova': 'Try again', 'Načítať': 'Load', 'Uložiť a načítať': 'Save and load', 'Žiadne': 'None', 'Vypnuté': 'Off', 'vypnuté': 'off',
   'Zapnúť zvuk': 'Unmute', 'Stlmiť': 'Mute', 'Celá obrazovka': 'Full screen', 'Na celú obrazovku': 'Full screen', 'Viac': 'More',
   // first start, tour
-  'Vitaj vo Vysielači': 'Welcome to Vysielač',
-  'Vysielač je prehrávač IPTV. Neobsahuje žiadne kanály: pridaj playlist od svojho poskytovateľa a appka z neho spraví prehľadnú televíziu s programom.': 'Vysielač is an IPTV player. It comes with no channels: add the playlist from your provider and the app turns it into a clear TV with a programme guide.',
+  'Vitaj v OnAir': 'Welcome to OnAir',
+  'OnAir je prehrávač IPTV. Neobsahuje žiadne kanály: pridaj playlist od svojho poskytovateľa a appka z neho spraví prehľadnú televíziu s programom.': 'OnAir is an IPTV player. It comes with no channels: add the playlist from your provider and the app turns it into a clear TV with a programme guide.',
   'Pridať playlist': 'Add playlist', 'Zadať z mobilu (QR)': 'Enter from phone (QR)', 'Ako appka funguje': 'How the app works', 'Z mobilu (QR)': 'From phone (QR)',
   'Moderný prehrávač pre tvoje IPTV. Toto je krátka prehliadka všetkého, čo vie.': 'A modern player for your IPTV. A short tour of everything it does.',
   'Vlastný playlist': 'Your own playlist', 'odkaz M3U alebo prihlásenie Xtream Codes od poskytovateľa': 'an M3U link or an Xtream Codes login from your provider',
@@ -172,8 +172,8 @@ export const EN = {
   'stlmiť, hlasitosť (PC)': 'mute, volume (PC)', 'celá obrazovka (PC)': 'full screen (PC)', 'D, modré': 'D, blue', 'štatistiky prehrávania': 'playback stats', 'P, červené': 'P, red', 'malé okienko a späť': 'mini player and back',
   'Podržať OK': 'Hold OK', 'ponuka kanála (aj pravé tlačidlo myši)': 'channel menu (or right mouse button)', 'Späť / Esc': 'Back / Esc', 'späť': 'back', 'prepnúť na číslo kanála': 'go to channel number',
   // review prompt
-  'Ohodnotiť appku': 'Rate the app', 'V Google Play. Pomôže to ďalším ľuďom appku nájsť.': 'On Google Play. It helps others find the app.', 'Páči sa ti Vysielač?': 'Enjoying Vysielač?', 'Ohodnoť appku v Google Play. Pomôže to ďalším ľuďom ju nájsť.': 'Rate the app on Google Play. It helps others find it.', 'Ohodnotiť': 'Rate', 'Neskôr': 'Later', 'Už nepýtať': "Don't ask again",
-  'Vysielač': 'Vysielač', 'vysielač': 'vysielač',
+  'Ohodnotiť appku': 'Rate the app', 'V Google Play. Pomôže to ďalším ľuďom appku nájsť.': 'On Google Play. It helps others find the app.', 'Páči sa ti OnAir?': 'Enjoying OnAir?', 'Ohodnoť appku v Google Play. Pomôže to ďalším ľuďom ju nájsť.': 'Rate the app on Google Play. It helps others find it.', 'Ohodnotiť': 'Rate', 'Neskôr': 'Later', 'Už nepýtať': "Don't ask again",
+  'OnAir': 'OnAir',
 };
 
 export const EN_T = {

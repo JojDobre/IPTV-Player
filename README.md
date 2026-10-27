@@ -1,4 +1,4 @@
-# Vysielač
+# OnAir
 
 IPTV prehrávač pre TV, PC a mobil. Vložíš M3U odkaz od svojho poskytovateľa a pozeráš živé vysielanie,
 program (EPG), archív a prepínaš zvukové stopy a titulky.

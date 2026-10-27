@@ -1,6 +1,6 @@
 {
   "appId": "sk.vysielac.app",
-  "appName": "Vysielač",
+  "appName": "OnAir",
   "webDir": "dist",
   "server": {
     "androidScheme": "http",

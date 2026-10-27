@@ -33,7 +33,7 @@ http.createServer(async (req, res) => {
   createReadStream(file).pipe(res);
 }).listen(PORT, '0.0.0.0', () => {
   const lan = Object.values(networkInterfaces()).flat().filter(i => i && i.family === 'IPv4' && !i.internal).map(i => i.address);
-  console.log(`\n  Vysielač beží\n\n  Na tomto PC:      http://localhost:${PORT}`);
+  console.log(`\n  OnAir beží\n\n  Na tomto PC:      http://localhost:${PORT}`);
   lan.forEach(ip => console.log(`  V domácej sieti:  http://${ip}:${PORT}`));
   console.log('\n  Zastavíš ho klávesmi Ctrl+C.\n');
 });
