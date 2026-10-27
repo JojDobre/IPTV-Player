@@ -155,6 +155,17 @@ public class LocalRelayPlugin extends Plugin {
         call.resolve();
     }
 
+    /** Reads a QR code with Google Play services' scanner (no camera permission in the app); resolves { value }. */
+    @PluginMethod
+    public void scanQr(PluginCall call) {
+        com.google.mlkit.vision.codescanner.GmsBarcodeScannerOptions o = new com.google.mlkit.vision.codescanner.GmsBarcodeScannerOptions.Builder()
+            .setBarcodeFormats(com.google.mlkit.vision.barcode.common.Barcode.FORMAT_QR_CODE).build();
+        com.google.mlkit.vision.codescanner.GmsBarcodeScanning.getClient(getActivity(), o).startScan()
+            .addOnSuccessListener(b -> { JSObject r = new JSObject(); r.put("value", b.getRawValue()); call.resolve(r); })
+            .addOnCanceledListener(() -> call.reject("canceled", "CANCELED"))
+            .addOnFailureListener(e -> call.reject(e.getMessage() != null ? e.getMessage() : "scanner unavailable"));
+    }
+
     /** Back on the home screen with nothing left to close: leave the app like any other. */
     @PluginMethod
     public void exit(PluginCall call) {

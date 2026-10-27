@@ -933,19 +933,52 @@ html.native .pv { visibility: hidden !important; }
 .welcome h2 { font-family: var(--f-display); font-weight: 700; font-size: clamp(26px, 4vw, 40px); letter-spacing: -.02em; }
 .welcome p { color: var(--fg-2); font-size: 17px; line-height: 1.5; max-width: 52ch; }
 .welcome .actions { justify-content: center; margin-top: 8px; }
-.tour { display: grid; gap: 12px; }
-.tour-ic { width: 56px; height: 56px; border-radius: 18px; display: grid; place-items: center; background: linear-gradient(135deg, #7C5CFF, #2EC5FF); color: #fff; }
-.tour-ic .ic { width: 28px; height: 28px; }
-.tour-step { font-size: 13px; letter-spacing: .12em; color: var(--fg-3); }
-.tour-li { display: grid; grid-template-columns: minmax(120px, max-content) 1fr; gap: 10px 18px; margin: 6px 0 0; }
-.tour-li dt { font-weight: 700; }
-.tour-li dd { margin: 0; color: var(--fg-2); }
-.tour-dots { display: flex; gap: 8px; margin-top: 6px; }
-.tour-dots i { width: 8px; height: 8px; border-radius: 4px; background: var(--fg-3); opacity: .5; transition: width .2s; }
-.tour-dots i.on { width: 22px; background: var(--fg); opacity: 1; }
-.tour .actions { flex-direction: row-reverse; justify-content: flex-end; }
-.tour .tour-skip { margin-right: auto; }
-@media (max-width: 560px) { .tour-li { grid-template-columns: 1fr; gap: 2px; } .tour-li dd { margin-bottom: 8px; } }
+.dialog:has(.tour) { padding: 0; overflow: hidden; display: block; width: min(680px, 100%); }
+.tour { display: flex; flex-direction: column; max-height: calc(100vh - 40px); position: relative; }
+.tour-top { display: flex; align-items: center; gap: 14px; padding: 18px 22px 0; position: absolute; top: 0; left: 0; right: 0; z-index: 1; }
+.tour-bar { flex: 1; display: flex; gap: 6px; }
+.tour-bar i { flex: 1; height: 4px; border-radius: 2px; background: rgba(255,255,255,.22); }
+.tour-bar i.done { background: rgba(255,255,255,.7); }
+.tour-bar i.on { background: #fff; }
+.tour-skip { font-size: 14px; font-weight: 600; color: rgba(255,255,255,.85); padding: 6px 10px; border-radius: 10px; }
+.tour-skip.focus { box-shadow: 0 0 0 2px #fff; }
+/* the coloured band: big icon, title and one line about the step */
+.tour-hero { padding: 58px 26px 26px; display: flex; gap: 20px; align-items: center; color: #fff;
+  background: radial-gradient(120% 140% at 0% 0%, rgba(255,255,255,.22), transparent 55%), linear-gradient(135deg, var(--t1), var(--t2)); }
+.tour-ic { width: 72px; height: 72px; flex: none; border-radius: 22px; display: grid; place-items: center; background: rgba(255,255,255,.2); box-shadow: inset 0 1px 0 rgba(255,255,255,.35); }
+.tour-ic .ic { width: 38px; height: 38px; }
+.tour-head { display: grid; gap: 4px; min-width: 0; }
+.tour-step { font-size: 12px; font-weight: 700; letter-spacing: .14em; opacity: .8; }
+.tour-head h2 { font-size: clamp(24px, 3.2vw, 30px); margin: 0; color: #fff; line-height: 1.1; }
+.tour-head p { margin: 2px 0 0; color: rgba(255,255,255,.9); font-size: 15px; line-height: 1.4; }
+.tour-li { list-style: none; margin: 0; padding: 18px 26px 4px; display: grid; gap: 12px; overflow-y: auto; min-height: 0; }
+.tour-li li { display: flex; gap: 14px; align-items: flex-start; }
+.tl-ic { width: 28px; height: 28px; flex: none; border-radius: 9px; display: grid; place-items: center; color: var(--t1); background: color-mix(in srgb, var(--t1) 18%, transparent); margin-top: 1px; }
+.tl-ic .ic { width: 16px; height: 16px; }
+.tour-li b { display: block; font-size: 15px; }
+.tour-li small { display: block; color: var(--fg-2); font-size: 14px; line-height: 1.4; margin-top: 2px; }
+.tour .actions { padding: 16px 26px 22px; margin: 0; display: flex; flex-direction: row-reverse; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
+.tour .btn.ghost { background: transparent; }
+/* phone: the whole screen, buttons always at the bottom */
+@media (max-width: 560px) {
+  #modal:has(.tour) { padding: 0; }
+  .dialog:has(.tour) { width: 100%; height: 100%; max-height: none; border-radius: 0; border: 0; }
+  .tour { height: 100%; max-height: none; }
+  .tour-top { padding-top: max(18px, calc(var(--sa-t) + 10px)); }
+  .tour-hero { flex-direction: column; align-items: flex-start; padding: calc(58px + var(--sa-t)) 22px 24px; }
+  .tour-li { padding: 18px 22px 8px; flex: 1; align-content: start; }
+  .tour .actions { padding: 12px 22px max(18px, var(--sa-b)); border-top: 1px solid var(--line); }
+  .tour .actions .btn.primary { flex: 1; justify-content: center; }
+}
+/* TV and wide screens: band on the left, list on the right */
+@media (min-width: 900px) {
+  .dialog:has(.tour) { width: min(980px, 100%); }
+  .tour { display: grid; grid-template-columns: 340px 1fr; grid-template-rows: auto 1fr auto; }
+  .tour-top { right: auto; width: 340px; box-sizing: border-box; }
+  .tour-hero { grid-column: 1; grid-row: 1 / 4; flex-direction: column; align-items: flex-start; justify-content: center; margin: 0; padding: 70px 30px 30px; }
+  .tour-li { grid-column: 2; grid-row: 1 / 3; padding: 34px 32px 8px; align-content: center; }
+  .tour .actions { grid-column: 2; grid-row: 3; padding: 12px 32px 28px; }
+}
 .pair { display: grid; grid-template-columns: minmax(180px, 260px) 1fr; gap: 28px; align-items: center; }
 .pair-qr { background: #fff; border-radius: 18px; padding: 10px; }
 .pair-qr svg { display: block; width: 100%; height: auto; }
@@ -976,8 +1009,9 @@ html.native .pv { visibility: hidden !important; }
 
 /* Setting "Button labels" off: icons only. The words stay for screen readers (font-size 0, not removed). */
 :root[data-labels="off"] .b-play { font-size: 0; gap: 0; padding: 0 7px; }
-:root[data-labels="off"] .btn:has(> .ic) { font-size: 0; gap: 0; padding-inline: 12px; min-width: 44px; justify-content: center; }
-:root[data-labels="off"] .btn:has(> .ic) .ic { margin: 0; }
+/* Words stay where a newcomer needs them: the welcome screen, dialogs and settings. */
+:root[data-labels="off"] .btn:has(> .ic):not(.welcome .btn, #modal .btn, #settings .btn) { font-size: 0; gap: 0; padding-inline: 12px; min-width: 44px; justify-content: center; }
+:root[data-labels="off"] .btn:has(> .ic):not(.welcome .btn, #modal .btn, #settings .btn) .ic { margin: 0; }
 :root[data-labels="off"] .pp-act { width: 54px; padding: 12px 4px; }
 :root[data-labels="off"] .pp-act span { display: none; }
 @media (max-width: 760px) {
@@ -1035,3 +1069,17 @@ html, body { touch-action: manipulation; }
   html:not(.tv):not(.in-pip) body.touch #player:not(.mini) .p-port { display: block; overflow-y: auto; overscroll-behavior: contain; padding-bottom: max(16px, var(--sa-b)); }
   html:not(.tv):not(.in-pip) body.touch #player:not(.mini) .pp-list { overflow: visible; padding-bottom: 0; }
 }
+/* Transfer to another device: three big choices */
+.xfer { max-width: 560px; }
+.xfer-opts { display: grid; gap: 10px; margin: 18px 0 6px; }
+.xfer-opt { display: flex; align-items: center; gap: 16px; text-align: left; padding: 14px 16px; border-radius: 16px; background: var(--surface); color: var(--fg); }
+.xfer-opt .lbl { display: grid; gap: 3px; min-width: 0; }
+.xfer-opt b { font-size: 16px; }
+.xfer-opt small { color: var(--fg-3); font-size: 13px; line-height: 1.35; }
+.xfer-ic { width: 44px; height: 44px; flex: none; border-radius: 12px; display: grid; place-items: center; background: linear-gradient(135deg, #7C5CFF, #2EC5FF); color: #fff; }
+.xfer-ic .ic { width: 22px; height: 22px; }
+.xfer-opt.focus { box-shadow: 0 0 0 3px var(--accent); }
+body:not(.touch) .xfer-opt:hover { background: var(--surface-2); }
+.welcome .w-lang { margin-top: 22px; display: flex; justify-content: center; }
+.choice-list { display: grid; gap: 2px; max-height: min(60vh, 520px); overflow-y: auto; margin: 10px -6px 4px; padding: 0 6px; }
+.btn.choice { max-width: 46vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

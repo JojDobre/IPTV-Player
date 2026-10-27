@@ -33,8 +33,10 @@ import java.util.zip.GZIPInputStream;
  * The web player cannot read most IPTV servers directly (no CORS headers, odd user agents), so it asks this one:
  *   /api/ping, /api/fetch?url=, /api/stream?url= (HLS playlists rewritten), /api/img?url=, /api/probe?url=
  * Optional on every route: ua (User-Agent), ref (Referer).
- * Pairing (a phone sends the playlist to this TV): /api/pair-start, /api/pair-poll, and /pair?t= — the only thing
- * reachable from the home network; everything else answers the app on this device only.
+ * Pairing (a phone sends the playlist, or another OnAir its channels and categories, to this TV): /api/pair-start,
+ * /api/pair-poll and /pair?t=. Sending channels and categories from here: /api/share-start (POST the bundle) and
+ * /share?t= (another device reads it). /pair and /share are the only things reachable from the home network;
+ * everything else answers the app on this device only.
  */
 public class Relay {
     static final String DEFAULT_UA = "VLC/3.0.20 LibVLC/3.0.20";
@@ -45,7 +47,9 @@ public class Relay {
     /** Reads pair.html from the app's bundled web files (set by the plugin; null in plain-Java tests). */
     static java.util.function.Supplier<byte[]> pairPage = null;
     private static final Map<String, String[]> codes = new HashMap<>();   // token -> { expiry ms, data JSON or null }
+    private static final Map<String, String[]> shares = new HashMap<>();  // token -> { expiry ms, bundle JSON }
     private static final long CODE_TTL = 15 * 60_000L;
+    private static final int MAX_BODY = 4_000_000;
     private final ExecutorService pool = Executors.newCachedThreadPool();
 
     public synchronized int start() throws IOException {
@@ -86,7 +90,7 @@ public class Relay {
             r.local = sock.getInetAddress().isLoopbackAddress();
             String len = r.headers.get("content-length");
             if (len != null && "POST".equals(r.method)) {
-                int n = Math.min(20000, Integer.parseInt(len.trim()));
+                int n = Math.min(MAX_BODY, Integer.parseInt(len.trim()));
                 byte[] b = new byte[n];
                 int got = 0;
                 while (got < n) { int k = in.read(b, got, n - got); if (k < 0) break; got += k; }
@@ -135,11 +139,13 @@ public class Relay {
 
     private void route(Req r, OutputStream out) throws IOException {
         if ("/pair".equals(r.path)) { pair(r, out); return; }
+        if ("/share".equals(r.path)) { shareGet(r.q.get("t"), out); return; }
         if (!r.local) { text(out, 403, "Forbidden"); return; }
         if ("OPTIONS".equals(r.method)) { head(out, 204, "No Content", new HashMap<>()); return; }
         String route = r.path.startsWith("/api/") ? r.path.substring(5) : "";
         if ("pair-start".equals(route)) { pairStart(out); return; }
         if ("pair-poll".equals(route)) { pairPoll(r.q.get("t"), out); return; }
+        if ("share-start".equals(route)) { shareStart(r.body.trim(), out); return; }
         if ("ping".equals(route)) { json(out, 200, "{\"ok\":true,\"ffmpeg\":false,\"rec\":false,\"native\":true}"); return; }
         String target = r.q.get("url");
         if (target == null || !target.matches("(?i)^https?://.*")) { text(out, 400, "Chýba alebo je neplatná adresa (url)."); return; }
@@ -198,12 +204,35 @@ public class Relay {
 
     // ---- pairing ----
 
-    private void pairStart(OutputStream out) throws IOException {
+    private static String newToken() {
         byte[] raw = new byte[12];
         new SecureRandom().nextBytes(raw);
         StringBuilder t = new StringBuilder();
         for (byte b : raw) t.append(String.format(Locale.ROOT, "%02x", b));
-        String token = t.toString();
+        return t.toString();
+    }
+
+    private void shareStart(String body, OutputStream out) throws IOException {
+        if (!body.startsWith("{") || !body.endsWith("}")) { json(out, 400, "{\"error\":\"bad request\"}"); return; }
+        String token = newToken();
+        synchronized (shares) {
+            shares.entrySet().removeIf(e -> Long.parseLong(e.getValue()[0]) < System.currentTimeMillis());
+            shares.put(token, new String[] { String.valueOf(System.currentTimeMillis() + CODE_TTL), body });
+        }
+        StringBuilder urls = new StringBuilder();
+        for (String ip : lanAddresses()) urls.append(urls.length() > 0 ? "," : "").append(quote("http://" + ip + ":" + server.getLocalPort() + "/share?t=" + token));
+        json(out, 200, "{\"token\":" + quote(token) + ",\"urls\":[" + urls + "]}");
+    }
+
+    private void shareGet(String token, OutputStream out) throws IOException {
+        String[] s;
+        synchronized (shares) { s = token == null ? null : shares.get(token); }
+        if (s == null || Long.parseLong(s[0]) < System.currentTimeMillis()) { json(out, 404, "{\"error\":\"expired\"}"); return; }
+        json(out, 200, s[1]);
+    }
+
+    private void pairStart(OutputStream out) throws IOException {
+        String token = newToken();
         synchronized (codes) {
             codes.entrySet().removeIf(e -> Long.parseLong(e.getValue()[0]) < System.currentTimeMillis());
             codes.put(token, new String[] { String.valueOf(System.currentTimeMillis() + CODE_TTL), null });
@@ -226,8 +255,8 @@ public class Relay {
         if (c == null) { text(out, 403, "Kód neplatí. Na TV otvor QR kód znova. / This code has expired."); return; }
         if ("POST".equals(r.method)) {
             String b = r.body.trim();
-            // The form sends a small JSON object; the app reads only its known fields.
-            if (!b.startsWith("{") || !b.endsWith("}") || b.length() > 20000) { json(out, 400, "{\"error\":\"bad request\"}"); return; }
+            // The form, or another OnAir sending its channels and categories, posts a JSON object; the app reads only known fields.
+            if (!b.startsWith("{") || !b.endsWith("}") || b.length() > MAX_BODY) { json(out, 400, "{\"error\":\"bad request\"}"); return; }
             synchronized (codes) { c[1] = b; }
             json(out, 200, "{\"ok\":true}");
             return;

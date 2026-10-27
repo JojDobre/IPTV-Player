@@ -68,3 +68,27 @@ export const recDelete = id => recCall(`rec?id=${enc(id)}`, 'DELETE');
 // Pairing: a phone sends the playlist to this device (see server/pair.js and Relay.java).
 export async function pairStart() { const r = await fetch(abs('/api/pair-start'), { cache: 'no-store' }); if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); }
 export async function pairPoll(t) { const r = await fetch(abs(`/api/pair-poll?t=${enc(t)}`), { cache: 'no-store' }); return r.ok ? r.json() : { expired: true }; }
+
+// Sending channels and categories to another device (same mechanism as pairing).
+/** Puts the bundle on this device's relay for 15 minutes; another device reads it from one of { urls }. */
+export async function shareStart(bundle) {
+  const r = await fetch(abs('/api/share-start'), { method: 'POST', headers: { 'content-type': 'text/plain' }, body: JSON.stringify(bundle), cache: 'no-store' });
+  if (!r.ok) throw new Error('HTTP ' + r.status);
+  return r.json();
+}
+/** Reads a bundle another device offers (its /share?t= address from the QR code). */
+export async function shareGet(url) {
+  const r = await fetch(relay ? abs(`/api/fetch?url=${enc(url)}`) : url, { cache: 'no-store' });
+  if (r.status === 404) throw new Error('expired');
+  if (!r.ok) throw new Error('HTTP ' + r.status);
+  return r.json();
+}
+/** Sends a bundle to a device that waits for one (its /pair?t= address from the QR code). */
+export async function sharePush(url, bundle) {
+  // text/plain keeps it a simple request (no preflight) to the other device on the home network
+  const r = await fetch(url, { method: 'POST', headers: { 'content-type': 'text/plain' }, body: JSON.stringify({ bundle }), cache: 'no-store' });
+  if (r.status === 403) throw new Error('expired');
+  if (!r.ok) throw new Error('HTTP ' + r.status);
+}
+export const canScan = () => !!Native && !(nativeInfo && nativeInfo.tv);
+export async function scanQr() { return (await Native.scanQr()).value || ''; }

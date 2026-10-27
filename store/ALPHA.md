@@ -42,7 +42,7 @@ Po minúte bude stránka na `https://jojdobre.github.io/IPTV-Player/privacy.html
 
 ## 4. Play Console
 
-1. **Vytvoriť aplikáciu**: názov „OnAir – IPTV Player“, predvolený jazyk slovenčina, Aplikácia, Zadarmo.
+1. **Vytvoriť aplikáciu**: názov „OnAir – IPTV Player“, predvolený jazyk **angličtina (en-US)**, Aplikácia, Zadarmo. Slovenčinu pridáš ako preklad.
 2. **Nastavenie aplikácie** (Dashboard → „Set up your app“) – vyplň podľa `store/LISTING.md`:
    * Zásady ochrany súkromia → odkaz z kroku 3
    * Prístup k aplikácii → „Všetky funkcie sú dostupné bez obmedzení“

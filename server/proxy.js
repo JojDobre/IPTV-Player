@@ -148,7 +148,7 @@ export async function handleApi(req, res, { log = () => {} } = {}) {
   const q = u.searchParams;
   const target = q.get('url');
   if (route === 'ping') { res.writeHead(200, { 'content-type': 'application/json' }); res.end(JSON.stringify({ ok: true, ffmpeg: hasFfmpeg(), rec: true })); return true; }
-  if (route === 'pair-start' || route === 'pair-poll') { const { pairApi } = await import('./pair.js'); pairApi(route, req, res, q); return true; }
+  if (route === 'pair-start' || route === 'pair-poll' || route === 'share-start') { const { pairApi } = await import('./pair.js'); pairApi(route, req, res, q); return true; }
   if (route === 'rec' || route.startsWith('rec/')) { const { handleRec } = await import('./recorder.js'); await handleRec(route, req, res, q); return true; }
   if (!isHttp(target)) { res.writeHead(400, { 'content-type': 'text/plain; charset=utf-8' }); res.end('Chýba alebo je neplatná adresa (url).'); return true; }
   if (route === 'remux') {

@@ -10,7 +10,7 @@ import '@fontsource/fraunces/600-italic.css';
 import './styles.css';
 import { installTranslator, isEn } from './i18n.js';
 import { buildDemo } from './data/demo.js';
-import { detectRelay, Native, nativeInfo, imgUrl, useRelay, relayHasFfmpeg, streamInfo, canRecord, recList, recAdd, recStop, recDelete, recFileUrl, pairStart, pairPoll } from './data/net.js';
+import { detectRelay, Native, nativeInfo, imgUrl, useRelay, relayHasFfmpeg, streamInfo, canRecord, recList, recAdd, recStop, recDelete, recFileUrl, pairStart, pairPoll, shareStart, shareGet, sharePush, canScan, scanQr } from './data/net.js';
 import { xtreamUrls } from './data/m3u.js';
 import { nameKey } from './data/xmltv.js';
 import { catchupUrl, hasArchive as hasArchiveReal } from './data/catchup.js';
@@ -50,7 +50,7 @@ function epgFor(id) {
     const ix = EPG_RAW.index[key];
     if (ix) try { raw = JSON.parse(utf8.decode(new Uint8Array(EPG_RAW.buf, ix[0], ix[1]))); } catch { raw = null; }
   } else if (key && EPG_RAW.programmes) raw = EPG_RAW.programmes[key];
-  const shift = (byId[id]?.shift || 0) * 3600e3;
+  const shift = ((byId[id]?.shift || 0) + (+S.set.epgShift || 0)) * 3600e3;
   const list = raw ? raw.map(r => ({ start: r[0] + shift, end: r[1] + shift, title: r[2] || 'Bez názvu', desc: r[3] || '', genre: r[4] || '' })) : null;
   if (epgCache.size > 2500) epgCache.delete(epgCache.keys().next().value);
   epgCache.set(id, list);
@@ -135,7 +135,7 @@ const catIcon = s => s.icon === 'auto' ? `<span class="txt-ic">${esc(initials(s.
 const ACCENTS = { white: ['#FFFFFF', '#0A0A17'], amber: ['#F2B84B', '#1B1406'], coral: ['#FF7A59', '#1E0B05'], mint: ['#4FD1A5', '#04170F'], violet: ['#A08CFF', '#0F0A24'], ice: ['#7CC4FF', '#03121F'] };
 const PALETTE = ['#2F6BFF', '#E5394B', '#8B5CF6', '#16A34A', '#F59E0B', '#EC4899', '#0EA5A4', '#F97316'];
 const ICONS = ['auto', 'film', 'ball', 'news', 'kids', 'globe', 'note', 'cup', 'heart', 'sparkle'];
-const DEFAULT_SET = { look: 'classic', secRows: '2', tile: 'm', round: 'med', tilebg: 'tint', nums: 'off', caps: 'on', accent: 'white', hide: '5', lang: 'sk', subs: 'off', resume: 'off', backMini: 'off', pipAuto: 'on', afr: 'on', swipe: 'on', haptic: 'on', fsize: 'm', ui: isEn ? 'en' : 'sk', labels: 'on' };
+const DEFAULT_SET = { look: 'classic', secRows: '2', tile: 'm', round: 'med', tilebg: 'tint', nums: 'off', caps: 'on', accent: 'white', hide: '5', lang: 'auto', subs: 'off', resume: 'off', backMini: 'off', pipAuto: 'on', afr: 'on', swipe: 'on', haptic: 'on', fsize: 'm', ui: isEn ? 'en' : 'sk', labels: 'off', epgShift: '0' };
 function defaultSections() {
   return [
     { id: 'recent', type: 'recent', name: 'Naposledy pozerané', color: '#94A3B8', icon: 'hist', show: true },
@@ -355,6 +355,20 @@ const SUBS = [['off', 'Vypnuté', ''], ['sk', 'Slovenské', 'DVB titulky'], ['en
 const QUAL = [['auto', 'Automaticky', 'Podľa rýchlosti siete'], ['1080', '1080p', 'Full HD · 8 Mb/s'], ['720', '720p', 'HD · 4 Mb/s'], ['576', '576p', 'SD · 2 Mb/s']];
 const ASPECT = [['fit', 'Prispôsobiť', 'Celý obraz, prípadne s pásmi'], ['zoom', 'Priblížiť', 'Vyplní obrazovku, okraje sa orežú'], ['fill', 'Roztiahnuť', 'Vyplní obrazovku, obraz sa deformuje'], ['43', '4:3', 'Pre staršie relácie']];
 const label = (list, v) => (list.find(x => x[0] === v) || list[0])[1];
+// Preferred audio and subtitle language for real streams. "auto" follows the phone's or TV's own language.
+const LANGS = [['en', 'English'], ['de', 'Deutsch'], ['fr', 'Français'], ['es', 'Español'], ['it', 'Italiano'], ['pt', 'Português'], ['nl', 'Nederlands'],
+  ['pl', 'Polski'], ['cs', 'Čeština'], ['sk', 'Slovenčina'], ['hu', 'Magyar'], ['ro', 'Română'], ['hr', 'Hrvatski'], ['sl', 'Slovenščina'], ['sr', 'Srpski'],
+  ['bs', 'Bosanski'], ['bg', 'Български'], ['el', 'Ελληνικά'], ['ru', 'Русский'], ['uk', 'Українська'], ['tr', 'Türkçe'], ['ar', 'العربية'], ['he', 'עברית'],
+  ['sv', 'Svenska'], ['da', 'Dansk'], ['no', 'Norsk'], ['fi', 'Suomi'], ['hi', 'हिन्दी'], ['zh', '中文'], ['ja', '日本語'], ['ko', '한국어']];
+const AUDIO_PREF = [['auto', 'Jazyk zariadenia'], ['orig', 'Podľa vysielania'], ...LANGS];
+const SUBS_PREF = [['off', 'Vypnuté'], ['auto', 'Jazyk zariadenia'], ...LANGS];
+/** The device's languages, two-letter codes, most preferred first. */
+const devLangs = () => [...new Set((navigator.languages && navigator.languages.length ? navigator.languages : [navigator.language || 'en']).map(l => String(l).toLowerCase().split(/[-_]/)[0]))];
+const langName = (list, v) => { const x = list.find(l => l[0] === v); return x ? x[1] : v; };
+const autoNote = () => { const d = devLangs()[0]; const x = LANGS.find(l => l[0] === d); return x ? x[1] : d; };
+// The made-up channels of the demo have only a few tracks: map the preference onto them.
+const demoAudio = v => { const want = v === 'auto' ? devLangs() : [v]; return (want.map(c => AUDIO.find(a => a[0] === c)).find(Boolean) || AUDIO.find(a => a[0] === 'orig'))[0]; };
+const demoSubs = v => (v === 'off' ? 'off' : (v === 'auto' ? devLangs() : [v]).find(c => SUB_LINES[c]) || 'off');
 
 function applySettings() {
   const r = document.documentElement, s = S.set;
@@ -807,22 +821,24 @@ function renderSettings() {
     </div>
     <div class="set-group"><h3>Playlist</h3>
       ${playlistRows()}
+      ${setRow('Posun času programu', 'Ak program nesedí s vysielaním (napríklad po zmene letného a zimného času), posuň ho o hodinu', seg('epgShift', [['-2', '−2 h'], ['-1', '−1 h'], ['0', 'Bez posunu'], ['1', '+1 h'], ['2', '+2 h']]))}
+      ${setRow('Preniesť na iné zariadenie', 'Poradie kanálov, kategórie a obľúbené – aj playlisty – cez QR kód v domácej sieti', `<button class="btn small-btn f" data-act="xfer" data-group="main">${I('split')}Preniesť</button>`)}
     </div>
     <div class="set-group"><h3>Kanály</h3>
       ${CH.length ? `<div class="preview">${(S.order.slice(0, 4).map(id => byId[id]).filter(Boolean)).map(c => cardStatic(c)).join('')}</div>` : ''}
       ${setRow('Veľkosť kanálov', '', seg('tile', [['s', 'Malé'], ['m', 'Stredné'], ['l', 'Veľké']]))}
       ${setRow('Zaoblenie rohov', '', seg('round', [['soft', 'Jemné'], ['med', 'Stredné'], ['strong', 'Výrazné']]))}
       ${setRow('Pozadie kanálov', 'Skutočné logá z playlistu bývajú priehľadné PNG', seg('tilebg', [['tint', 'Farba kanála'], ['dark', 'Tmavé'], ['light', 'Svetlé']]))}
-      ${setRow('Jazyk appky', 'Language', seg('ui', [['sk', 'Slovenčina'], ['en', 'English']]))}
+      ${setRow('Jazyk appky', 'Language', `<div data-notr>${seg('ui', [['en', 'English'], ['sk', 'Slovenčina']])}</div>`)}
       ${setRow('Veľkosť písma', 'Celá appka vrátane ovládania prehrávača', seg('fsize', [['s', 'Menšie'], ['m', 'Normálne'], ['l', 'Väčšie'], ['xl', 'Najväčšie']]))}
-      ${setRow('Popisy tlačidiel', 'Vypnuté: tlačidlá len s ikonami (Pozerať, Upraviť, akcie v prehrávači, spodné menu na mobile)', toggleBtn('labels', 'Popisy tlačidiel'))}
+      ${setRow('Popisy tlačidiel', 'Vypnuté: tlačidlá len s ikonami (Pozerať, akcie v prehrávači, spodné menu na mobile). V nastaveniach a oknách ostávajú popisy vždy.', toggleBtn('labels', 'Popisy tlačidiel'))}
       ${setRow('Farba zvýraznenia', 'Rámik okolo vybranej položky', `<div class="swatches">${sw}</div>`)}
       ${setRow('Relácia pod kanálom', 'Názov a priebeh toho, čo práve beží', `<button class="toggle f ${S.set.caps === 'on' ? 'on' : ''}" data-act="set" data-k="caps" data-v="toggle" data-group="main" aria-label="Relácia pod kanálom"></button>`)}
       ${setRow('Čísla kanálov v rohu', '', `<button class="toggle f ${S.set.nums === 'on' ? 'on' : ''}" data-act="set" data-k="nums" data-v="toggle" data-group="main" aria-label="Čísla kanálov"></button>`)}
     </div>
     <div class="set-group"><h3>Prehrávač</h3>
-      ${setRow('Predvolený jazyk zvuku', 'Ak ho stream obsahuje', seg('lang', AUDIO.map(a => [a[0], a[1]])))}
-      ${setRow('Predvolené titulky', '', seg('subs', SUBS.map(a => [a[0], a[1]])))}
+      ${setRow('Jazyk zvuku', S.set.lang === 'auto' ? `Ak ho kanál vysiela, inak zvuk podľa vysielania. Jazyk zariadenia: ${autoNote()}` : 'Ak ho kanál vysiela, inak zvuk podľa vysielania', choiceBtn('lang', AUDIO_PREF))}
+      ${setRow('Titulky', S.set.subs === 'auto' ? `Zapnú sa, keď zvuk nie je v jazyku zariadenia (${autoNote()}) a kanál ich má` : 'Ak ich kanál vysiela', choiceBtn('subs', SUBS_PREF))}
       ${setRow('Skryť ovládanie po', '', seg('hide', [['3', '3 s'], ['5', '5 s'], ['8', '8 s']]))}
       ${setRow('Po spustení pokračovať', 'Appka hneď pustí naposledy pozeraný kanál, ako set-top box', toggleBtn('resume', 'Po spustení pokračovať'))}
       ${Native && nativeInfo && nativeInfo.pip ? setRow('Okno nad aplikáciami', 'Keď počas pozerania odídeš z appky (tlačidlo Domov), kanál hrá ďalej v malom okne nad ostatnými aplikáciami', `<button class="toggle f ${S.set.pipAuto !== 'off' ? 'on' : ''}" data-act="set" data-k="pipAuto" data-v="toggle" data-group="main" aria-label="Okno nad aplikáciami"></button>`) : ''}
@@ -839,19 +855,28 @@ function renderSettings() {
       ${setRow('Obnoviť pôvodný stav', 'Vráti nastavenia, sekcie, obľúbené a históriu do pôvodného stavu. Playlisty ostanú.', `<button class="btn small-btn f" data-act="reset" data-group="main">Obnoviť</button>`)}
     </div>`;
 }
+// A setting with many values (languages): the button shows the current one and opens a list.
+const choiceBtn = (k, list) => `<button class="btn small-btn f choice" data-act="choice" data-k="${k}" data-group="main">${esc(langName(list, S.set[k]))}</button>`;
+function openChoice(k) {
+  const list = k === 'lang' ? AUDIO_PREF : SUBS_PREF;
+  openModal(`<h2>${k === 'lang' ? 'Jazyk zvuku' : 'Titulky'}</h2><div class="choice-list">${list.map(([v, l]) => `<button class="opt f ${S.set[k] === v ? 'on' : ''}" data-act="choice-set" data-k="${k}" data-v="${v}"><span${v.length === 2 ? ' data-notr' : ''}>${esc(l)}</span>${I('check')}</button>`).join('')}</div>
+    <div class="actions"><button class="btn f" data-act="close-modal">Zavrieť</button></div>`);
+  const on = $('#dialog .opt.on'); if (on) { setFocus(on, { noScroll: true }); on.scrollIntoView({ block: 'center' }); }
+}
 const toggleBtn = (k, label) => `<button class="toggle f ${S.set[k] === 'on' ? 'on' : ''}" data-act="set" data-k="${k}" data-v="toggle" data-group="main" aria-label="${label}"></button>`;
 function setSetting(k, v, el) {
   if (v === 'toggle') { v = S.set[k] === 'on' ? 'off' : 'on'; if (el) el.classList.toggle('on', v === 'on'); }
   else $$(`[data-act="set"][data-k="${k}"]`).forEach(b => b.classList.toggle('on', b.dataset.v === v));
   S.set[k] = v;
-  if (k === 'lang') P.audio = v;
-  if (k === 'subs') P.subs = v;
+  if (k === 'lang') P.audio = demoAudio(v);
+  if (k === 'subs') P.subs = demoSubs(v);
   applySettings();
   if (k === 'secRows' && S.screen === 'home') renderHome();
   if (k === 'pipAuto') syncAutoPip();
   if (k === 'ui') { store.set('settings3', S.set); location.reload(); return; }
   if (k === 'afr') nativeOpts.afr = !!(Native && IS_TV && v !== 'off');
   if (k === 'look') toast(v === 'glass' ? 'Liquid glass zapnutý' : 'Klasický vzhľad');
+  if (k === 'epgShift') { epgCache.clear(); toast(v === '0' ? 'Program bez posunu' : `Program posunutý o ${v > 0 ? '+' : '−'}${Math.abs(v)} h`); }
 }
 
 /* ---------- Playlist & EPG ---------- */
@@ -1262,7 +1287,7 @@ function progAction(id, start) {
 
 /* ---------- Player ---------- */
 const P = { open: false, ch: null, last: null, offset: 0, paused: false, osd: false, panel: null, panelFrom: null,
-  audio: S.set.lang, subs: S.set.subs, quality: 'auto', aspect: 'fit', hideT: 0, bannerT: 0, num: '', numT: 0, tileCh: null, appFocus: null,
+  audio: demoAudio(S.set.lang), subs: ['sk', 'en'].includes(S.set.subs) ? S.set.subs : 'off', quality: 'auto', aspect: 'fit', hideT: 0, bannerT: 0, num: '', numT: 0, tileCh: null, appFocus: null,
   real: false, mode: 'live', archStart: 0, base: null, kinds: {}, prefApplied: false, error: false };
 // Two players for the two-picture mode. `engine` is always the active one (sound, controls, zapping);
 // the other only runs while two pictures are on.
@@ -1468,9 +1493,16 @@ function applyPrefs() {
   const t = engine.tracks();
   if (!t.audio.length && !t.text.length) return;
   P.prefApplied = true;
-  const a = t.audio.find(x => langMatches(x.lang, S.set.lang));
+  // Audio: the first preferred language the stream has; otherwise the broadcaster's default stays.
+  const want = S.set.lang === 'orig' ? [] : S.set.lang === 'auto' ? devLangs() : [S.set.lang];
+  const a = want.map(l => t.audio.find(x => langMatches(x.lang, l))).find(Boolean);
   if (a && !a.on) engine.setAudio(a.id);
-  if (S.set.subs !== 'off') { const x = t.text.find(x => langMatches(x.lang, S.set.subs)); if (x) engine.setText(x.id); }
+  const playing = a || t.audio.find(x => x.on);
+  // Subtitles: "device language" only when the sound is in another language.
+  if (S.set.subs === 'auto') {
+    const d = devLangs()[0];
+    if (!(playing && langMatches(playing.lang, d))) { const x = t.text.find(x => langMatches(x.lang, d)); if (x) engine.setText(x.id); }
+  } else if (S.set.subs !== 'off') { const x = t.text.find(x => langMatches(x.lang, S.set.subs)); if (x) engine.setText(x.id); }
 }
 let statusT;
 function engineState(state, info) {
@@ -1918,6 +1950,7 @@ async function openPair() {
     const r = await pairPoll(info.token).catch(() => ({}));
     if (r.expired) { $('.pair-wait').textContent = 'Kód vypršal, otvor ho znova.'; return; }
     if (!r.data) { pairT = setTimeout(poll, 2000); return; }
+    if (r.data.bundle) { applyBundle(r.data.bundle); return; }
     const d = r.data, s = v => String(v || '').trim();
     let m3u = s(d.m3u), epg = s(d.epg);
     if (!m3u && d.server) { const x = xtreamUrls(/^https?:\/\//i.test(s(d.server)) ? s(d.server) : 'http://' + s(d.server), s(d.user), String(d.pass || '')); m3u = x.m3u; epg = epg || x.epg; }
@@ -1930,6 +1963,129 @@ async function openPair() {
   pairT = setTimeout(poll, 2000);
 }
 
+/* ---------- Moving channels and categories to another device ----------
+   The order of channels, categories, favourites and the buttons on top travel as one bundle, together with the
+   playlists, so the other device can add the ones it does not have. Over the home network, like pairing:
+   "Send" offers the bundle at /share?t= for a phone to scan; "Receive" waits at /pair?t= for a phone to send it. */
+const srcKey = s => [s.m3u || '', s.server || '', s.user || ''].join('|').toLowerCase();
+function exportBundle() {
+  const srcs = LIB ? LIB.sources : [];
+  const idx = Object.fromEntries(srcs.map((s, i) => [s.id, i]));
+  return { app: 'onair', v: 1, at: Date.now(), sources: srcs, order: S.order, src: S.order.map(id => idx[(byId[id] || {}).src] ?? -1), sections: S.sections, quick: S.quick };
+}
+async function importBundle(b) {
+  if (!b || b.app !== 'onair' || !Array.isArray(b.order)) throw new Error('Toto nie sú údaje z appky OnAir.');
+  const rsrc = Array.isArray(b.sources) ? b.sources : [], map = {};
+  let added = 0;
+  for (let i = 0; i < rsrc.length; i++) {
+    const rs = rsrc[i];
+    let l = LIB && LIB.sources.find(x => srcKey(x) === srcKey(rs));
+    if (!l) {
+      // The other device's id is kept when it is free here, so its channel ids match ours.
+      const id = LIB && LIB.sources.some(x => x.id === rs.id) ? undefined : rs.id;
+      if (await importPlaylist({ ...rs, id }, { silent: true, noEpg: true })) { l = LIB.sources.find(x => srcKey(x) === srcKey(rs)); added++; }
+    }
+    if (l) map[i] = l.id;
+  }
+  if (added) refreshEpg();
+  // A channel id is the same everywhere for the same playlist, except duplicates, which carry their playlist's id.
+  const base = id => id.split('~')[0];
+  const here = new Map(CH.map(c => [base(c.id) + '|' + c.src, c.id]));
+  const from = new Map(b.order.map((id, i) => [id, Array.isArray(b.src) ? b.src[i] : -1]));
+  const tr = id => { const ls = map[from.get(id)]; return (ls && here.get(base(id) + '|' + ls)) || (byId[id] ? id : null); };
+  const order = [...new Set(b.order.map(tr).filter(Boolean))];
+  const sections = (Array.isArray(b.sections) ? b.sections : []).map(s => (Array.isArray(s.chs) ? { ...s, chs: [...new Set(s.chs.map(tr).filter(Boolean))] } : { ...s }));
+  const k = S.libKey;
+  store.set('order:' + k, order); store.set('sections:' + k, sections);
+  if (Array.isArray(b.quick)) store.set('quick:' + k, b.quick);
+  reconcile(); nav.mem = {}; rerender();
+  return { channels: order.length, cats: sections.filter(s => s.type === 'cat').length, added };
+}
+async function applyBundle(b) {
+  closeModal(true);
+  toast('Preberám kanály a kategórie…');
+  try {
+    const r = await importBundle(b);
+    toast(`Hotovo: ${countTxt(r.channels)} v rovnakom poradí${r.added ? `, pridané playlisty: ${r.added}` : ''}`);
+  } catch (e) { toast('Prenos sa nepodaril: ' + e.message); }
+}
+const qrSvg = async url => { const { default: qrcode } = await import('qrcode-generator'); const qr = qrcode(0, 'M'); qr.addData(url); qr.make(); return qr.createSvgTag({ cellSize: 6, margin: 3, scalable: true }); };
+const noNetwork = title => openModal(`<h2>${title}</h2><p class="muted">Toto zariadenie nie je pripojené do domácej siete (Wi-Fi alebo kábel). Pripoj ho a skús znova.</p><div class="actions"><button class="btn primary f" data-act="close-modal">Zavrieť</button></div>`);
+function openTransfer() {
+  const opt = (act, icon, title, sub) => `<button class="xfer-opt f" data-act="${act}"><span class="xfer-ic">${I(icon)}</span><span class="lbl"><b>${title}</b><small>${sub}</small></span></button>`;
+  openModal(`<div class="xfer"><h2>Preniesť na iné zariadenie</h2>
+    <p class="muted">Poradie kanálov, kategórie, obľúbené a tlačidlá na vrchu. Playlisty, ktoré druhé zariadenie nemá, sa pridajú. Obe zariadenia musia byť v rovnakej Wi-Fi sieti.</p>
+    <div class="xfer-opts">
+      ${opt('xfer-send', 'up', 'Poslať odtiaľto', 'Ukáže QR kód. Naskenuješ ho mobilom s appkou OnAir.')}
+      ${opt('xfer-recv', 'down', 'Prijať sem', 'Ukáže QR kód. Mobil s appkou OnAir ti cez neho pošle svoje kanály.')}
+      ${canScan() ? opt('xfer-scan', 'expand', 'Naskenovať QR kód', 'Z obrazovky iného zariadenia: prevezmeš jeho kanály alebo mu pošleš tieto.') : ''}
+    </div>
+    <div class="actions"><button class="btn f" data-act="close-modal">Zavrieť</button></div></div>`);
+}
+async function xferSend() {
+  if (!CH.length) { toast('Najprv pridaj playlist'); return; }
+  let info;
+  try { info = await shareStart(exportBundle()); } catch (e) { toast('Prenos sa nedá spustiť: ' + e.message); return; }
+  const url = (info.urls || [])[0];
+  if (!url) { noNetwork('Poslať kanály'); return; }
+  openModal(`<div class="pair">
+    <div class="pair-qr">${await qrSvg(url)}</div>
+    <div class="pair-txt"><h2>Poslať kanály a kategórie</h2>
+      <ol><li>Na druhom zariadení otvor appku OnAir: <b>Nastavenia → Preniesť → Naskenovať QR kód</b>.</li><li>Nasmeruj ho na tento kód.</li><li>Druhé zariadenie prevezme ${countTxt(S.order.length)} v rovnakom poradí aj s kategóriami.</li></ol>
+      <p class="muted">Kód platí 15 minút. Na TV, ktorá nemá fotoaparát: na TV zvoľ <b>Prijať sem</b> a jej kód naskenuj mobilom, do ktorého si kanály preniesol.</p>
+      <div class="actions"><button class="btn primary f" data-act="close-modal">Hotovo</button></div></div>
+  </div>`);
+}
+async function xferRecv() {
+  let info;
+  try { info = await pairStart(); } catch (e) { toast('Prenos sa nedá spustiť: ' + e.message); return; }
+  const url = (info.urls || [])[0];
+  if (!url) { noNetwork('Prijať kanály'); return; }
+  // m=s: the page tells a phone's camera app that this code belongs in OnAir (Settings → Transfer).
+  openModal(`<div class="pair">
+    <div class="pair-qr">${await qrSvg(url + '&m=s')}</div>
+    <div class="pair-txt"><h2>Prijať kanály a kategórie</h2>
+      <ol><li>V mobile otvor appku OnAir: <b>Nastavenia → Preniesť → Naskenovať QR kód</b>.</li><li>Nasmeruj ho na tento kód.</li><li>Kanály, ich poradie a kategórie sa sem prenesú. Tvoje doterajšie usporiadanie sa nahradí.</li></ol>
+      <p class="pair-wait"><span class="spin"></span>Čakám na kanály z mobilu…</p>
+      <div class="actions"><button class="btn f" data-act="close-modal">Zrušiť</button></div></div>
+  </div>`);
+  clearTimeout(pairT);
+  const poll = async () => {
+    if (!$('#dialog .pair')) return;
+    const r = await pairPoll(info.token).catch(() => ({}));
+    if (r.expired) { $('.pair-wait').textContent = 'Kód vypršal, otvor ho znova.'; return; }
+    if (!r.data) { pairT = setTimeout(poll, 2000); return; }
+    if (r.data.bundle) applyBundle(r.data.bundle);
+    else { closeModal(); toast('Neprišli žiadne kanály'); }
+  };
+  pairT = setTimeout(poll, 2000);
+}
+async function xferScan() {
+  let v;
+  try { v = await scanQr(); } catch (e) { if (!/cancel/i.test(String(e && (e.code || e.message || e)))) toast('Skener QR kódov sa nedá spustiť'); return; }
+  let u = null;
+  try { u = new URL(v); } catch {}
+  if (u && u.pathname === '/share') {
+    let b;
+    try { b = await shareGet(v); } catch (e) { toast(e.message === 'expired' ? 'Kód vypršal. Na druhom zariadení ho otvor znova.' : 'Druhé zariadenie neodpovedá. Ste v rovnakej Wi-Fi?'); return; }
+    if (!b || b.app !== 'onair') { toast('Tento QR kód nie je z appky OnAir'); return; }
+    const missing = (b.sources || []).filter(rs => !(LIB && LIB.sources.some(x => srcKey(x) === srcKey(rs)))).length;
+    openModal(`<h2>Prevziať kanály a kategórie?</h2>
+      <p class="muted">${countTxt(b.order.length)} v rovnakom poradí, kategórie a obľúbené z druhého zariadenia nahradia tvoje doterajšie usporiadanie.${missing ? ` Pridajú sa aj playlisty, ktoré tu chýbajú (${missing}).` : ''}</p>
+      <div class="actions"><button class="btn primary f" data-act="xfer-take">Prevziať</button><button class="btn f" data-act="close-modal">Zrušiť</button></div>`);
+    pendingBundle = b;
+    return;
+  }
+  if (u && u.pathname === '/pair') {
+    if (!CH.length) { toast('Najprv pridaj playlist'); return; }
+    try { await sharePush(v, exportBundle()); toast('Odoslané. Druhé zariadenie si kanály načíta.'); closeModal(true); }
+    catch (e) { toast(e.message === 'expired' ? 'Kód vypršal. Na druhom zariadení ho otvor znova.' : 'Druhé zariadenie neodpovedá. Ste v rovnakej Wi-Fi?'); }
+    return;
+  }
+  toast('Tento QR kód nie je z appky OnAir');
+}
+let pendingBundle = null;
+
 /* ---------- First start: the empty home and a guided tour of everything the app does ---------- */
 function welcomeHTML() {
   return `<div class="welcome">
@@ -1941,6 +2097,7 @@ function welcomeHTML() {
       ${canPair() ? `<button class="btn f" data-act="pair" data-group="main">${I('link')}Zadať z mobilu (QR)</button>` : ''}
       <button class="btn f" data-act="tour" data-group="main">${I('sparkle')}Ako appka funguje</button>
     </div>
+    <div class="w-lang" data-notr>${seg('ui', [['en', 'English'], ['sk', 'Slovenčina']])}</div>
   </div>`;
 }
 const TOUR = () => {
@@ -1961,24 +2118,30 @@ const TOUR = () => {
     { ic: IS_TV ? 'list' : 'hist', t: 'Ovládanie', p: IS_TV ? 'Celá appka sa ovláda diaľkovým ovládačom.' : isPhone() ? 'Gestá na mobile a tablete.' : 'Myš, klávesnica aj dotyk.', li: ctrl },
     { ic: 'settings', t: 'Prispôsob si to', p: 'Všetko v Nastaveniach.',
       li: [['Písmo a ikony', 'väčšie písmo, tlačidlá len s ikonami'], ['Jazyk', 'slovenčina alebo angličtina'], ['Vzhľad', 'veľkosť a tvar kariet, farba zvýraznenia, štýl'], ['Rodičovský zámok', 'PIN na kategórie aj jednotlivé kanály'], ['Po spustení', 'pokračovať naposledy pozeraným kanálom']] },
-    { ic: 'plus', t: 'Poďme na to', p: LIB ? 'Playlist už máš. Ďalší pridáš v Nastaveniach → Playlist.' : 'Pridaj svoj prvý playlist. Adresu ti dal poskytovateľ IPTV (M3U odkaz alebo server, meno a heslo).', last: true },
+    { ic: 'plus', t: 'Poďme na to', p: LIB ? 'Playlist už máš. Ďalší pridáš v Nastaveniach → Playlist.' : 'Pridaj svoj prvý playlist. Adresu ti dal poskytovateľ IPTV (M3U odkaz alebo server, meno a heslo).', last: true,
+      li: [['Playlist', 'odkaz M3U alebo prihlásenie Xtream Codes'], ...(canPair() ? [['Z mobilu (QR)', 'adresu napíšeš pohodlne v mobile a pošleš ju sem']] : []),
+        ['Z iného zariadenia', 'Nastavenia → Preniesť: kanály v rovnakom poradí aj s kategóriami'], ['Jazyk', 'Nastavenia: appka, zvuk a titulky']] },
   ];
 };
 let tourI = 0;
+// One colour per step of the tour, so each page feels different.
+const TOUR_COLORS = [['#7C5CFF', '#2EC5FF'], ['#FF5F6D', '#FFA25F'], ['#12B39A', '#2E8BFF'], ['#E2557C', '#9B5CFF'], ['#3D7BFF', '#2EC5FF'], ['#F2994A', '#EB5757'], ['#7C5CFF', '#2EC5FF']];
 function openTour(i = 0) {
   const steps = TOUR(), s = steps[tourI = Math.max(0, Math.min(steps.length - 1, i))];
-  openModal(`<div class="tour">
-    <div class="tour-ic">${I(s.ic)}</div>
-    <div class="tour-step">${tourI + 1} / ${steps.length}</div>
-    <h2>${s.t}</h2><p class="muted">${s.p}</p>
-    ${s.li ? `<dl class="tour-li">${s.li.map(([a, b]) => `<dt>${a}</dt><dd>${b}</dd>`).join('')}</dl>` : ''}
-    <div class="tour-dots">${steps.map((_, k) => `<i class="${k === tourI ? 'on' : ''}"></i>`).join('')}</div>
-    <div class="actions">${s.last
-      ? (LIB ? `<button class="btn primary f" data-act="close-modal">Hotovo</button>` : `<button class="btn primary f" data-act="tour-pl">${I('plus')}Pridať playlist</button>${canPair() ? `<button class="btn f" data-act="tour-pair">${I('link')}Z mobilu (QR)</button>` : ''}`)
-      : `<button class="btn primary f" data-act="tour-go" data-v="${tourI + 1}">Ďalej</button>`}
-      ${tourI ? `<button class="btn f" data-act="tour-go" data-v="${tourI - 1}">Späť</button>` : ''}
-      ${s.last ? '' : `<button class="btn f tour-skip" data-act="close-modal">Preskočiť</button>`}</div>
+  const [c1, c2] = TOUR_COLORS[tourI % TOUR_COLORS.length];
+  const next = s.last
+    ? (LIB ? `<button class="btn primary f" data-act="close-modal">Hotovo</button>` : `<button class="btn primary f" data-act="tour-pl">${I('plus')}Pridať playlist</button>${canPair() ? `<button class="btn f" data-act="tour-pair">${I('link')}Z mobilu (QR)</button>` : ''}`)
+    : `<button class="btn primary f" data-act="tour-go" data-v="${tourI + 1}">Ďalej</button>`;
+  openModal(`<div class="tour" style="--t1:${c1};--t2:${c2}">
+    <div class="tour-top"><div class="tour-bar">${steps.map((_, k) => `<i class="${k < tourI ? 'done' : k === tourI ? 'on' : ''}"></i>`).join('')}</div>
+      ${s.last ? '' : `<button class="tour-skip f" data-act="close-modal">Preskočiť</button>`}</div>
+    <div class="tour-hero"><div class="tour-ic">${I(s.ic)}</div>
+      <div class="tour-head"><span class="tour-step">${tourI + 1} / ${steps.length}</span><h2>${s.t}</h2><p>${s.p}</p></div></div>
+    ${s.li ? `<ul class="tour-li">${s.li.map(([a, b]) => `<li><span class="tl-ic">${I('check')}</span><span><b>${a}</b><small>${b}</small></span></li>`).join('')}</ul>` : ''}
+    <div class="actions">${next}${tourI ? `<button class="btn ghost f" data-act="tour-go" data-v="${tourI - 1}">${I('back')}Späť</button>` : ''}</div>
   </div>`);
+  // The remote starts on the main button, not on "Skip".
+  setFocus($('#dialog .tour .btn.primary'), { noScroll: true });
   store.set('tour', 1);
 }
 
@@ -2367,6 +2530,13 @@ function activate(el, e) {
       break;
 
     /* organizer */
+    case 'xfer': openTransfer(); break;
+    case 'choice': openChoice(el.dataset.k); break;
+    case 'choice-set': { const k = el.dataset.k; setSetting(k, el.dataset.v); store.set('settings3', S.set); closeModal(true); renderSettings(); setFocus($(`[data-act="choice"][data-k="${k}"]`), { noScroll: true }); break; }
+    case 'xfer-send': xferSend(); break;
+    case 'xfer-recv': xferRecv(); break;
+    case 'xfer-scan': xferScan(); break;
+    case 'xfer-take': { const b = pendingBundle; pendingBundle = null; if (b) applyBundle(b); break; }
     case 'org-open': S.orgSel = el.dataset.id || 'quick'; nav.mem['main:organize'] = null; go('organize'); break;
     case 'org-sel':
       S.orgSel = el.dataset.id; renderOrganizer(); refocusOrg(el);

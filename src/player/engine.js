@@ -22,9 +22,15 @@ const LANG = { sk: 'Slovenčina', slk: 'Slovenčina', slo: 'Slovenčina', cs: '�
   ru: 'Русский', rus: 'Русский', fr: 'Français', fra: 'Français', fre: 'Français', es: 'Español', spa: 'Español', it: 'Italiano', ita: 'Italiano',
   hr: 'Hrvatski', srp: 'Srpski', sr: 'Srpski', ro: 'Română', ron: 'Română', und: '', mis: '', qaa: 'Pôvodné znenie', mul: 'Viac jazykov' };
 export const langLabel = (lang, name, i) => (name && !/^(audio|stereo|track|stopa)?[\s_-]*\d*$/i.test(name) ? name : '') || LANG[(lang || '').toLowerCase()] || (lang ? lang.toUpperCase() : `Stopa ${i + 1}`);
+// Two-letter codes (settings) to the three-letter ones streams use (both ISO 639-2 forms).
+const LANG3 = { sk: ['slk', 'slo'], cs: ['ces', 'cze'], en: ['eng'], de: ['deu', 'ger'], fr: ['fra', 'fre'], es: ['spa'], it: ['ita'], pt: ['por'], nl: ['nld', 'dut'],
+  pl: ['pol'], hu: ['hun'], ro: ['ron', 'rum'], hr: ['hrv', 'scr'], sl: ['slv'], sr: ['srp', 'scc'], bs: ['bos'], ru: ['rus'], uk: ['ukr'], tr: ['tur'], ar: ['ara'],
+  sv: ['swe'], da: ['dan'], no: ['nor', 'nob', 'nno'], fi: ['fin'], el: ['ell', 'gre'], bg: ['bul'], he: ['heb'], hi: ['hin'], zh: ['zho', 'chi'], ja: ['jpn'], ko: ['kor'],
+  orig: ['qaa', 'orig', 'original', 'mis', 'und'] };
 export const langMatches = (lang, pref) => {
-  const l = (lang || '').toLowerCase();
-  return { sk: ['sk', 'slk', 'slo'], cs: ['cs', 'ces', 'cze'], en: ['en', 'eng'], orig: ['qaa', 'orig', 'original'] }[pref]?.includes(l) || false;
+  const l = (lang || '').toLowerCase().split(/[-_]/)[0];
+  if (!l || !pref) return false;
+  return l === pref || (LANG3[pref] || []).includes(l);
 };
 
 const CODEC_ERRORS = /codec|incompatible|unsupported|MediaMSEError|MSE|DecodeError|MEDIA_ERR_SRC_NOT_SUPPORTED|addSourceBuffer/i;

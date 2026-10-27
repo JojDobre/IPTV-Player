@@ -17,7 +17,7 @@ odkazy na playlisty. Appka nič nevysiela, len prehráva playlist používateľa
 
 ---
 
-## Slovensky (predvolený jazyk)
+## Slovensky (preklad – predvolený jazyk záznamu je angličtina)
 
 **Názov (max 30):** OnAir – IPTV prehrávač
 
@@ -49,8 +49,8 @@ DÔLEŽITÉ: OnAir neobsahuje ani neposkytuje žiadne kanály. Potrebuješ vlast
 • Dva kanály naraz vedľa seba
 
 ★ Prispôsobenie
-• Obľúbené kanály vo veľkých kartách, vlastné kategórie a poradie kanálov
-• Výber zvukovej stopy a titulkov, predvolený jazyk
+• Obľúbené kanály vo veľkých kartách, vlastné kategórie a poradie kanálov – prenesieš ich do ďalšieho zariadenia cez QR kód
+• Zvuk a titulky automaticky v jazyku zariadenia, výber z viac ako 30 jazykov
 • Rodičovský zámok s PIN-om, časovač vypnutia
 
 ★ Súkromie
@@ -60,7 +60,7 @@ Bez registrácie, bez reklám a bez sledovania. Playlist a nastavenia ostávajú
 
 ---
 
-## English
+## English (default language)
 
 **Title:** OnAir – IPTV Player
 
@@ -79,7 +79,9 @@ IMPORTANT: OnAir does not include or provide any channels. You need your own pla
 • Phone layout with the picture on top and channels below; full-screen landscape controls; double-tap ±30 s
 • Android TV remote: arrows, channel numbers, CH+/CH−, colour keys; 50 Hz refresh-rate matching
 • Mini player, picture-in-picture, two channels side by side
-• Favourites, custom categories and channel order, audio and subtitle tracks, parental PIN, sleep timer
+• Favourites, custom categories and channel order – move them to another device with a QR code
+• Audio and subtitles in your device's language automatically, 30+ languages to choose from
+• Guide time shift, parental PIN, sleep timer
 • No account, no ads, no tracking. Your playlist and settings stay on your device.
 
 ---

@@ -54,6 +54,13 @@
   const en = !/^(sk|cs)/i.test(navigator.language || '');
   const T = { title: 'Add a playlist to your TV', lead: 'The details go only to your TV on your home network.', m3u: 'M3U link', name: 'Name', url: 'Playlist address (M3U)', user: 'User name', pass: 'Password', epg: 'Programme guide EPG (optional)', send: 'Send to TV' };
   if (en) { document.documentElement.lang = 'en'; document.querySelectorAll('[data-t]').forEach(e => { if (T[e.dataset.t]) e.textContent = T[e.dataset.t]; }); }
+  // A code for moving channels between two OnAir apps: it belongs in the app, not in the phone's browser.
+  if (new URLSearchParams(location.search).get('m') === 's') {
+    document.querySelector('h1').textContent = en ? 'Open this code in OnAir' : 'Tento kód patrí do appky OnAir';
+    document.querySelector('[data-t=lead]').textContent = en ? 'In OnAir on your phone: Settings → Transfer to another device → Scan QR code, and point it at the TV again.'
+      : 'V mobile otvor appku OnAir: Nastavenia → Preniesť na iné zariadenie → Naskenovať QR kód a nasmeruj ho znova na TV.';
+    document.querySelector('.seg').hidden = true; document.getElementById('f').hidden = true;
+  }
   const say = (m, err) => { const e = document.getElementById('msg'); e.textContent = m; e.className = 'msg on' + (err ? ' err' : ''); };
   let type = 'm3u';
   document.querySelectorAll('.seg button').forEach(b => b.onclick = () => {

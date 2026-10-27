@@ -157,7 +157,7 @@ export class NativeEngine {
     const stuck = Date.now() - this.lastProgress;
     if (stuck < (this.everPlayed ? 12000 : 15000)) return;
     this.lastProgress = Date.now();
-    const why = `stav ${this.nstate}, ${this.kind || '?'}${this.tracks().info.codecs ? ', ' + this.tracks().info.codecs : ''}, načítané ${this.ahead().toFixed(1)} s`;
+    const why = `state ${this.nstate}, ${this.kind || '?'}${this.tracks().info.codecs ? ', ' + this.tracks().info.codecs : ''}, buffered ${this.ahead().toFixed(1)} s`;
     if (!this.everPlayed && !this.src.soft) { this.fail('codec', 'nerozbehol sa: ' + why); return; }
     // Never started even with the app's decoder: one more fresh connection, then say so (about 45 s in total).
     if (!this.everPlayed && this.attempt >= 1) { NP.stop({ id: this.nid }).catch(() => {}); this.set('error', { type: 'stall', never: true, detail: why }); return; }

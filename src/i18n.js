@@ -1,4 +1,4 @@
-// English version. The app is written in Slovak; with English on, every text that reaches the screen
+// English version (the default; Slovak is chosen in Settings). The app is written in Slovak; with English on, every text that reaches the screen
 // (text nodes, aria-label, placeholder, title) is swapped for its translation as it appears.
 // Keys with {0}, {1}… match texts built from parts ("{0} kanálov"); the parts are translated too.
 // Missing translations are collected in window.__i18nMissing (for finding them while developing).
@@ -7,7 +7,7 @@ import { EN, EN_T } from './i18n-en.js';
 
 const pick = () => {
   try { const s = JSON.parse(localStorage.getItem('vysielac2:settings3') || '{}'); if (s.ui === 'sk' || s.ui === 'en') return s.ui; } catch {}
-  return /^(sk|cs)\b/i.test(navigator.language || '') ? 'sk' : 'en';
+  return 'en';
 };
 export const LANG = pick();
 export const isEn = LANG === 'en';
