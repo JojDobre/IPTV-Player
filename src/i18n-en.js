@@ -202,6 +202,8 @@ export const EN = {
   'odkaz M3U alebo prihlásenie Xtream Codes': 'an M3U link or an Xtream Codes login', 'adresu napíšeš pohodlne v mobile a pošleš ju sem': 'type the address comfortably on your phone and send it here',
   'Z iného zariadenia': 'From another device', 'Nastavenia → Preniesť: kanály v rovnakom poradí aj s kategóriami': 'Settings → Transfer: the channels in the same order, with their categories',
   'Jazyk': 'Language', 'Nastavenia: appka, zvuk a titulky': 'Settings: the app, audio and subtitles',
+  'Jednoduchý': 'Simple', 'Jednoduchý vzhľad': 'Simple look',
+  'Nočný neón: tmavé pozadie so svetelnými vlnami. Liquid glass: sklenený panel nad rozmazanou farbou, na starších TV môže byť pomalší. Jednoduchý: čierne pozadie a karty, nič navyše.': 'Night neon: a dark background with light ribbons. Liquid glass: a glass panel over blurred colour, can be slower on older TVs. Simple: a black background and cards, nothing more.',
 };
 
 export const EN_T = {

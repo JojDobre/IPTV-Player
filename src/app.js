@@ -815,7 +815,7 @@ function renderSettings() {
   const custom = S.sections.filter(s => s.custom).length;
   $('#settings').innerHTML = `
     <div class="set-group"><h3>Domovská obrazovka</h3>
-      ${setRow('Štýl', 'Nočný neón: tmavé pozadie so svetelnými vlnami. Liquid glass: sklenený panel nad rozmazanou farbou, na starších TV môže byť pomalší.', seg('look', [['classic', 'Nočný neón'], ['glass', 'Liquid glass']]))}
+      ${setRow('Štýl', 'Nočný neón: tmavé pozadie so svetelnými vlnami. Liquid glass: sklenený panel nad rozmazanou farbou, na starších TV môže byť pomalší. Jednoduchý: čierne pozadie a karty, nič navyše.', seg('look', [['classic', 'Nočný neón'], ['glass', 'Liquid glass'], ['simple', 'Jednoduchý']]))}
       ${setRow('Riadkov v sekciách', 'Naposledy pozerané je vždy jeden riadok', seg('secRows', [['1', '1'], ['2', '2'], ['3', '3']]))}
       ${setRow('Sekcie, kategórie a poradie kanálov', `${S.sections.length - 2} ${plural(S.sections.length - 2, 'kategória', 'kategórie', 'kategórií')}${custom ? `, z toho ${custom} vlastné` : ''} · ${S.quick.length} ${plural(S.quick.length, 'tlačidlo', 'tlačidlá', 'tlačidiel')} na vrchu`, `<button class="btn small-btn f" data-act="org-open" data-group="main">${I('pencil')}Upraviť</button>`)}
     </div>
@@ -875,7 +875,7 @@ function setSetting(k, v, el) {
   if (k === 'pipAuto') syncAutoPip();
   if (k === 'ui') { store.set('settings3', S.set); location.reload(); return; }
   if (k === 'afr') nativeOpts.afr = !!(Native && IS_TV && v !== 'off');
-  if (k === 'look') toast(v === 'glass' ? 'Liquid glass zapnutý' : 'Klasický vzhľad');
+  if (k === 'look') toast(v === 'glass' ? 'Liquid glass zapnutý' : v === 'simple' ? 'Jednoduchý vzhľad' : 'Klasický vzhľad');
   if (k === 'epgShift') { epgCache.clear(); toast(v === '0' ? 'Program bez posunu' : `Program posunutý o ${v > 0 ? '+' : '−'}${Math.abs(v)} h`); }
 }
 
@@ -2483,7 +2483,7 @@ function activate(el, e) {
     case 'screen': go(el.dataset.screen); break;
     case 'play': openOrTune(id); break;
     case 'cat': S.catId = el.dataset.sec; nav.mem['main:cat'] = null; go('cat'); break;
-    case 'look': setSetting('look', S.set.look === 'glass' ? 'classic' : 'glass'); break;
+    case 'look': setSetting('look', { classic: 'glass', glass: 'simple', simple: 'classic' }[S.set.look] || 'classic'); break;
     case 'chip': {
       const w = el.dataset.which, v = el.dataset.v;
       if (w === 'ch') { S.chipCh = v; renderChannels(); } else { S.chipGuide = v; renderGuide(); }
