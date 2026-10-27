@@ -815,7 +815,7 @@ function renderSettings() {
   const custom = S.sections.filter(s => s.custom).length;
   $('#settings').innerHTML = `
     <div class="set-group"><h3>Domovská obrazovka</h3>
-      ${setRow('Štýl', 'Nočný neón: tmavé pozadie so svetelnými vlnami. Liquid glass: sklenený panel nad rozmazanou farbou, na starších TV môže byť pomalší. Jednoduchý: čierne pozadie a karty, nič navyše.', seg('look', [['classic', 'Nočný neón'], ['glass', 'Liquid glass'], ['simple', 'Jednoduchý']]))}
+      ${setRow('Štýl', 'Nočný neón: tmavé pozadie so svetelnými vlnami. Liquid glass: sklenený panel nad rozmazanou farbou, na starších TV môže byť pomalší. Jednoduchý: pokojné tmavé pozadie a čisté karty, bez efektov.', seg('look', [['classic', 'Nočný neón'], ['glass', 'Liquid glass'], ['simple', 'Jednoduchý']]))}
       ${setRow('Riadkov v sekciách', 'Naposledy pozerané je vždy jeden riadok', seg('secRows', [['1', '1'], ['2', '2'], ['3', '3']]))}
       ${setRow('Sekcie, kategórie a poradie kanálov', `${S.sections.length - 2} ${plural(S.sections.length - 2, 'kategória', 'kategórie', 'kategórií')}${custom ? `, z toho ${custom} vlastné` : ''} · ${S.quick.length} ${plural(S.quick.length, 'tlačidlo', 'tlačidlá', 'tlačidiel')} na vrchu`, `<button class="btn small-btn f" data-act="org-open" data-group="main">${I('pencil')}Upraviť</button>`)}
     </div>
