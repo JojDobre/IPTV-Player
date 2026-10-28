@@ -55,6 +55,8 @@ html, body { margin: 0; width: ${w}px; height: ${h}px; background: ${kind === 's
   await shot('store', 512, 512, path.join(root, 'store/icon-512.png'));
   // Android TV banner 320×180 dp, drawn at xhdpi.
   await shot('banner', 640, 360, `${res}/drawable-xhdpi/banner.png`);
+  // The same banner for the Android TV store listing (Play Console wants 1280×720).
+  await shot('banner', 1280, 720, path.join(root, 'store/tv-banner-1280x720.png'));
   await b.close();
   console.log('icons done');
 })();

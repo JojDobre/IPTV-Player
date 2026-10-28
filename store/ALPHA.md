@@ -1,5 +1,7 @@
 # Alfa verzia v Google Play – postup krok za krokom
 
+**Aktuálny a úplný návod je v `store/NAVOD-GOOGLE-PLAY.md`.**
+
 Alfa = **Uzavreté testovanie** (Closed testing) v Play Console. Appku uvidia iba ľudia, ktorých pozveš.
 
 ## 1. Podpisový kľúč (raz, na tvojom počítači)
@@ -10,16 +12,16 @@ Ulož si ho aj s heslom na bezpečné miesto (napr. správca hesiel + záloha).
 `keytool` je súčasťou Javy (JDK). V termináli / príkazovom riadku:
 
 ```
-keytool -genkeypair -v -keystore vysielac-release.jks -alias vysielac -keyalg RSA -keysize 4096 -validity 10000
+keytool -genkeypair -v -keystore onair-release.jks -alias onair -keyalg RSA -keysize 4096 -validity 10000
 ```
 
 Zadáš heslo a meno (stačí tvoje meno, ostatné môžeš preskočiť Enterom).
 
 Prevod na text pre GitHub:
 
-* Windows (PowerShell): `[Convert]::ToBase64String([IO.File]::ReadAllBytes("vysielac-release.jks")) | Set-Clipboard`
-* macOS: `base64 -i vysielac-release.jks | pbcopy`
-* Linux: `base64 -w0 vysielac-release.jks`
+* Windows (PowerShell): `[Convert]::ToBase64String([IO.File]::ReadAllBytes("onair-release.jks")) | Set-Clipboard`
+* macOS: `base64 -i onair-release.jks | pbcopy`
+* Linux: `base64 -w0 onair-release.jks`
 
 ## 2. Tajomstvá v GitHube
 
@@ -29,7 +31,7 @@ GitHub → repozitár **IPTV-Player** → Settings → Secrets and variables →
 |---|---|
 | `ANDROID_KEYSTORE_B64` | text z kroku 1 (base64) |
 | `ANDROID_KEYSTORE_PASSWORD` | heslo ku kľúču |
-| `ANDROID_KEY_ALIAS` | `vysielac` |
+| `ANDROID_KEY_ALIAS` | `onair` |
 | `ANDROID_KEY_PASSWORD` | to isté heslo (ak si pri vytváraní nezadal iné) |
 
 Potom v GitHube → Actions → „Android“ → **Run workflow** (alebo mi napíš a spustím to novým pushom).

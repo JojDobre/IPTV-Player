@@ -1,5 +1,7 @@
 # Google Play – podklady
 
+**Celý postup krok za krokom a finálne texty: `store/NAVOD-GOOGLE-PLAY.md`.**
+
 Grafika v tomto priečinku (vytvára ju `node tools/store-shots.cjs` z ukážkového režimu s vymyslenými kanálmi):
 
 | Súbor | Kam v Play Console |
@@ -21,7 +23,7 @@ odkazy na playlisty. Appka nič nevysiela, len prehráva playlist používateľa
 
 **Názov (max 30):** OnAir – IPTV prehrávač
 
-**Krátky popis (max 80):** Tvoj IPTV playlist ako moderná televízia. TV program, archív, mobil aj Android TV.
+**Krátky popis (max 80):** Tvoj IPTV playlist ako moderná TV: program, archív, mobil aj Android TV.
 
 **Úplný popis (max 4000):**
 
@@ -64,7 +66,7 @@ Bez registrácie, bez reklám a bez sledovania. Playlist a nastavenia ostávajú
 
 **Title:** OnAir – IPTV Player
 
-**Short description:** Your IPTV playlist as a modern TV. Programme guide, catch-up, phone and Android TV.
+**Short description:** Your IPTV playlist as a modern TV: guide, catch-up, phone and Android TV.
 
 **Full description:**
 
