@@ -48,8 +48,10 @@ const cats = p => ev(p, () => vysielac.S.sections.filter(s => s.custom).map(s =>
   await click(A, '.nav-item[data-screen=settings]'); await sleep(300); await click(A, '[data-act=xfer]'); await sleep(300);
   ok(!!(await A.$('[data-act=xfer-scan]')), 'phone offers Scan QR');
   await A.screenshot({ path: 'x-dialog.png' });
-  await ev(A, u => { window.__scan = u; }, info.urls[0]);
-  await click(A, '[data-act=xfer-scan]'); await sleep(1500);
+  // the first address in the code is unreachable (like a virtual adapter on a Windows PC); the real one is an alternative
+  const bad = info.urls[0].replace(/\/\/[^/]+/, '//10.255.255.1:8080') + '&alt=' + new URL(info.urls[0]).host;
+  await ev(A, u => { window.__scan = u; }, bad);
+  await click(A, '[data-act=xfer-scan]'); await sleep(7500);
   ok(await A.$('[data-act=xfer-take]'), 'phone asks to take over', (await A.textContent('#dialog')).replace(/\s+/g, ' ').slice(0, 140));
   await A.screenshot({ path: 'x-confirm.png' });
   await click(A, '[data-act=xfer-take]');
@@ -84,6 +86,12 @@ const cats = p => ev(p, () => vysielac.S.sections.filter(s => s.custom).map(s =>
   await click(A, '[data-act=xfer]'); await sleep(200); await ev(A, () => { window.__scan = 'https://example.com/x'; });
   await click(A, '[data-act=xfer-scan]'); await sleep(500);
   ok(/nie je z appky OnAir|not from OnAir/.test(await A.textContent('#toast')), 'foreign QR rejected');
+  // nothing reachable: a dialog with what to check
+  await A.keyboard.press('Escape'); await sleep(300);
+  await click(A, '[data-act=xfer]'); await sleep(200); await ev(A, () => { window.__scan = 'http://10.255.255.1:8080/share?t=x&alt=10.255.255.2:8080'; });
+  await click(A, '[data-act=xfer-scan]'); await sleep(12000);
+  ok(/does not answer|neodpovedá/.test(await A.textContent('#dialog h2')) && /10\.255\.255\.1:8080, 10\.255\.255\.2:8080/.test(await A.textContent('#dialog')), 'unreachable: help dialog with the tried addresses');
+  await A.screenshot({ path: 'x-unreachable.png' });
   console.log('errors', [...errs, ...aerr]);
   console.log(fails() ? `FAILS: ${fails()}` : 'ALL OK');
   await b.close();

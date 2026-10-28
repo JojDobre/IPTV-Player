@@ -17,7 +17,14 @@ const MAX = 4e6;
 const TTL = 15 * 60e3;
 const alive = t => { const c = codes.get(t); if (c && c.exp > Date.now()) return c; codes.delete(t); return null; };
 const json = (res, code, body) => { res.writeHead(code, { 'content-type': 'application/json', 'cache-control': 'no-store', 'access-control-allow-origin': '*' }); res.end(JSON.stringify(body)); };
-export const lanAddresses = () => Object.values(networkInterfaces()).flat().filter(i => i && i.family === 'IPv4' && !i.internal).map(i => i.address);
+// The address of the home network first: a Windows PC also has WSL, Hyper-V, VirtualBox or VPN adapters, and a
+// phone cannot reach those. They stay at the end, the phone tries them too.
+const VIRTUAL = /vethernet|wsl|hyper-v|virtualbox|vmware|vmnet|docker|^br-|^veth|tun|tap|utun|zerotier|tailscale|hamachi|vpn|loopback|bluetooth/i;
+const rank = (name, ip) => (VIRTUAL.test(name) ? 100 : 0) + (/wi-?fi|wlan|wireless|^en\d|^eth|ethernet|lan/i.test(name) ? 0 : 10)
+  + (ip.startsWith('192.168.') ? 0 : ip.startsWith('10.') ? 1 : /^172\.(1[6-9]|2\d|3[01])\./.test(ip) ? 3 : 2);
+export const lanAddresses = () => Object.entries(networkInterfaces())
+  .flatMap(([name, list]) => (list || []).filter(i => i.family === 'IPv4' && !i.internal && !i.address.startsWith('169.254.')).map(i => ({ ip: i.address, r: rank(name, i.address) })))
+  .sort((a, b) => a.r - b.r).map(x => x.ip);
 
 export function pairApi(route, req, res, q) {
   if (route === 'pair-start') {

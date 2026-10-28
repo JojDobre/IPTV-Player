@@ -2009,6 +2009,25 @@ async function applyBundle(b) {
     toast(`Hotovo: ${countTxt(r.channels)} v rovnakom poradí${r.added ? `, pridané playlisty: ${r.added}` : ''}`);
   } catch (e) { toast('Prenos sa nepodaril: ' + e.message); }
 }
+/** The address for the QR code: the best one, plus the device's other addresses for the phone to try. */
+const qrUrl = urls => urls[0] + (urls.length > 1 ? '&alt=' + urls.slice(1, 5).map(u => new URL(u).host).join(',') : '');
+/** Every address a scanned code offers, the main one first. */
+function qrCandidates(v) {
+  const u = new URL(v), alts = (u.searchParams.get('alt') || '').split(',').filter(h => /^[\w.:-]+$/.test(h));
+  return [v, ...alts.map(h => { const x = new URL(v); x.host = h; return x.href; })];
+}
+// When the phone cannot reach the other device: what to check (Wi-Fi, the PC's firewall) and the addresses it tried.
+function unreachable(urls) {
+  const hosts = [...new Set(urls.map(u => new URL(u).host))].join(', ');
+  openModal(`<h2>Druhé zariadenie neodpovedá</h2>
+    <p class="muted">Skúšal som: <b data-notr>${esc(hosts)}</b></p>
+    <ol class="fix-list">
+      <li>Obe zariadenia musia byť v tej istej Wi-Fi sieti (nie v sieti pre hostí) a mobil nesmie byť len na mobilných dátach.</li>
+      <li>PC s Windows: <b>Zabezpečenie Windows → Brána firewall a ochrana siete → Povoliť aplikáciu cez bránu firewall</b> → pri <b>Node.js</b> zaškrtni <b>Súkromná</b>. Wi-Fi sieť v PC nastav ako <b>Súkromnú</b>.</li>
+      <li>Skúška: otvor v prehliadači mobilu adresu, ktorú ukazuje druhé zariadenie pod QR kódom. Ak sa nenačíta, spojenie blokuje firewall alebo router.</li>
+    </ol>
+    <div class="actions"><button class="btn primary f" data-act="close-modal">Rozumiem</button></div>`);
+}
 const qrSvg = async url => { const { default: qrcode } = await import('qrcode-generator'); const qr = qrcode(0, 'M'); qr.addData(url); qr.make(); return qr.createSvgTag({ cellSize: 6, margin: 3, scalable: true }); };
 const noNetwork = title => openModal(`<h2>${title}</h2><p class="muted">Toto zariadenie nie je pripojené do domácej siete (Wi-Fi alebo kábel). Pripoj ho a skús znova.</p><div class="actions"><button class="btn primary f" data-act="close-modal">Zavrieť</button></div>`);
 function openTransfer() {
@@ -2029,9 +2048,10 @@ async function xferSend() {
   const url = (info.urls || [])[0];
   if (!url) { noNetwork('Poslať kanály'); return; }
   openModal(`<div class="pair">
-    <div class="pair-qr">${await qrSvg(url)}</div>
+    <div class="pair-qr">${await qrSvg(qrUrl(info.urls))}</div>
     <div class="pair-txt"><h2>Poslať kanály a kategórie</h2>
       <ol><li>Na druhom zariadení otvor appku OnAir: <b>Nastavenia → Preniesť → Naskenovať QR kód</b>.</li><li>Nasmeruj ho na tento kód.</li><li>Druhé zariadenie prevezme ${countTxt(S.order.length)} v rovnakom poradí aj s kategóriami.</li></ol>
+      <p class="muted">Adresa tohto zariadenia: <b class="pair-url" data-notr>${esc(new URL(url).host)}</b></p>
       <p class="muted">Kód platí 15 minút. Na TV, ktorá nemá fotoaparát: na TV zvoľ <b>Prijať sem</b> a jej kód naskenuj mobilom, do ktorého si kanály preniesol.</p>
       <div class="actions"><button class="btn primary f" data-act="close-modal">Hotovo</button></div></div>
   </div>`);
@@ -2043,9 +2063,10 @@ async function xferRecv() {
   if (!url) { noNetwork('Prijať kanály'); return; }
   // m=s: the page tells a phone's camera app that this code belongs in OnAir (Settings → Transfer).
   openModal(`<div class="pair">
-    <div class="pair-qr">${await qrSvg(url + '&m=s')}</div>
+    <div class="pair-qr">${await qrSvg(qrUrl(info.urls) + '&m=s')}</div>
     <div class="pair-txt"><h2>Prijať kanály a kategórie</h2>
       <ol><li>V mobile otvor appku OnAir: <b>Nastavenia → Preniesť → Naskenovať QR kód</b>.</li><li>Nasmeruj ho na tento kód.</li><li>Kanály, ich poradie a kategórie sa sem prenesú. Tvoje doterajšie usporiadanie sa nahradí.</li></ol>
+      <p class="muted">Adresa tohto zariadenia: <b class="pair-url" data-notr>${esc(new URL(url).host)}</b></p>
       <p class="pair-wait"><span class="spin"></span>Čakám na kanály z mobilu…</p>
       <div class="actions"><button class="btn f" data-act="close-modal">Zrušiť</button></div></div>
   </div>`);
@@ -2067,7 +2088,8 @@ async function xferScan() {
   try { u = new URL(v); } catch {}
   if (u && u.pathname === '/share') {
     let b;
-    try { b = await shareGet(v); } catch (e) { toast(e.message === 'expired' ? 'Kód vypršal. Na druhom zariadení ho otvor znova.' : 'Druhé zariadenie neodpovedá. Ste v rovnakej Wi-Fi?'); return; }
+    toast('Pripájam sa k druhému zariadeniu…');
+    try { b = await shareGet(qrCandidates(v)); } catch (e) { if (e.message === 'expired') toast('Kód vypršal. Na druhom zariadení ho otvor znova.'); else unreachable(qrCandidates(v)); return; }
     if (!b || b.app !== 'onair') { toast('Tento QR kód nie je z appky OnAir'); return; }
     const missing = (b.sources || []).filter(rs => !(LIB && LIB.sources.some(x => srcKey(x) === srcKey(rs)))).length;
     openModal(`<h2>Prevziať kanály a kategórie?</h2>
@@ -2078,8 +2100,9 @@ async function xferScan() {
   }
   if (u && u.pathname === '/pair') {
     if (!CH.length) { toast('Najprv pridaj playlist'); return; }
-    try { await sharePush(v, exportBundle()); toast('Odoslané. Druhé zariadenie si kanály načíta.'); closeModal(true); }
-    catch (e) { toast(e.message === 'expired' ? 'Kód vypršal. Na druhom zariadení ho otvor znova.' : 'Druhé zariadenie neodpovedá. Ste v rovnakej Wi-Fi?'); }
+    toast('Pripájam sa k druhému zariadeniu…');
+    try { await sharePush(qrCandidates(v), exportBundle()); toast('Odoslané. Druhé zariadenie si kanály načíta.'); closeModal(true); }
+    catch (e) { if (e.message === 'expired') toast('Kód vypršal. Na druhom zariadení ho otvor znova.'); else unreachable(qrCandidates(v)); }
     return;
   }
   toast('Tento QR kód nie je z appky OnAir');

@@ -204,6 +204,12 @@ export const EN = {
   'Jazyk': 'Language', 'Nastavenia: appka, zvuk a titulky': 'Settings: the app, audio and subtitles',
   'Jednoduchý': 'Simple', 'Jednoduchý vzhľad': 'Simple look',
   'Nočný neón: tmavé pozadie so svetelnými vlnami. Liquid glass: sklenený panel nad rozmazanou farbou, na starších TV môže byť pomalší. Jednoduchý: pokojné tmavé pozadie a čisté karty, bez efektov.': 'Night neon: a dark background with light ribbons. Liquid glass: a glass panel over blurred colour, can be slower on older TVs. Simple: a calm dark background and clean cards, no effects.',
+  'Druhé zariadenie neodpovedá': 'The other device does not answer', 'Skúšal som:': 'Tried:', 'Rozumiem': 'Got it',
+  'Obe zariadenia musia byť v tej istej Wi-Fi sieti (nie v sieti pre hostí) a mobil nesmie byť len na mobilných dátach.': 'Both devices must be on the same Wi-Fi (not a guest network), and the phone must not be on mobile data only.',
+  'PC s Windows:': 'Windows PC:', 'Zabezpečenie Windows → Brána firewall a ochrana siete → Povoliť aplikáciu cez bránu firewall': 'Windows Security → Firewall & network protection → Allow an app through firewall',
+  '→ pri': '→ for', '→ pri ': '→ for ', 'zaškrtni': 'tick', 'Súkromná': 'Private', '. Wi-Fi sieť v PC nastav ako': '. Set the Wi-Fi network on the PC to', 'Súkromnú': 'Private',
+  'Skúška: otvor v prehliadači mobilu adresu, ktorú ukazuje druhé zariadenie pod QR kódom. Ak sa nenačíta, spojenie blokuje firewall alebo router.': "Test: open the address shown under the other device's QR code in your phone's browser. If it does not load, a firewall or the router blocks the connection.",
+  'Adresa tohto zariadenia:': "This device's address:", 'Pripájam sa k druhému zariadeniu…': 'Connecting to the other device…',
 };
 
 export const EN_T = {

@@ -287,8 +287,10 @@ public class Relay {
         try {
             for (NetworkInterface ni : Collections.list(NetworkInterface.getNetworkInterfaces())) {
                 if (!ni.isUp() || ni.isLoopback() || ni.isVirtual()) continue;
+                // Wi-Fi and ethernet first: mobile data and VPN interfaces cannot be reached from the home network.
+                boolean home = ni.getName().startsWith("wlan") || ni.getName().startsWith("eth");
                 for (InetAddress a : Collections.list(ni.getInetAddresses()))
-                    if (a instanceof Inet4Address && a.isSiteLocalAddress()) out.add(a.getHostAddress());
+                    if (a instanceof Inet4Address && a.isSiteLocalAddress()) { if (home) out.add(0, a.getHostAddress()); else out.add(a.getHostAddress()); }
             }
         } catch (Exception ignored) { }
         return out;

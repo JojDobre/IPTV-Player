@@ -76,19 +76,29 @@ export async function shareStart(bundle) {
   if (!r.ok) throw new Error('HTTP ' + r.status);
   return r.json();
 }
-/** Reads a bundle another device offers (its /share?t= address from the QR code). */
-export async function shareGet(url) {
-  const r = await fetch(relay ? abs(`/api/fetch?url=${enc(url)}`) : url, { cache: 'no-store' });
+// The QR code carries the other device's best address and, in alt=, its other ones (a PC may have several
+// network adapters). Each is tried for a few seconds, straight from the page (the other side answers with CORS).
+const timeout = ms => (AbortSignal.timeout ? AbortSignal.timeout(ms) : undefined);
+async function tryEach(urls, go) {
+  let last = new Error('unreachable');
+  for (const url of urls) {
+    try { return await go(url); } catch (e) { if (e.message === 'expired') throw e; last = e; }
+  }
+  throw last;
+}
+/** Reads a bundle another device offers (its /share?t= addresses from the QR code). */
+export const shareGet = urls => tryEach(urls, async url => {
+  const r = await fetch(url, { cache: 'no-store', signal: timeout(5000) });
   if (r.status === 404) throw new Error('expired');
   if (!r.ok) throw new Error('HTTP ' + r.status);
   return r.json();
-}
-/** Sends a bundle to a device that waits for one (its /pair?t= address from the QR code). */
-export async function sharePush(url, bundle) {
+});
+/** Sends a bundle to a device that waits for one (its /pair?t= addresses from the QR code). */
+export const sharePush = (urls, bundle) => tryEach(urls, async url => {
   // text/plain keeps it a simple request (no preflight) to the other device on the home network
-  const r = await fetch(url, { method: 'POST', headers: { 'content-type': 'text/plain' }, body: JSON.stringify({ bundle }), cache: 'no-store' });
+  const r = await fetch(url, { method: 'POST', headers: { 'content-type': 'text/plain' }, body: JSON.stringify({ bundle }), cache: 'no-store', signal: timeout(8000) });
   if (r.status === 403) throw new Error('expired');
   if (!r.ok) throw new Error('HTTP ' + r.status);
-}
+});
 export const canScan = () => !!Native && !(nativeInfo && nativeInfo.tv);
 export async function scanQr() { return (await Native.scanQr()).value || ''; }
