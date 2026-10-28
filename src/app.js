@@ -461,23 +461,41 @@ function move(dir) {
   const cur = nav.cur && inRoot(nav.cur) && visible(nav.cur) ? nav.cur : null;
   const items = [...$$('.f', root), ...(extra ? $$('.f', extra) : [])].filter(visible);
   if (!cur) { setFocus(root === app ? pickDefault() : items[0]); return true; }
-  const r = cur.getBoundingClientRect(), cx = r.left + r.width / 2, cy = r.top + r.height / 2;
-  let best = null, bs = Infinity;
-  for (const el of items) {
-    if (el === cur) continue;
-    const c = el.getBoundingClientRect(), ex = c.left + c.width / 2, ey = c.top + c.height / 2;
-    let p, g, d;
-    if (dir === 'left' || dir === 'right') {
-      if (dir === 'right' ? ex <= cx + 1 : ex >= cx - 1) continue;
-      p = dir === 'right' ? c.left - r.right : r.left - c.right;
-      g = Math.max(0, c.top - r.bottom, r.top - c.bottom); d = Math.abs(ey - cy);
-    } else {
-      if (dir === 'down' ? ey <= cy + 1 : ey >= cy - 1) continue;
-      p = dir === 'down' ? c.top - r.bottom : r.top - c.bottom;
-      g = Math.max(0, c.left - r.right, r.left - c.right); d = Math.abs(ex - cx);
+  const r = cur.getBoundingClientRect(), cx = r.left + r.width / 2;
+  // Like a TV launcher: up and down go to the nearest row in that direction and pick what lies closest under
+  // (or over) the current item; left and right stay in the same row. The top menu is reached only with Back.
+  const inNav = cur.closest('#topnav');
+  const pool = items.filter(el => el !== cur && (inNav || !el.closest('#topnav')));
+  let best = null;
+  if (dir === 'up' || dir === 'down') {
+    const cand = [];
+    for (const el of pool) {
+      const c = el.getBoundingClientRect();
+      // strictly below / above: an item in the same row never counts, even if it is a little lower
+      const p = dir === 'down' ? c.top - r.bottom : r.top - c.bottom;
+      if (p < -Math.min(r.height, c.height) * 0.25) continue;
+      cand.push({ el, c, p: Math.max(0, p) });
     }
-    const s = Math.max(0, p) + g * 3 + d * 0.05;
-    if (s < bs) { bs = s; best = el; }
+    if (cand.length) {
+      const near = Math.min(...cand.map(x => x.p)), row = cand.filter(x => x.p <= near + Math.max(16, Math.min(r.height, 60) * 0.5));
+      let bs = Infinity;
+      for (const { el, c } of row) {
+        const gap = Math.max(0, c.left - r.right, r.left - c.right), s = gap * 4 + Math.abs(c.left + c.width / 2 - cx);
+        if (s < bs) { bs = s; best = el; }
+      }
+    }
+  } else {
+    let bs = Infinity;
+    for (const el of pool) {
+      const c = el.getBoundingClientRect();
+      // the same row: the two overlap vertically by at least a third of the smaller one
+      const ov = Math.min(r.bottom, c.bottom) - Math.max(r.top, c.top);
+      if (ov < Math.min(r.height, c.height) / 3) continue;
+      const p = dir === 'right' ? c.left - r.right : r.left - c.right;
+      if (p < -Math.min(r.width, c.width) * 0.5) continue;
+      const s = Math.max(0, p) + Math.abs((c.top + c.height / 2) - (r.top + r.height / 2)) * 0.5;
+      if (s < bs) { bs = s; best = el; }
+    }
   }
   if (!best) {
     if (dir === 'down' || dir === 'right') for (const box of lazyBoxes()) if (box && root.contains(box) && box.contains(cur) && lazyMore(box)) return move(dir);
