@@ -50,4 +50,8 @@
     <!-- Runs on phones, tablets and Android TV / boxes (remote only, no touch screen). -->
     <uses-feature android:name="android.software.leanback" android:required="false" />
     <uses-feature android:name="android.hardware.touchscreen" android:required="false" />
+    <!-- The QR scanner's own screen (Google Play services) is locked upright, which would make Google Play treat an
+         upright screen as required and hide the app from every TV. Neither orientation is required. -->
+    <uses-feature android:name="android.hardware.screen.portrait" android:required="false" />
+    <uses-feature android:name="android.hardware.screen.landscape" android:required="false" />
 </manifest>
