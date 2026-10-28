@@ -2,6 +2,6 @@
 <resources>
     <string name="app_name">OnAir</string>
     <string name="title_activity_main">OnAir</string>
-    <string name="package_name">sk.vysielac.app</string>
-    <string name="custom_url_scheme">sk.vysielac.app</string>
+    <string name="package_name">sk.dobree.onair</string>
+    <string name="custom_url_scheme">sk.dobree.onair</string>
 </resources>

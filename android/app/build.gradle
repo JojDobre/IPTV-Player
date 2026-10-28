@@ -4,7 +4,7 @@ android {
     namespace = "sk.vysielac.app"
     compileSdk = rootProject.ext.compileSdkVersion
     defaultConfig {
-        applicationId "sk.vysielac.app"
+        applicationId "sk.dobree.onair"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         // CI passes the build number, so every new APK installs over the previous one.
