@@ -87,16 +87,17 @@ Nikdy nedávaj platený playlist od poskytovateľa.
 **Nie, moja aplikácia neobsahuje reklamy.**
 
 ### C4. Hodnotenie obsahu (dotazník IARC)
-* E-mail: tvoj
-* Kategória: **Všetky ostatné typy aplikácií** (nie hra, nie sociálna sieť)
-* Násilie, sex, vulgarizmy, drogy, hazard: **Nie**
-* Môžu sa používatelia navzájom kontaktovať / zdieľať obsah? **Nie**
-* Zdieľa appka polohu? **Nie**
-* Nákupy v aplikácii? **Nie**
-* Prístup k neobmedzenému obsahu z internetu (prehliadač / obsah, ktorý appka nekontroluje)? **Áno**
-  (používateľ si pridáva vlastný playlist)
+* E-mail: tvoj · Kategória: **Všetky ostatné typy aplikácií**
+* Všetky otázky **Nie**:
+  * obsah v balíčku appky (sex, násilie, výrazy) – Nie
+  * zdieľanie obsahu medzi používateľmi – Nie
+  * online obsah, ktorý appka odporúča alebo propaguje – **Nie** (appka nič neponúka, prehráva len playlist, ktorý si
+    používateľ pridá sám, podobne ako VLC)
+  * propagácia produktov s vekovým obmedzením, zdieľanie polohy, nákup digitálneho tovaru, peňažné odmeny / NFT – Nie
+  * webový prehliadač alebo vyhľadávač – Nie (hľadanie prehľadáva len TV program)
+  * spravodajská alebo vzdelávacia služba – Nie
 
-Výsledok býva PEGI 3 až PEGI 12. To je v poriadku.
+Výsledok: najnižšie hodnotenie (PEGI 3 / Everyone).
 
 ### C5. Cieľové publikum
 * Vekové skupiny: **18 a viac** (len táto)
