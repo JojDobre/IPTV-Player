@@ -8,7 +8,7 @@ import '@fontsource/unbounded/800.css';
 import '@fontsource/bebas-neue/400.css';
 import '@fontsource/fraunces/600-italic.css';
 import './styles.css';
-import { installTranslator, isEn } from './i18n.js';
+import { installTranslator, known, LANG, LOCALE, UI_LANGS } from './i18n.js';
 import { buildDemo } from './data/demo.js';
 import { detectRelay, Native, nativeInfo, imgUrl, useRelay, relayHasFfmpeg, streamInfo, canRecord, recList, recAdd, recStop, recDelete, recFileUrl, pairStart, pairPoll, shareStart, shareGet, sharePush, canScan, scanQr } from './data/net.js';
 import { xtreamUrls } from './data/m3u.js';
@@ -88,14 +88,16 @@ const hms = t => { const d = new Date(t); return hm(t) + ':' + pad2(d.getSeconds
 const frac = (p, t) => Math.min(1, Math.max(0, (t - p.start) / (p.end - p.start)));
 const durTxt = s => { s = Math.round(s); const h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60), x = s % 60; return h ? `${h}:${pad2(m)}:${pad2(x)}` : `${m}:${pad2(x)}`; };
 const remain = (p, now) => now < p.start ? `o ${Math.round((p.start - now) / MIN)} min` : `zostáva ${Math.max(1, Math.round((p.end - now) / MIN))} min`;
-const DAYS = isEn ? ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'] : ['nedeľa', 'pondelok', 'utorok', 'streda', 'štvrtok', 'piatok', 'sobota'];
-const MONTHS = isEn ? ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'] : ['januára', 'februára', 'marca', 'apríla', 'mája', 'júna', 'júla', 'augusta', 'septembra', 'októbra', 'novembra', 'decembra'];
-const dateTxt = t => { const d = new Date(t); return isEn ? `${DAYS[d.getDay()]} ${d.getDate()} ${MONTHS[d.getMonth()]}` : `${DAYS[d.getDay()]} ${d.getDate()}. ${MONTHS[d.getMonth()]}`; };
+// Slovak keeps its own wording; every other language uses the browser's names of days and months.
+const DAYS = ['nedeľa', 'pondelok', 'utorok', 'streda', 'štvrtok', 'piatok', 'sobota'];
+const MONTHS = ['januára', 'februára', 'marca', 'apríla', 'mája', 'júna', 'júla', 'augusta', 'septembra', 'októbra', 'novembra', 'decembra'];
+const dfmt = o => { const f = new Intl.DateTimeFormat(LOCALE, o); return { format: d => known(f.format(d)) }; };
+const dateTxt = t => { const d = new Date(t); return LANG === 'sk' ? `${DAYS[d.getDay()]} ${d.getDate()}. ${MONTHS[d.getMonth()]}` : known(dfmt({ weekday: 'long', day: 'numeric', month: 'long' }).format(d)); };
 const greeting = t => { const h = new Date(t).getHours(); return h < 5 ? 'Dobrú noc' : h < 10 ? 'Dobré ráno' : h < 18 ? 'Dobrý deň' : h < 22 ? 'Dobrý večer' : 'Dobrú noc'; };
 const sod = t => { const d = new Date(t); d.setHours(0, 0, 0, 0); return d.getTime(); };
 const dayIdx = t => Math.round((sod(t) - sod(Date.now())) / 864e5);
-const DAY_SHORT = isEn ? ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] : ['Ne', 'Po', 'Ut', 'St', 'Št', 'Pi', 'So'];
-const dayLabel = i => i === 0 ? 'Dnes' : i === -1 ? 'Včera' : i === 1 ? 'Zajtra' : (d => isEn ? `${DAY_SHORT[d.getDay()]} ${d.getDate()}/${d.getMonth() + 1}` : `${DAY_SHORT[d.getDay()]} ${d.getDate()}. ${d.getMonth() + 1}.`)(new Date(sod(Date.now()) + i * 864e5 + 12 * 3600e3));
+const DAY_SHORT = ['Ne', 'Po', 'Ut', 'St', 'Št', 'Pi', 'So'];
+const dayLabel = i => i === 0 ? 'Dnes' : i === -1 ? 'Včera' : i === 1 ? 'Zajtra' : (d => LANG === 'sk' ? `${DAY_SHORT[d.getDay()]} ${d.getDate()}. ${d.getMonth() + 1}.` : `${dfmt({ weekday: 'short' }).format(d)} ${dfmt({ day: 'numeric', month: 'numeric' }).format(d)}`)(new Date(sod(Date.now()) + i * 864e5 + 12 * 3600e3));
 const dayWord = t => dayLabel(dayIdx(t));
 const plural = (n, one, few, many) => n === 1 ? one : n >= 2 && n <= 4 ? few : many;
 const countTxt = n => `${n} ${plural(n, 'kanál', 'kanály', 'kanálov')}`;
@@ -135,7 +137,7 @@ const catIcon = s => s.icon === 'auto' ? `<span class="txt-ic">${esc(initials(s.
 const ACCENTS = { white: ['#FFFFFF', '#0A0A17'], amber: ['#F2B84B', '#1B1406'], coral: ['#FF7A59', '#1E0B05'], mint: ['#4FD1A5', '#04170F'], violet: ['#A08CFF', '#0F0A24'], ice: ['#7CC4FF', '#03121F'] };
 const PALETTE = ['#2F6BFF', '#E5394B', '#8B5CF6', '#16A34A', '#F59E0B', '#EC4899', '#0EA5A4', '#F97316'];
 const ICONS = ['auto', 'film', 'ball', 'news', 'kids', 'globe', 'note', 'cup', 'heart', 'sparkle'];
-const DEFAULT_SET = { look: 'classic', secRows: '2', tile: 'm', round: 'med', tilebg: 'tint', nums: 'off', caps: 'on', accent: 'white', hide: '5', lang: 'auto', subs: 'off', resume: 'off', backMini: 'off', pipAuto: 'on', afr: 'on', swipe: 'on', haptic: 'on', fsize: 'm', ui: isEn ? 'en' : 'sk', labels: 'off', epgShift: '0' };
+const DEFAULT_SET = { look: 'classic', secRows: '2', tile: 'm', round: 'med', tilebg: 'tint', nums: 'off', caps: 'on', accent: 'white', hide: '5', lang: 'auto', subs: 'off', resume: 'off', backMini: 'off', pipAuto: 'on', afr: 'on', swipe: 'on', haptic: 'on', fsize: 'm', ui: LANG, labels: 'off', epgShift: '0' };
 function defaultSections() {
   return [
     { id: 'recent', type: 'recent', name: 'Naposledy pozerané', color: '#94A3B8', icon: 'hist', show: true },
@@ -847,7 +849,7 @@ function renderSettings() {
       ${setRow('Veľkosť kanálov', '', seg('tile', [['s', 'Malé'], ['m', 'Stredné'], ['l', 'Veľké']]))}
       ${setRow('Zaoblenie rohov', '', seg('round', [['soft', 'Jemné'], ['med', 'Stredné'], ['strong', 'Výrazné']]))}
       ${setRow('Pozadie kanálov', 'Skutočné logá z playlistu bývajú priehľadné PNG', seg('tilebg', [['tint', 'Farba kanála'], ['dark', 'Tmavé'], ['light', 'Svetlé']]))}
-      ${setRow('Jazyk appky', 'Language', `<div data-notr>${seg('ui', [['en', 'English'], ['sk', 'Slovenčina']])}</div>`)}
+      ${setRow('Jazyk appky', 'Language', choiceBtn('ui', UI_LANGS))}
       ${setRow('Veľkosť písma', 'Celá appka vrátane ovládania prehrávača', seg('fsize', [['s', 'Menšie'], ['m', 'Normálne'], ['l', 'Väčšie'], ['xl', 'Najväčšie']]))}
       ${setRow('Popisy tlačidiel', 'Vypnuté: tlačidlá len s ikonami (Pozerať, akcie v prehrávači, spodné menu na mobile). V nastaveniach a oknách ostávajú popisy vždy.', toggleBtn('labels', 'Popisy tlačidiel'))}
       ${setRow('Farba zvýraznenia', 'Rámik okolo vybranej položky', `<div class="swatches">${sw}</div>`)}
@@ -876,8 +878,8 @@ function renderSettings() {
 // A setting with many values (languages): the button shows the current one and opens a list.
 const choiceBtn = (k, list) => `<button class="btn small-btn f choice" data-act="choice" data-k="${k}" data-group="main">${esc(langName(list, S.set[k]))}</button>`;
 function openChoice(k) {
-  const list = k === 'lang' ? AUDIO_PREF : SUBS_PREF;
-  openModal(`<h2>${k === 'lang' ? 'Jazyk zvuku' : 'Titulky'}</h2><div class="choice-list">${list.map(([v, l]) => `<button class="opt f ${S.set[k] === v ? 'on' : ''}" data-act="choice-set" data-k="${k}" data-v="${v}"><span${v.length === 2 ? ' data-notr' : ''}>${esc(l)}</span>${I('check')}</button>`).join('')}</div>
+  const list = k === 'lang' ? AUDIO_PREF : k === 'ui' ? UI_LANGS : SUBS_PREF;
+  openModal(`<h2>${k === 'lang' ? 'Jazyk zvuku' : k === 'ui' ? 'Jazyk appky' : 'Titulky'}</h2><div class="choice-list">${list.map(([v, l]) => `<button class="opt f ${S.set[k] === v ? 'on' : ''}" data-act="choice-set" data-k="${k}" data-v="${v}"><span${v.length === 2 || k === 'ui' ? ' data-notr' : ''}>${esc(l)}</span>${I('check')}</button>`).join('')}</div>
     <div class="actions"><button class="btn f" data-act="close-modal">Zavrieť</button></div>`);
   const on = $('#dialog .opt.on'); if (on) { setFocus(on, { noScroll: true }); on.scrollIntoView({ block: 'center' }); }
 }
@@ -891,7 +893,12 @@ function setSetting(k, v, el) {
   applySettings();
   if (k === 'secRows' && S.screen === 'home') renderHome();
   if (k === 'pipAuto') syncAutoPip();
-  if (k === 'ui') { store.set('settings3', S.set); location.reload(); return; }
+  if (k === 'ui') {
+    store.set('settings3', S.set);
+    // Chosen on the first page of the tour: come back to it in the new language.
+    if ($('#dialog .tour')) try { sessionStorage.setItem('tourAgain', '1'); } catch {}
+    location.reload(); return;
+  }
   if (k === 'afr') nativeOpts.afr = !!(Native && IS_TV && v !== 'off');
   if (k === 'look') toast(v === 'glass' ? 'Liquid glass zapnutý' : v === 'simple' ? 'Jednoduchý vzhľad' : 'Klasický vzhľad');
   if (k === 'epgShift') { epgCache.clear(); toast(v === '0' ? 'Program bez posunu' : `Program posunutý o ${v > 0 ? '+' : '−'}${Math.abs(v)} h`); }
@@ -902,7 +909,7 @@ const mb = b => b > 1e9 ? `${(b / 1e9).toFixed(1)} GB` : b > 1e6 ? `${(b / 1e6).
 function ago(t) {
   if (!t) return '–';
   const d = new Date(t), today = new Date(); today.setHours(0, 0, 0, 0);
-  const day = t >= today.getTime() ? 'dnes' : t >= today.getTime() - 864e5 ? 'včera' : isEn ? `${d.getDate()}/${d.getMonth() + 1}` : `${d.getDate()}. ${d.getMonth() + 1}.`;
+  const day = t >= today.getTime() ? 'dnes' : t >= today.getTime() - 864e5 ? 'včera' : LANG !== 'sk' ? dfmt({ day: 'numeric', month: 'numeric' }).format(d) : `${d.getDate()}. ${d.getMonth() + 1}.`;
   return `${day} ${hm(t)}`;
 }
 const plCard = (title, sub) => `<span class="pl-card"><span class="pl-icon">${I('link')}</span><span class="lbl"><b>${esc(title)}</b><small>${sub}</small></span></span>`;
@@ -997,7 +1004,7 @@ async function refreshEpg() {
   try {
     const days = Math.max(1, ...CH.map(c => (c.catchup ? c.catchup.days : 0)));
     const r = await library.loadEpg(urls, CH, { ua: LIB.sources[0].ua, pastDays: Math.min(8, days + 1) },
-      pr => setLibStatus(`Spracúvam program (EPG)… ${mb(pr.bytes)}${pr.total ? ' z ' + mb(pr.total) : ''} · ${(pr.programmes || 0).toLocaleString('sk-SK')} relácií`, true));
+      pr => setLibStatus(`Spracúvam program (EPG)… ${mb(pr.bytes)}${pr.total ? ' z ' + mb(pr.total) : ''} · ${(pr.programmes || 0).toLocaleString(LOCALE)} relácií`, true));
     EPG_RAW = r.epg; epgCache.clear();
     LIB.epgUpdated = Date.now(); LIB.epgMatched = r.matched;
     await saveLib(LIB);
@@ -1727,7 +1734,7 @@ function toggleStats(on = $('#pStats').hidden) {
   const draw = () => {
     if (!P.open) return toggleStats(false);
     const i = engine.tracks().info, s = engine.stats(), v = engine.v;
-    if (isEn) {
+    if (LANG !== 'sk') {   // technical, so English in every other language too
       el.textContent = [
         `player      ${i.via || '–'} · ${i.kind || '–'}${i.remux ? ` · ffmpeg ${i.remux === 'video' ? 'picture+sound' : 'sound'}` : ''}`,
         `picture     ${v.videoWidth ? `${v.videoWidth}×${v.videoHeight}` : '–'}`,
@@ -2138,7 +2145,7 @@ function welcomeHTML() {
       ${canPair() ? `<button class="btn f" data-act="pair" data-group="main">${I('link')}Zadať z mobilu (QR)</button>` : ''}
       <button class="btn f" data-act="tour" data-group="main">${I('sparkle')}Ako appka funguje</button>
     </div>
-    <div class="w-lang" data-notr>${seg('ui', [['en', 'English'], ['sk', 'Slovenčina']])}</div>
+    <div class="w-lang"><button class="btn f choice" data-act="choice" data-k="ui" data-group="main">${I('globe')}<span data-notr>${UI_LANGS.find(l => l[0] === S.set.ui)[1]}</span></button></div>
   </div>`;
 }
 const TOUR = () => {
@@ -2158,7 +2165,7 @@ const TOUR = () => {
       li: [['Pauza a pretáčanie', 'aj živého vysielania; Naživo ťa vráti späť'], ['Zvuk, titulky, kvalita', 'jazyk si appka pamätá, pomer strán pre každý kanál zvlášť'], ['Časovač vypnutia', 'po 15 minútach až 2 hodinách alebo na konci relácie'], ['Dva obrazy', 'dva kanály vedľa seba'], ['Malé okienko', 'kanál hrá v rohu, kým prechádzaš appku' + (Native && nativeInfo && nativeInfo.pip ? ', a aj nad inými aplikáciami' : '')]] },
     { ic: IS_TV ? 'list' : 'hist', t: 'Ovládanie', p: IS_TV ? 'Celá appka sa ovláda diaľkovým ovládačom.' : isPhone() ? 'Gestá na mobile a tablete.' : 'Myš, klávesnica aj dotyk.', li: ctrl },
     { ic: 'settings', t: 'Prispôsob si to', p: 'Všetko v Nastaveniach.',
-      li: [['Písmo a ikony', 'väčšie písmo, tlačidlá len s ikonami'], ['Jazyk', 'slovenčina alebo angličtina'], ['Vzhľad', 'veľkosť a tvar kariet, farba zvýraznenia, štýl'], ['Rodičovský zámok', 'PIN na kategórie aj jednotlivé kanály'], ['Po spustení', 'pokračovať naposledy pozeraným kanálom']] },
+      li: [['Písmo a ikony', 'väčšie písmo, tlačidlá len s ikonami'], ['Jazyk', '17 jazykov, aj zvuk a titulky podľa zariadenia'], ['Vzhľad', 'veľkosť a tvar kariet, farba zvýraznenia, štýl'], ['Rodičovský zámok', 'PIN na kategórie aj jednotlivé kanály'], ['Po spustení', 'pokračovať naposledy pozeraným kanálom']] },
     { ic: 'plus', t: 'Poďme na to', p: LIB ? 'Playlist už máš. Ďalší pridáš v Nastaveniach → Playlist.' : 'Pridaj svoj prvý playlist. Adresu ti dal poskytovateľ IPTV (M3U odkaz alebo server, meno a heslo).', last: true,
       li: [['Playlist', 'odkaz M3U alebo prihlásenie Xtream Codes'], ...(canPair() ? [['Z mobilu (QR)', 'adresu napíšeš pohodlne v mobile a pošleš ju sem']] : []),
         ['Z iného zariadenia', 'Nastavenia → Preniesť: kanály v rovnakom poradí aj s kategóriami'], ['Jazyk', 'Nastavenia: appka, zvuk a titulky']] },
@@ -2178,6 +2185,10 @@ function openTour(i = 0) {
       ${s.last ? '' : `<button class="tour-skip f" data-act="close-modal">Preskočiť</button>`}</div>
     <div class="tour-hero"><div class="tour-ic">${I(s.ic)}</div>
       <div class="tour-head"><span class="tour-step">${tourI + 1} / ${steps.length}</span><h2>${s.t}</h2><p>${s.p}</p></div></div>
+    ${tourI === 0 ? `<div class="tour-set">
+      <div class="ts-row"><span class="ts-lbl">${I('globe')}Jazyk appky</span><div class="ts-langs" data-notr>${UI_LANGS.map(([v, l]) => `<button class="chip f ${S.set.ui === v ? 'on' : ''}" data-act="set" data-k="ui" data-v="${v}">${l}</button>`).join('')}</div></div>
+      <div class="ts-row"><span class="ts-lbl">${I('expand')}Veľkosť písma</span>${seg('fsize', [['s', 'Menšie'], ['m', 'Normálne'], ['l', 'Väčšie'], ['xl', 'Najväčšie']])}</div>
+    </div>` : ''}
     ${s.li ? `<ul class="tour-li">${s.li.map(([a, b]) => `<li><span class="tl-ic">${I('check')}</span><span><b>${a}</b><small>${b}</small></span></li>`).join('')}</ul>` : ''}
     <div class="actions">${next}${tourI ? `<button class="btn ghost f" data-act="tour-go" data-v="${tourI - 1}">${I('back')}Späť</button>` : ''}</div>
   </div>`);
@@ -3068,7 +3079,8 @@ document.addEventListener('focusout', () => setTimeout(() => { if (!isText(docum
   if (new URLSearchParams(location.search).has('demo')) { L = null; useDemo(); }
   else if (L) useLibrary(L, E); else useEmpty();
   go('home');
-  if (!L && !store.get('tour', 0) && !new URLSearchParams(location.search).has('demo')) openTour(0);
+  let again = false; try { again = sessionStorage.getItem('tourAgain') === '1'; sessionStorage.removeItem('tourAgain'); } catch {}
+  if (again || (!L && !store.get('tour', 0) && !new URLSearchParams(location.search).has('demo'))) openTour(0);
   if (L && S.set.resume === 'on' && S.recent[0] && byId[S.recent[0]]) openPlayer(S.recent[0]);
   if (L) {
     if (Date.now() - (L.updated || 0) > 12 * 3600e3) refreshAll({ silent: true });

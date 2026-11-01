@@ -7,7 +7,7 @@ const { chromium, sleep, ok, setup, ev, click, addPlaylist, fails } = require('.
   ok(await ev(p, () => document.documentElement.lang) === 'en', 'English by default even on a Slovak device');
   for (let i = 0; i < 8 && await p.$('#dialog .tour'); i++) { await p.keyboard.press('Escape'); await sleep(150); }
   ok(/Welcome to OnAir/.test(await p.textContent('.welcome')), 'welcome in English');
-  ok(await p.$('.welcome .w-lang [data-v=sk]'), 'language switch on the welcome screen');
+  ok(await p.$('.welcome [data-act=choice][data-k=ui]'), 'language choice on the welcome screen');
   await p.screenshot({ path: 'l-welcome.png' });
   await p.fill; await (async () => { await click(p, '.nav-item[data-screen=settings]'); await sleep(200); await click(p, '[data-act=playlist]'); await sleep(300);
     await p.fill('#plName', 'Test'); await p.fill('#plUrl', 'http://127.0.0.1:9001/playlist.m3u'); await click(p, '[data-act=save-playlist]');
@@ -38,7 +38,9 @@ const { chromium, sleep, ok, setup, ev, click, addPlaylist, fails } = require('.
   await p.screenshot({ path: 'l-settings.png', fullPage: true });
   await click(p, '[data-act=xfer]'); await sleep(300); await p.screenshot({ path: 'l-xfer.png' }); await p.keyboard.press('Escape');
   // switch to Slovak from the welcome-like seg in settings
-  await click(p, '[data-act=set][data-k=ui][data-v=sk]'); await sleep(2000);
+  await click(p, '[data-act=choice][data-k=ui]'); await sleep(300);
+  ok(await ev(p, () => document.querySelectorAll('#dialog .opt').length) === 17, '17 app languages offered');
+  await click(p, '#dialog .opt[data-v=sk]'); await sleep(2000);
   ok(await ev(p, () => document.documentElement.lang) !== 'en', 'Slovak can be chosen');
   const missing = await ev(p, () => 0);
   console.log('errors', errs);
