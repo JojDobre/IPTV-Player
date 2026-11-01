@@ -21,6 +21,7 @@ const LANG = { sk: 'Slovenčina', slk: 'Slovenčina', slo: 'Slovenčina', cs: '�
   de: 'Deutsch', deu: 'Deutsch', ger: 'Deutsch', hu: 'Magyar', hun: 'Magyar', pl: 'Polski', pol: 'Polski', uk: 'Українська', ukr: 'Українська',
   ru: 'Русский', rus: 'Русский', fr: 'Français', fra: 'Français', fre: 'Français', es: 'Español', spa: 'Español', it: 'Italiano', ita: 'Italiano',
   hr: 'Hrvatski', srp: 'Srpski', sr: 'Srpski', ro: 'Română', ron: 'Română', und: '', mis: '', qaa: 'Pôvodné znenie', mul: 'Viac jazykov' };
+export const engineOpts = { buf: 'auto' };   // buffer profile from settings: low / auto / big / max
 export const langLabel = (lang, name, i) => (name && !/^(audio|stereo|track|stopa)?[\s_-]*\d*$/i.test(name) ? name : '') || LANG[(lang || '').toLowerCase()] || (lang ? lang.toUpperCase() : `Stopa ${i + 1}`);
 // Two-letter codes (settings) to the three-letter ones streams use (both ISO 639-2 forms).
 const LANG3 = { sk: ['slk', 'slo'], cs: ['ces', 'cze'], en: ['eng'], de: ['deu', 'ger'], fr: ['fra', 'fre'], es: ['spa'], it: ['ita'], pt: ['por'], nl: ['nld', 'dut'],
@@ -124,15 +125,16 @@ export class Engine {
       startFragPrefetch: true,
       // Room behind the playhead for pause and rewinding live TV; enough ahead to ride out network hiccups.
       backBufferLength: s.live ? 900 : 120,
-      maxBufferLength: 30,
-      maxMaxBufferLength: 90,
+      maxBufferLength: { big: 60, max: 90 }[engineOpts.buf] || 30,
+      maxMaxBufferLength: engineOpts.buf === 'max' ? 150 : 90,
       maxBufferSize: 120 * 1000 * 1000,
       maxBufferHole: 0.5,
       // Start in the best quality (home connections are fast); ABR still steps down if the network cannot keep up.
       abrEwmaDefaultEstimate: 20e6,
       abrBandWidthUpFactor: 0.8,
       capLevelToPlayerSize: false,
-      liveSyncDurationCount: 3,
+      // How many segments behind the live edge: more = a late segment from the provider does not stop the picture.
+      liveSyncDurationCount: { low: 2, big: 5, max: 8 }[engineOpts.buf] || 3,
       liveMaxLatencyDurationCount: Infinity,
       liveDurationInfinity: true,
       capLevelToPlayerSize: true,
@@ -171,7 +173,7 @@ export class Engine {
       {
         enableWorker: true,
         enableStashBuffer: true,
-        stashInitialSize: 384 * 1024,
+        stashInitialSize: { low: 128, big: 1024, max: 2048 }[engineOpts.buf] * 1024 || 384 * 1024,
         lazyLoad: false,
         liveBufferLatencyChasing: false,
         liveSync: false,

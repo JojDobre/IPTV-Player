@@ -15,7 +15,7 @@ import { xtreamUrls } from './data/m3u.js';
 import { nameKey } from './data/xmltv.js';
 import { catchupUrl, hasArchive as hasArchiveReal } from './data/catchup.js';
 import * as library from './data/library.js';
-import { Engine, langMatches } from './player/engine.js';
+import { Engine, langMatches, engineOpts } from './player/engine.js';
 import { NativeEngine, nativeOpts } from './player/native-engine.js';
 
 const $ = (s, r = document) => r.querySelector(s);
@@ -137,7 +137,7 @@ const catIcon = s => s.icon === 'auto' ? `<span class="txt-ic">${esc(initials(s.
 const ACCENTS = { white: ['#FFFFFF', '#0A0A17'], amber: ['#F2B84B', '#1B1406'], coral: ['#FF7A59', '#1E0B05'], mint: ['#4FD1A5', '#04170F'], violet: ['#A08CFF', '#0F0A24'], ice: ['#7CC4FF', '#03121F'] };
 const PALETTE = ['#2F6BFF', '#E5394B', '#8B5CF6', '#16A34A', '#F59E0B', '#EC4899', '#0EA5A4', '#F97316'];
 const ICONS = ['auto', 'film', 'ball', 'news', 'kids', 'globe', 'note', 'cup', 'heart', 'sparkle'];
-const DEFAULT_SET = { look: 'classic', secRows: '2', tile: 'm', round: 'med', tilebg: 'tint', nums: 'off', caps: 'on', accent: 'white', hide: '5', lang: 'auto', subs: 'off', resume: 'off', backMini: 'off', pipAuto: 'on', afr: 'on', swipe: 'on', haptic: 'on', fsize: 'm', ui: LANG, labels: 'off', epgShift: '0' };
+const DEFAULT_SET = { look: 'classic', secRows: '2', tile: 'm', round: 'med', tilebg: 'tint', nums: 'off', caps: 'on', accent: 'white', hide: '5', lang: 'auto', subs: 'off', resume: 'off', backMini: 'off', pipAuto: 'on', afr: 'on', swipe: 'on', haptic: 'on', fsize: 'm', ui: LANG, labels: 'off', epgShift: '0', buf: 'auto' };
 function defaultSections() {
   return [
     { id: 'recent', type: 'recent', name: 'Naposledy pozerané', color: '#94A3B8', icon: 'hist', show: true },
@@ -859,6 +859,7 @@ function renderSettings() {
     <div class="set-group"><h3>Prehrávač</h3>
       ${setRow('Jazyk zvuku', S.set.lang === 'auto' ? `Ak ho kanál vysiela, inak zvuk podľa vysielania. Jazyk zariadenia: ${autoNote()}` : 'Ak ho kanál vysiela, inak zvuk podľa vysielania', choiceBtn('lang', AUDIO_PREF))}
       ${setRow('Titulky', S.set.subs === 'auto' ? `Zapnú sa, keď zvuk nie je v jazyku zariadenia (${autoNote()}) a kanál ich má` : 'Ak ich kanál vysiela', choiceBtn('subs', SUBS_PREF))}
+      ${setRow('Vyrovnávacia pamäť (buffer)', 'Ak sa obraz seká alebo zastavuje, zvoľ väčší. Kanál sa potom spúšťa o pár sekúnd dlhšie a živé vysielanie ide s malým oneskorením.', seg('buf', [['low', 'Malá'], ['auto', 'Normálna'], ['big', 'Veľká'], ['max', 'Najväčšia']]))}
       ${setRow('Skryť ovládanie po', '', seg('hide', [['3', '3 s'], ['5', '5 s'], ['8', '8 s']]))}
       ${setRow('Po spustení pokračovať', 'Appka hneď pustí naposledy pozeraný kanál, ako set-top box', toggleBtn('resume', 'Po spustení pokračovať'))}
       ${Native && nativeInfo && nativeInfo.pip ? setRow('Okno nad aplikáciami', 'Keď počas pozerania odídeš z appky (tlačidlo Domov), kanál hrá ďalej v malom okne nad ostatnými aplikáciami', `<button class="toggle f ${S.set.pipAuto !== 'off' ? 'on' : ''}" data-act="set" data-k="pipAuto" data-v="toggle" data-group="main" aria-label="Okno nad aplikáciami"></button>`) : ''}
@@ -900,6 +901,7 @@ function setSetting(k, v, el) {
     location.reload(); return;
   }
   if (k === 'afr') nativeOpts.afr = !!(Native && IS_TV && v !== 'off');
+  if (k === 'buf') { nativeOpts.buf = engineOpts.buf = v; if (engine.src) engine.retry(); }   // the playing channel restarts with the new buffer
   if (k === 'look') toast(v === 'glass' ? 'Liquid glass zapnutý' : v === 'simple' ? 'Jednoduchý vzhľad' : 'Klasický vzhľad');
   if (k === 'epgShift') { epgCache.clear(); toast(v === '0' ? 'Program bez posunu' : `Program posunutý o ${v > 0 ? '+' : '−'}${Math.abs(v)} h`); }
 }
@@ -3070,6 +3072,7 @@ document.addEventListener('focusout', () => setTimeout(() => { if (!isText(docum
   if (Native && nativeInfo && nativeInfo.insets) for (const k of ['t', 'r', 'b', 'l']) document.documentElement.style.setProperty('--sa-' + k, (+nativeInfo.insets[k] || 0) + 'px');
   if (Native && nativeInfo && nativeInfo.tv && !IS_TV) { IS_TV = true; document.documentElement.classList.add('tv'); }
   nativeOpts.afr = !!(Native && IS_TV && S.set.afr !== 'off');
+  nativeOpts.buf = engineOpts.buf = S.set.buf || 'auto';
   if (Native) document.documentElement.classList.add('native');
   if (canRecord()) { $('#navRecs').hidden = false; refreshRecs(); }
   let L = null, E = null;

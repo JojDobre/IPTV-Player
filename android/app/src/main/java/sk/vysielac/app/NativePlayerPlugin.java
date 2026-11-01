@@ -80,6 +80,7 @@ public class NativePlayerPlugin extends Plugin {
         SurfaceView sv;
         boolean onTop;
         boolean afr;
+        String buf = "auto", builtBuf = "";   // buffer profile from the app's settings: low / auto / big / max
 
         Slot(int id) { this.id = id; }
     }
@@ -143,10 +144,17 @@ public class NativePlayerPlugin extends Plugin {
         DefaultRenderersFactory renderers = new DefaultRenderersFactory(getContext())
             .setExtensionRendererMode(soft ? DefaultRenderersFactory.EXTENSION_RENDERER_MODE_PREFER : DefaultRenderersFactory.EXTENSION_RENDERER_MODE_ON)
             .setEnableDecoderFallback(true);
-        // Start with ~2.5 s in reserve, after a stall wait for 5 s: smooth rather than instant.
-        DefaultLoadControl load = new DefaultLoadControl.Builder()
-            .setBufferDurationsMs(20000, 60000, 2500, 5000)
-            .build();
+        // Normal: start with ~2.5 s in reserve, after a stall wait for 5 s (smooth rather than instant). Bigger
+        // profiles wait longer before the picture starts and keep more in memory, for slow or unsteady providers.
+        DefaultLoadControl.Builder lb = new DefaultLoadControl.Builder();
+        switch (s.buf) {
+            case "low": lb.setBufferDurationsMs(15000, 50000, 1500, 3000); break;
+            case "big": lb.setBufferDurationsMs(40000, 90000, 6000, 12000).setTargetBufferBytes(64 * 1024 * 1024); break;
+            case "max": lb.setBufferDurationsMs(60000, 150000, 12000, 20000).setTargetBufferBytes(100 * 1024 * 1024); break;
+            default: lb.setBufferDurationsMs(20000, 60000, 2500, 5000);
+        }
+        s.builtBuf = s.buf;
+        DefaultLoadControl load = lb.build();
         // Assume a fast home connection at the start, so HLS begins in the best quality instead of climbing up to it.
         DefaultBandwidthMeter bw = new DefaultBandwidthMeter.Builder(getContext()).setInitialBitrateEstimate(20_000_000L).build();
         s.player = new ExoPlayer.Builder(getContext(), renderers).setLoadControl(load).setBandwidthMeter(bw).build();
@@ -345,10 +353,12 @@ public class NativePlayerPlugin extends Plugin {
         double startAt = call.getDouble("startAt", 0.0);
         boolean soft = Boolean.TRUE.equals(call.getBoolean("soft", false));
         boolean afr = Boolean.TRUE.equals(call.getBoolean("afr", false));
+        String buf = call.getString("buf", "auto");
         ui(call, () -> {
             Slot s = slot(id);
             s.afr = afr;
-            if (s.soft != soft) buildPlayer(s, soft);
+            s.buf = buf == null ? "auto" : buf;
+            if (s.soft != soft || !s.buf.equals(s.builtBuf)) buildPlayer(s, soft);
             Map<String, String> headers = new HashMap<>();
             if (ref != null && !ref.isEmpty()) headers.put("Referer", ref);
             DefaultHttpDataSource.Factory http = new DefaultHttpDataSource.Factory()
@@ -366,8 +376,8 @@ public class NativePlayerPlugin extends Plugin {
             // HLS has its own segment reader: the same leniency (no access-unit delimiters, no IDR at the start)
             // or ExoPlayer buffers half a minute and never shows a frame.
             s.player.setMediaSource(hls
-                ? new HlsMediaSource.Factory(http).setExtractorFactory(new DefaultHlsExtractorFactory(tsFlags, true)).setAllowChunklessPreparation(true).createMediaSource(item(url, "hls"))
-                : new DefaultMediaSourceFactory(http, ex).createMediaSource(item(url, kind)));
+                ? new HlsMediaSource.Factory(http).setExtractorFactory(new DefaultHlsExtractorFactory(tsFlags, true)).setAllowChunklessPreparation(true).createMediaSource(item(url, "hls", s.buf))
+                : new DefaultMediaSourceFactory(http, ex).createMediaSource(item(url, kind, s.buf)));
             s.state = "loading";
             s.player.prepare();
             if (startAt > 0) s.player.seekTo((long) (startAt * 1000));
@@ -376,8 +386,11 @@ public class NativePlayerPlugin extends Plugin {
         });
     }
 
-    private static MediaItem item(String url, String kind) {
+    private static MediaItem item(String url, String kind, String buf) {
         MediaItem.Builder b = new MediaItem.Builder().setUri(url);
+        // Live HLS: play further behind the live edge, so a late segment from the provider does not stop the picture.
+        long behind = "big".equals(buf) ? 20000 : "max".equals(buf) ? 35000 : 0;
+        if (behind > 0) b.setLiveConfiguration(new MediaItem.LiveConfiguration.Builder().setTargetOffsetMs(behind).setMinOffsetMs(behind / 2).build());
         if ("hls".equals(kind)) b.setMimeType(MimeTypes.APPLICATION_M3U8);
         else if ("dash".equals(kind)) b.setMimeType(MimeTypes.APPLICATION_MPD);
         else if ("ts".equals(kind)) b.setMimeType(MimeTypes.VIDEO_MP2T);

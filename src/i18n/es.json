@@ -730,5 +730,11 @@
 "bnpyon": "{0} · ANTERIOR",
 "t5s9z7": "{0} · EN DIRECTO",
 "163wunj": "Navegador y {0}",
-"1wssuej": "El dispositivo no puede reproducir el sonido de este canal ({0})"
+"1wssuej": "El dispositivo no puede reproducir el sonido de este canal ({0})",
+"j9k1j4": "Tamaño del búfer",
+"mkbln8": "Si la imagen se entrecorta o se congela, elige uno mayor. Los canales tardarán unos segundos más en empezar y el directo irá con un pequeño retraso.",
+"1kqm6yk": "Pequeño",
+"hia9bj": "Normal",
+"1q7rvq2": "Grande",
+"wch6qk": "Máximo"
 }
