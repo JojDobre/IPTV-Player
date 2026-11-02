@@ -7,7 +7,6 @@ import '@fontsource/unbounded/700.css';
 import '@fontsource/unbounded/800.css';
 import '@fontsource/bebas-neue/400.css';
 import '@fontsource/fraunces/600-italic.css';
-import './styles.css';
 import { installTranslator, known, LANG, LOCALE, UI_LANGS } from './i18n.js';
 import { buildDemo } from './data/demo.js';
 import { detectRelay, Native, nativeInfo, imgUrl, useRelay, relayHasFfmpeg, streamInfo, canRecord, recList, recAdd, recStop, recDelete, recFileUrl, pairStart, pairPoll, shareStart, shareGet, sharePush, canScan, scanQr } from './data/net.js';
@@ -2157,6 +2156,7 @@ const TOUR = () => {
       ? [['Ťuknutie', 'ovládanie prehrávača'], ['Dvojité ťuknutie vľavo / vpravo', '30 s dozadu / dopredu'], ['Potiahnutie hore / dole', 'ďalší kanál (dá sa vypnúť)'], ['Podržanie kanála', 'menu s náhľadom programu'], ['Otočenie telefónu', 'celá obrazovka; ⟲ prepne aj bez otočenia'], ['Dva prsty v programe', 'priblíženie času']]
       : [['Šípky, Enter, Esc', 'pohyb, výber, späť'], ['↑ ↓ / PageUp PageDown', 'kanál v prehrávači'], ['Medzerník, ← →', 'pauza; v ovládaní pretáčanie'], ['F, M, + −', 'celá obrazovka, zvuk, hlasitosť'], ['P, D, L', 'malé okienko, technické info, posledný kanál'], ['Pravý klik na kanál', 'menu s náhľadom programu']];
   return [
+    { ic: 'globe', t: 'Jazyk a písmo', p: 'Vyber si jazyk appky a veľkosť písma. Neskôr ich zmeníš v Nastaveniach.', set: true },
     { ic: 'sparkle', t: 'Vitaj v OnAir', p: 'Moderný prehrávač pre tvoje IPTV. Toto je krátka prehliadka všetkého, čo vie.',
       li: [['Vlastný playlist', 'odkaz M3U alebo prihlásenie Xtream Codes od poskytovateľa'], ['Viac playlistov', 'spoja sa do jedného, rovnaké kategórie sa zlúčia'], ['Program (EPG)', 'sa načíta a obnovuje sám'], ['Súkromie', 'všetko ostáva len v tomto zariadení']] },
     { ic: 'home', t: 'Domov a kanály', p: 'Kanály ako karty s logom a tým, čo práve beží.',
@@ -2175,7 +2175,7 @@ const TOUR = () => {
 };
 let tourI = 0;
 // One colour per step of the tour, so each page feels different.
-const TOUR_COLORS = [['#7C5CFF', '#2EC5FF'], ['#FF5F6D', '#FFA25F'], ['#12B39A', '#2E8BFF'], ['#E2557C', '#9B5CFF'], ['#3D7BFF', '#2EC5FF'], ['#F2994A', '#EB5757'], ['#7C5CFF', '#2EC5FF']];
+const TOUR_COLORS = [['#3D7BFF', '#7C5CFF'], ['#7C5CFF', '#2EC5FF'], ['#FF5F6D', '#FFA25F'], ['#12B39A', '#2E8BFF'], ['#E2557C', '#9B5CFF'], ['#3D7BFF', '#2EC5FF'], ['#F2994A', '#EB5757'], ['#7C5CFF', '#2EC5FF']];
 function openTour(i = 0) {
   const steps = TOUR(), s = steps[tourI = Math.max(0, Math.min(steps.length - 1, i))];
   const [c1, c2] = TOUR_COLORS[tourI % TOUR_COLORS.length];
@@ -2187,7 +2187,7 @@ function openTour(i = 0) {
       ${s.last ? '' : `<button class="tour-skip f" data-act="close-modal">Preskočiť</button>`}</div>
     <div class="tour-hero"><div class="tour-ic">${I(s.ic)}</div>
       <div class="tour-head"><span class="tour-step">${tourI + 1} / ${steps.length}</span><h2>${s.t}</h2><p>${s.p}</p></div></div>
-    ${tourI === 0 ? `<div class="tour-set">
+    ${s.set ? `<div class="tour-set">
       <div class="ts-row"><span class="ts-lbl">${I('globe')}Jazyk appky</span><div class="ts-langs" data-notr>${UI_LANGS.map(([v, l]) => `<button class="chip f ${S.set.ui === v ? 'on' : ''}" data-act="set" data-k="ui" data-v="${v}">${l}</button>`).join('')}</div></div>
       <div class="ts-row"><span class="ts-lbl">${I('expand')}Veľkosť písma</span>${seg('fsize', [['s', 'Menšie'], ['m', 'Normálne'], ['l', 'Väčšie'], ['xl', 'Najväčšie']])}</div>
     </div>` : ''}
